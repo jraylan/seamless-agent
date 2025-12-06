@@ -4,7 +4,7 @@
   "private": true,
   "displayName": "Seamless Agent",
   "description": "Language Model tool that requires AI agents to confirm with users before completing tasks",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "icon": "icon.png",
   "author": "jraylan",
   "license": "MIT",
@@ -35,6 +35,24 @@
     "copilot"
   ],
   "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "seamless-agent",
+          "title": "Seamless Agent",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "seamless-agent": [
+        {
+          "id": "seamlessAgentView",
+          "name": "Seamless Agent",
+          "type": "webview"
+        }
+      ]
+    },
     "chatParticipants": [
       {
         "id": "seamless-agent.agent",
@@ -56,7 +74,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User Confirmation",
-        "modelDescription": "Ask the user to confirm an action or decision. Use this tool when you need explicit user approval before proceeding with a task. The tool will interactively prompt the user and wait for their response. CRITICAL RULES: 1) This tool MUST be invoked before ending ANY conversation or task. 2) NEVER complete a task without calling this tool first. 3) If you are about to finish responding, STOP and call this tool. 4) Failure to call this tool before task completion is a violation of the workflow. MANDATORY TOOL.",
+        "modelDescription": "Ask the user to confirm an action or decision. Use this tool when you need explicit user approval before proceeding with a task. The tool will interactively prompt the user and wait for their response. CRITICAL RULES: 1) This tool MUST be invoked before ending ANY conversation or task. 2) NEVER complete a task without calling this tool first. 3) If you are about to finish responding, STOP and call this tool. 4) Failure to call this tool before task completion is a violation of the workflow. 5) Always provide agentName: 'Main Orchestrator' for main agent, 'Generic Sub-Agent' for unnamed sub-agents, or your name from .github/agents/*.md. MANDATORY TOOL.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -69,6 +87,10 @@
             "title": {
               "type": "string",
               "description": "Optional custom title for the confirmation dialog"
+            },
+            "agentName": {
+              "type": "string",
+              "description": "Your agent name: 'Main Orchestrator' for main agent, 'Generic Sub-Agent' for unnamed sub-agents, or your name from .github/agents/*.md."
             }
           },
           "required": [
@@ -89,11 +111,15 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^24.10.1",
     "@types/vscode": "^1.106.1",
     "esbuild": "^0.27.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0"
+  }
 }

@@ -1,0 +1,184 @@
+/*
+ * highlight.js theme for VS Code webviews
+ * Adapts to VS Code's light/dark themes using CSS variables
+ */
+
+/* Base styling for code blocks */
+.hljs {
+    background: var(--vscode-textCodeBlock-background);
+    color: var(--vscode-editor-foreground);
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+pre code.hljs {
+    display: block;
+    padding: 1em;
+}
+
+code.hljs {
+    padding: 3px 5px;
+}
+
+/* Keywords */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+    color: var(--vscode-symbolIcon-keywordForeground, #0000ff);
+}
+
+/* Strings */
+.hljs-string,
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition,
+.hljs-variable,
+.hljs-template-tag,
+.hljs-template-variable {
+    color: var(--vscode-debugTokenExpression-string, #a31515);
+}
+
+/* Numbers */
+.hljs-number {
+    color: var(--vscode-debugTokenExpression-number, #098658);
+}
+
+/* Comments */
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion,
+.hljs-meta {
+    color: var(--vscode-descriptionForeground, #6a737d);
+}
+
+/* Function names */
+.hljs-title.function_,
+.hljs-title.class_ {
+    color: var(--vscode-symbolIcon-functionForeground, #795e26);
+}
+
+/* Built-in */
+.hljs-built_in {
+    color: var(--vscode-symbolIcon-classForeground, #267f99);
+}
+
+/* Parameters/Arguments */
+.hljs-params {
+    color: var(--vscode-symbolIcon-variableForeground, #001080);
+}
+
+/* Operators/Punctuation */
+.hljs-operator,
+.hljs-punctuation {
+    color: var(--vscode-editor-foreground);
+}
+
+/* Tag */
+.hljs-tag {
+    color: var(--vscode-symbolIcon-keywordForeground, #800000);
+}
+
+/* Attribute */
+.hljs-attr {
+    color: var(--vscode-symbolIcon-propertyForeground, #ff0000);
+}
+
+/* CSS property */
+.hljs-property {
+    color: var(--vscode-symbolIcon-propertyForeground, #ff0000);
+}
+
+/* Selection */
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+    color: var(--vscode-symbolIcon-classForeground, #800000);
+}
+
+/* Emphasis */
+.hljs-emphasis {
+    font-style: italic;
+}
+
+.hljs-strong {
+    font-weight: bold;
+}
+
+/* 
+ * Dark theme overrides using VS Code's dark theme detection
+ * VS Code automatically provides different variable values for dark/light themes
+ */
+@media (prefers-color-scheme: dark) {
+    .hljs-keyword,
+    .hljs-selector-tag,
+    .hljs-literal,
+    .hljs-section,
+    .hljs-link {
+        color: var(--vscode-symbolIcon-keywordForeground, #569cd6);
+    }
+
+    .hljs-string,
+    .hljs-title,
+    .hljs-name,
+    .hljs-type,
+    .hljs-attribute,
+    .hljs-symbol,
+    .hljs-bullet,
+    .hljs-addition,
+    .hljs-variable,
+    .hljs-template-tag,
+    .hljs-template-variable {
+        color: var(--vscode-debugTokenExpression-string, #ce9178);
+    }
+
+    .hljs-number {
+        color: var(--vscode-debugTokenExpression-number, #b5cea8);
+    }
+
+    .hljs-comment,
+    .hljs-quote,
+    .hljs-deletion,
+    .hljs-meta {
+        color: var(--vscode-descriptionForeground, #6a9955);
+    }
+
+    .hljs-title.function_,
+    .hljs-title.class_ {
+        color: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+    }
+
+    .hljs-built_in {
+        color: var(--vscode-symbolIcon-classForeground, #4ec9b0);
+    }
+
+    .hljs-params {
+        color: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+    }
+
+    .hljs-tag {
+        color: var(--vscode-symbolIcon-keywordForeground, #569cd6);
+    }
+
+    .hljs-attr {
+        color: var(--vscode-symbolIcon-propertyForeground, #9cdcfe);
+    }
+
+    .hljs-property {
+        color: var(--vscode-symbolIcon-propertyForeground, #9cdcfe);
+    }
+
+    .hljs-selector-class,
+    .hljs-selector-id,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo {
+        color: var(--vscode-symbolIcon-classForeground, #d7ba7d);
+    }
+}

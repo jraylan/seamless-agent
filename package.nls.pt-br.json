@@ -1,5 +1,13 @@
 {
     "notification.confirmationRequired": "Confirmação Necessária",
+    "notification.agentRequiresInput": "O agente precisa da sua entrada",
+    "notification.openConsole": "Abrir Console",
     "button.respond": "Responder",
-    "input.placeholder": "Digite sua resposta aqui..."
+    "button.submit": "Enviar",
+    "button.cancel": "Cancelar",
+    "input.placeholder": "Digite sua resposta aqui...",
+    "console.title": "Seamless Agent",
+    "console.noPendingRequests": "Nenhuma solicitação pendente.",
+    "console.yourResponse": "Sua resposta:",
+    "badge.inputRequired": "Entrada Necessária"
 }

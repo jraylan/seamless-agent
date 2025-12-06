@@ -1,13 +1,22 @@
 import * as vscode from 'vscode';
 import { registerNativeTools } from './tools';
+import { AgentInteractionProvider } from './webviewProvider';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Seamless Agent extension active');
 
-    // Register the ask_user tool
-    registerNativeTools(context);
+    // Register the webview provider for the Agent Console panel
+    const provider = new AgentInteractionProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(AgentInteractionProvider.viewType, provider, {
+            webviewOptions: { retainContextWhenHidden: true }
+        })
+    );
+
+    // Register the ask_user tool with the webview provider
+    registerNativeTools(context, provider);
 
     // Create a Chat Participant that uses our tool
     const handler: vscode.ChatRequestHandler = async (
