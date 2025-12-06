@@ -63,43 +63,24 @@ None at this time. Please report issues on [GitHub](https://github.com/jraylan/s
 
 ## 0.1.3
 
+- [jraylan:feature/dedicated-view-panel](https://github.com/jraylan/seamless-agent/pull/6)
+
 ### Added
 
 - **Multiple Concurrent Requests**: Support for handling multiple requests with list view
 - **Attachments**: File attachments support with VS Code Quick Pick file selector
-- **Request List**: Navigate between list and detail views
-- **Badge Counter**: Visual badge showing the number of pending requests
 
 ### Changed
 
 - **Layout**: A few updates on layout to make the request panel looks like copilot chat
-- **Disposal**: The request will be dispose when the agent stops.
-
-### Removed
-
-- Unused files: `treeView.ts`, `templates/`, `webview/askUser.ts`, `webview/templates.ts`, `webview/types.d.ts`
-
-## 0.1.2
-
-- [jraylan:feature/dedicated-view-panel](https://github.com/jraylan/seamless-agent/pull/4)
-
-### Added
-
-- **Support File Attachment**:
-  Attachments support with VS Code Quick Pick file selector
-
-### Changed
-
-- **Multiple Requests**:
-  Support for multiple concurrent requests with list view
-- **Panel Icon**:
-  Updated panel icon to match VS Code's design language
-- **Visual Feedback**:
-  A badge will show the number of pending requests
 - **Task List**:
   Improved task list UI with better visual hierarchy
+- **Disposal**: The request will be dispose when the agent stops.
+- **Panel Icon**:
+  Updated panel icon to match VS Code's design language
+- **Badge Counter**: Visual badge showing the number of pending requests
 
-## 0.1.1
+## 0.1.2
 
 - [bicheichane:feature/dedicated-view-panel](https://github.com/jraylan/seamless-agent/pull/4)
 

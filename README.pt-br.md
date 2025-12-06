@@ -63,46 +63,39 @@ Nenhum até o momento. Por favor, reporte problemas no [GitHub](https://github.c
 
 ### 0.1.3
 
+- [jraylan:feature/dedicated-view-panel](https://github.com/jraylan/seamless-agent/pull/6)
+
 #### Adicionado
 
 - **Múltiplas Requisições Concorrentes**: Suporte para múltiplas requisições com visualização em lista
 - **Anexos**: Suporte a anexos de arquivos com seletor Quick Pick do VS Code
-- **Lista de Requisições**: Navegue entre as visualizações de lista e detalhes
-- **Contador Badge**: Badge visual mostrando o número de requisições pendentes
 
 #### Alterado
 
 - **Layout**: Algumas atualizações no layout para deixar o painel de requisições parecido com o chat do Copilot
-
-#### Removido
-
-- Arquivos não utilizados: `treeView.ts`, `templates/`, `webview/askUser.ts`, `webview/templates.ts`, `webview/types.d.ts`
+- **Lista de Tarefas**: UI da lista de tarefas melhorada com melhor hierarquia visual
+- **Descarte**: A requisição será descartada quando o agente parar
+- **Ícone do Painel**: Ícone do painel atualizado para combinar com a linguagem de design do VS Code
+- **Contador Badge**: Badge visual mostrando o número de requisições pendentes
 
 ### 0.1.2
 
-#### Adicionado
-
-- **Suporte a Anexos de Arquivos**: Suporte a anexos com seletor de arquivos Quick Pick do VS Code
-
-#### Alterado
-
-- **Múltiplas Requisições**: Suporte para múltiplas requisições concorrentes com visualização em lista
-- **Ícone do Painel**: Ícone do painel atualizado para combinar com a linguagem de design do VS Code
-- **Feedback Visual**: Um badge mostra o número de requisições pendentes
-- **Lista de Tarefas**: UI da lista de tarefas melhorada com melhor hierarquia visual
-
-### 0.1.1
+- [bicheichane:feature/dedicated-view-panel](https://github.com/jraylan/seamless-agent/pull/4)
 
 #### Adicionado
 
-- **Painel Dedicado**: Novo painel "Seamless Agent" na área do painel inferior (junto com Terminal/Output)
-- **Renderização Markdown**: Suporte completo a Markdown incluindo:
+- **Painel Dedicado**: Novo painel "Seamless Agent" registrado na área do painel inferior (junto com Terminal/Output), fornecendo um espaço de trabalho não intrusivo para interações com o agente
+- **Renderização Markdown Completa**: Suporte completo a Markdown incluindo:
   - Headers, negrito, itálico, tachado
-  - Blocos de código com **syntax highlighting** para 10 linguagens
+  - Blocos de código com **syntax highlighting** para 10 linguagens: JavaScript/TypeScript, Python, C#, Java, CSS, HTML/XML, JSON, Bash/Shell, SQL
   - Citações em bloco, listas ordenadas e não ordenadas
-  - Links, tabelas
-- **Input Multi-Linha**: Elemento `<textarea>` permite escrever respostas detalhadas e colar trechos de código
-- **Notificações Não-Intrusivas**: Indicador badge na aba do painel mostrando contagem de requisições pendentes
+  - Links (auto-linkified), tabelas
+- **Input Multi-Linha**: Elemento `<textarea>` permite escrever respostas detalhadas, colar trechos de código e usar `Ctrl+Enter` para enviar
+- **Notificações Não-Intrusivas**:
+  - Indicador badge na aba do painel mostrando contagem de requisições pendentes
+  - Notificação informativa como alerta suplementar com ação "Abrir Console"
+  - Painel auto-revela mas preserva o foco (`preserveFocus: true`)
+- **Fallback Gracioso**: Se o painel webview não estiver disponível, a ferramenta automaticamente volta para a abordagem de diálogos do VS Code
 
 #### Alterado
 
