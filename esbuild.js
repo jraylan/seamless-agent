@@ -22,6 +22,25 @@ const esbuildProblemMatcherPlugin = {
     },
 };
 
+/** @type {import('esbuild').Plugin} */
+const shebangPlugin = {
+    name: 'shebang',
+    setup(build) {
+        build.onEnd(async (result) => {
+            if (result.errors.length === 0) {
+                const fs = require('fs');
+                const outfile = build.initialOptions.outfile;
+                if (outfile && outfile.includes('seamless-agent-mcp.js')) {
+                    const content = fs.readFileSync(outfile, 'utf8');
+                    // Remove any existing shebang and add it at the very start
+                    const withoutShebang = content.replace(/^#!.*\n?/, '');
+                    fs.writeFileSync(outfile, '#!/usr/bin/env node\n' + withoutShebang);
+                }
+            }
+        });
+    },
+};
+
 async function main() {
     // Extension bundle (Node.js)
     const extensionCtx = await esbuild.context({
@@ -52,13 +71,30 @@ async function main() {
         plugins: [esbuildProblemMatcherPlugin],
     });
 
+    // CLI bundle (Node.js standalone)
+    const cliCtx = await esbuild.context({
+        entryPoints: ['bin/seamless-agent-mcp.js'],
+        bundle: true,
+        format: 'cjs',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'node',
+        outfile: 'dist/seamless-agent-mcp.js',
+        external: [],  // Bundle all dependencies
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin, shebangPlugin],
+    });
+
     if (watch) {
-        await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
+        await Promise.all([extensionCtx.watch(), webviewCtx.watch(), cliCtx.watch()]);
     } else {
         await extensionCtx.rebuild();
         await webviewCtx.rebuild();
+        await cliCtx.rebuild();
         await extensionCtx.dispose();
         await webviewCtx.dispose();
+        await cliCtx.dispose();
     }
 }
 

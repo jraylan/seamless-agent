@@ -84,13 +84,22 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             []
         );
 
-        // Handle view disposal - resolve all pending requests as cancelled
-        webviewView.onDidDispose(() => {
-            for (const [id, pending] of this._pendingRequests) {
-                pending.resolve({ responded: false, response: 'View was closed', attachments: [] });
+        // Restore pending requests view if there are any
+        // This ensures that if the webview is closed and reopened, the requests still appear
+        if (this._pendingRequests.size > 0) {
+            if (this._pendingRequests.size === 1 && this._selectedRequestId) {
+                // Show the single selected question
+                const pending = this._pendingRequests.get(this._selectedRequestId);
+                if (pending) {
+                    this._showQuestion(pending.item);
+                }
+            } else {
+                // Show the list of pending requests
+                this._showList();
             }
-            this._pendingRequests.clear();
-        });
+            // Update badge count
+            this._setBadge(this._pendingRequests.size);
+        }
     }
 
     /**
@@ -98,9 +107,22 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Supports multiple concurrent requests.
      */
     public async waitForUserResponse(question: string, title?: string): Promise<UserResponseResult> {
-        // If the view isn't available, try to show it
+        // If the view isn't available, try to open it
         if (!this._view) {
-            return { responded: false, response: 'Agent Console view is not available.', attachments: [] };
+            try {
+                // Focus the view to trigger resolution
+                await vscode.commands.executeCommand('seamlessAgentView.focus');
+
+                // Wait a bit for the view to initialize
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // If still not available after focusing, return error
+                if (!this._view) {
+                    return { responded: false, response: 'Agent Console view is not available.', attachments: [] };
+                }
+            } catch (error) {
+                return { responded: false, response: 'Agent Console view is not available.', attachments: [] };
+            }
         }
 
         // Generate unique ID for this request

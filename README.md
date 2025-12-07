@@ -48,8 +48,44 @@ You can add this in VS Code by going to:
 
 ## Requirements
 
-- VS Code 1.106.1 or higher
-- GitHub Copilot Chat extension
+- VS Code 1.106.1 or higher (or Antigravity IDE)
+- GitHub Copilot Chat extension (for VS Code)
+- **Node.js** (required for MCP server integration with Antigravity)
+
+## Antigravity MCP Integration
+
+Seamless Agent integrates with Antigravity IDE via the Model Context Protocol (MCP). When the extension starts, it:
+
+1. Launches a local HTTP API service
+2. Registers itself in `~/.gemini/antigravity/mcp_config.json` using a command-based configuration
+
+### How It Works
+
+```mermaid
+flowchart LR
+    A[Antigravity] -->|spawns| B[CLI Tool]
+    B <-->|stdio| A
+    B -->|HTTP| C[VS Code Extension]
+    C -->|Webview| D[User]
+```
+
+The MCP config uses the standard command format:
+
+```json
+{
+  "mcpServers": {
+    "seamless-agent": {
+      "command": "node",
+      "args": ["<extension-path>/bin/seamless-agent-mcp.js", "--port", "<port>"]
+    }
+  }
+}
+```
+
+### Troubleshooting
+
+- **Node.js not found**: Ensure Node.js is installed and available in your system PATH
+- **Connection issues**: Use the "Restart API" button in the status bar to restart the service
 
 ## Extension Settings
 

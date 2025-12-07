@@ -1,96 +1,78 @@
 import * as vscode from 'vscode';
-import { registerNativeTools } from './tools';
+import { registerNativeTools, askUser } from './tools';
 import { AgentInteractionProvider } from './webviewProvider';
+import { ApiServiceManager } from './apiService';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
+let apiServiceManager: ApiServiceManager | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('Seamless Agent extension active');
 
-    // Register the webview provider for the Agent Console panel
+    // Create provider
     const provider = new AgentInteractionProvider(context.extensionUri);
-    (context.subscriptions as unknown as Array<vscode.Disposable>).push(
+
+    // Register webview provider
+    context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(AgentInteractionProvider.viewType, provider, {
-            webviewOptions: { retainContextWhenHidden: true }
+            webviewOptions: {
+                retainContextWhenHidden: true
+            }
         })
     );
 
-    // Register the ask_user tool with the webview provider
-    registerNativeTools(context, provider);
+    // Initialize API Service (replaces MCP Server)
+    apiServiceManager = new ApiServiceManager(context, provider);
+    await apiServiceManager.start();
 
-    // Create a Chat Participant that uses our tool
-    const handler: vscode.ChatRequestHandler = async (
-        request: vscode.ChatRequest,
-        chatContext: vscode.ChatContext,
-        stream: vscode.ChatResponseStream,
-        token: vscode.CancellationToken
-    ) => {
-        // Get our ask_user tool
-        const askUserTool = vscode.lm.tools.find(t => t.name === 'ask_user');
+    // Register restart command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('seamless-agent.restartMcpServer', async () => {
+            await apiServiceManager?.restart();
+        })
+    );
 
-        // Get all available tools including ours
-        const tools = askUserTool ? [askUserTool] : [];
+    // Create Status Bar Item
+    const restartStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    restartStatusBarItem.command = 'seamless-agent.restartMcpServer';
+    restartStatusBarItem.text = '$(sync) Restart API';
+    restartStatusBarItem.tooltip = 'Restart the Seamless Agent API Service';
+    restartStatusBarItem.show();
+    context.subscriptions.push(restartStatusBarItem);
 
-        // Build the prompt with instruction to use the tool
-        const systemPrompt = `You are a helpful assistant. 
-IMPORTANT: You have access to an "ask_user" tool. You MUST use this tool before completing any task to confirm with the user that their request was fulfilled correctly.
-Never finish a response without first calling the ask_user tool to verify with the user.`;
-
-        const messages = [
-            vscode.LanguageModelChatMessage.User(systemPrompt),
-            vscode.LanguageModelChatMessage.User(request.prompt)
-        ];
-
-        // Get the model
-        let model = request.model;
-
-        const options: vscode.LanguageModelChatRequestOptions = {
-            tools: tools.map(t => ({
-                name: t.name,
-                description: t.description,
-                inputSchema: t.inputSchema
-            })),
-        };
+    // Register chat participant
+    const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+        // Chat handler implementation...
 
         try {
-            const response = await model.sendRequest(messages, options, token);
+            await askUser({
+                question: "This is a test question from the chat participant. Do you accept?",
+                title: "Chat Confirmation"
+            }, provider, token);
 
-            for await (const part of response.stream) {
-                if (part instanceof vscode.LanguageModelTextPart) {
-                    stream.markdown(part.value);
-                } else if (part instanceof vscode.LanguageModelToolCallPart) {
-                    // Handle tool calls
-                    stream.progress(`Calling ${part.name}...`);
-                    const toolResult = await vscode.lm.invokeTool(part.name, {
-                        input: part.input,
-                        toolInvocationToken: request.toolInvocationToken
-                    }, token);
-
-                    // Show tool result
-                    for (const resultPart of toolResult.content) {
-                        if (resultPart instanceof vscode.LanguageModelTextPart) {
-                            stream.markdown(`\n\n**User Response:** ${resultPart.value}\n\n`);
-                        }
-                    }
-                }
-            }
+            stream.markdown('User accepted the prompt!');
         } catch (err) {
-            if (err instanceof vscode.LanguageModelError) {
-                stream.markdown(`Error: ${err.message}`);
-            } else {
-                throw err;
-            }
+            stream.markdown('User declined or request failed.');
         }
 
-        return;
+        return { metadata: { command: '' } };
     };
 
-    // Register the chat participant
-    const participant = vscode.chat.createChatParticipant(PARTICIPANT_ID, handler);
-    participant.iconPath = new vscode.ThemeIcon('question');
+    const transcriptParticipant = vscode.chat.createChatParticipant(PARTICIPANT_ID, handler);
+    transcriptParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources', 'icon.png');
+    context.subscriptions.push(transcriptParticipant);
 
-    (context.subscriptions as unknown as Array<vscode.Disposable>).push(participant);
+    // Keep the registerNativeTools for backward compatibility or direct usage
+    try {
+        registerNativeTools(context, provider);
+    } catch (e) {
+        console.warn('Failed to register native tools:', e);
+    }
 }
 
+// This method is called when your extension is deactivated
 export function deactivate() {
+    if (apiServiceManager) {
+        apiServiceManager.dispose();
+    }
 }

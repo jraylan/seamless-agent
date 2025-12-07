@@ -116,10 +116,27 @@ interface RequestItem {
     // Acquire VS Code API
     const vscode = acquireVsCodeApi();
 
-    // State
-    let currentRequestId: string | null = null;
-    let currentAttachments: AttachmentInfo[] = [];
-    let hasMultipleRequests = false;
+    // State interface
+    interface WebviewState {
+        currentRequestId: string | null;
+        currentAttachments: AttachmentInfo[];
+        hasMultipleRequests: boolean;
+    }
+
+    // Restore state from previous session (if any)
+    const previousState = vscode.getState() as WebviewState | undefined;
+    let currentRequestId: string | null = previousState?.currentRequestId || null;
+    let currentAttachments: AttachmentInfo[] = previousState?.currentAttachments || [];
+    let hasMultipleRequests = previousState?.hasMultipleRequests || false;
+
+    // Helper to save state
+    function saveState(): void {
+        vscode.setState({
+            currentRequestId,
+            currentAttachments,
+            hasMultipleRequests
+        } as WebviewState);
+    }
 
     // DOM Elements
     const emptyState = document.getElementById('empty-state');
@@ -141,6 +158,7 @@ interface RequestItem {
  */
     function showList(requests: RequestItem[]): void {
         hasMultipleRequests = requests.length > 1;
+        saveState();
 
         if (requests.length === 0) {
             showEmpty();
@@ -210,6 +228,7 @@ interface RequestItem {
  */
     function showQuestion(question: string, title: string, requestId: string): void {
         currentRequestId = requestId;
+        saveState();
 
         // Set header title
         if (headerTitle) {
@@ -245,6 +264,8 @@ interface RequestItem {
     function showEmpty(): void {
         currentRequestId = null;
         hasMultipleRequests = false;
+        currentAttachments = [];
+        saveState();
 
         emptyState?.classList.remove('hidden');
         requestForm?.classList.add('hidden');
@@ -495,6 +516,7 @@ interface RequestItem {
             case 'updateAttachments': if (message.requestId === currentRequestId) {
                 currentAttachments = message.attachments || [];
                 updateAttachmentsDisplay();
+                saveState();
             }
 
                 break;

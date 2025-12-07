@@ -3,7 +3,7 @@ import { strings } from './localization';
 import { AgentInteractionProvider, AttachmentInfo, UserResponseResult } from './webviewProvider';
 
 
-interface Input {
+export interface Input {
     question: string;
     title?: string;
     agentName?: string;
@@ -22,55 +22,63 @@ export interface AskUserToolResult {
 /**
  * Registers the native VS Code LM Tools
  */
-
-
 export function registerNativeTools(context: vscode.ExtensionContext, provider: AgentInteractionProvider) {
 
     // Register the tool defined in package.json
     const confirmationTool = vscode.lm.registerTool('ask_user', {
         async invoke(options: vscode.LanguageModelToolInvocationOptions<Input>, token: vscode.CancellationToken) {
-
-            // 1. Parse parameters
             const params = options.input;
-            const question = params.question;
-            const agentName = params.agentName || 'Agent';
-            const baseTitle = params.title || strings.confirmationRequired;
-            const title = `${agentName}: ${baseTitle}`;
 
-            // Generate request ID to track this specific request
-            const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            // Build result with attachments
+            const result = await askUser(params, provider, token);
 
-            // 2. Register cancellation handler - if agent stops, cancel the request
-            const cancellationDisposable = token.onCancellationRequested(() => {
-                provider.cancelRequest(requestId, 'Agent stopped the request');
-            });
-
-            try {
-                // 3. Execute Logic - Try webview first, fall back to VS Code dialogs
-                const result = await askViaWebview(provider, question, title, requestId, token);
-
-                // 4. Build result with attachments
-                const toolResult: AskUserToolResult = {
-                    responded: result.responded,
-                    response: result.responded ? result.response : 'Request was cancelled',
-                    attachments: result.attachments.map(att => ({
-                        name: att.name,
-                        uri: att.uri
-                    }))
-                };
-
-                // 5. Return result to the AI
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart(JSON.stringify(toolResult))
-                ]);
-            } finally {
-                // Clean up cancellation listener
-                cancellationDisposable.dispose();
-            }
+            // Return result to the AI
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
         }
     });
 
     (context.subscriptions as unknown as Array<vscode.Disposable>).push(confirmationTool);
+}
+
+/**
+ * Core logic to ask user, reusable by MCP server
+ */
+export async function askUser(
+    params: Input,
+    provider: AgentInteractionProvider,
+    token: vscode.CancellationToken
+): Promise<AskUserToolResult> {
+    const question = params.question;
+    const agentName = params.agentName || 'Agent';
+    const baseTitle = params.title || strings.confirmationRequired;
+    const title = `${agentName}: ${baseTitle}`;
+
+    // Generate request ID to track this specific request
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Register cancellation handler - if agent stops, cancel the request
+    const cancellationDisposable = token.onCancellationRequested(() => {
+        provider.cancelRequest(requestId, 'Agent stopped the request');
+    });
+
+    try {
+        // Execute Logic - Try webview first, fall back to VS Code dialogs
+        const result = await askViaWebview(provider, question, title, requestId, token);
+
+        return {
+            responded: result.responded,
+            response: result.responded ? result.response : 'Request was cancelled',
+            attachments: result.attachments.map(att => ({
+                name: att.name,
+                uri: att.uri
+            }))
+        };
+    } finally {
+        // Clean up cancellation listener
+        cancellationDisposable.dispose();
+    }
 }
 
 /**

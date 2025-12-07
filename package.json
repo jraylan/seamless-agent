@@ -4,7 +4,7 @@
   "private": true,
   "displayName": "Seamless Agent",
   "description": "Language Model tool that requires AI agents to confirm with users before completing tasks",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "icon": "resources/icon.png",
   "author": "jraylan",
   "contributors": [
@@ -19,6 +19,9 @@
   ],
   "license": "MIT",
   "main": "./dist/extension.js",
+  "bin": {
+    "seamless-agent-mcp": "./dist/seamless-agent-mcp.js"
+  },
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -45,6 +48,12 @@
     "copilot"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "seamless-agent.restartMcpServer",
+        "title": "Restart Seamless Agent MCP Server"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -130,6 +139,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.3",
     "@vscode/codicons": "^0.0.43",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0"
