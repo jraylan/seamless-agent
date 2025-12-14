@@ -52,6 +52,9 @@ jobs:
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
 
+      - name: Clear build artifacts
+        run: rm -rf dist/*
+
       - name: Build Antigravity
         run: npm run build:antigravity
 
