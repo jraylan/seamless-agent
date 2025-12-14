@@ -1,0 +1,47 @@
+name: Manual Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (leave empty to use current version from package.json)"
+        required: false
+        type: string
+      dry-run:
+        description: "Perform a dry run (do not actually publish)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install ovsx
+        run: npm install ovsx
+
+      - name: Build Antigravity
+        run: npm run build:antigravity
+
+      - name: Pack Antigravity
+        run: npm run package:ovsx
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish seamless-agent-*-antigravity.vsix
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}

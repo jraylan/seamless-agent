@@ -15,6 +15,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.release_version }} #
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -48,9 +49,9 @@ jobs:
         run: npm run package:vsce
 
       - name: Publish to VS Code Marketplace
-        run: vsce publish -p ${{ secrets.VSCE_TOKEN }} seamless-agent-${{ needs.release-please.outputs.version }}.vsix
+        run: vsce publish seamless-agent-${{ needs.release-please.outputs.version }}.vsix
         env:
-          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
 
       - name: Clear build artifacts
         run: rm -rf dist/*
@@ -62,9 +63,9 @@ jobs:
         run: npm run package:ovsx
 
       - name: Publish to Open VSX
-        run: npm run publish:ovsx seamless-agent-${{ needs.release-please.outputs.version }}-antigravity.vsix
+        run: npx ovsx publish seamless-agent-${{ needs.release-please.outputs.version }}-antigravity.vsix
         env:
-          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
 
       - name: Upload VSIX as release asset
         uses: softprops/action-gh-release@v1

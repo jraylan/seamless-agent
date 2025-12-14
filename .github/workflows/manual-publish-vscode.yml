@@ -1,0 +1,47 @@
+name: Manual Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (leave empty to use current version from package.json)"
+        required: false
+        type: string
+      dry-run:
+        description: "Perform a dry run (do not actually publish)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install vsce and ovsx
+        run: npm install -g @vscode/vsce ovsx
+
+      - name: Build for Vscode
+        run: npm run compile:vscode
+
+      - name: Pack for Vscode
+        run: npm run package:vsce
+
+      - name: Publish to VS Code Marketplace
+        run: vsce publish
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
