@@ -46,7 +46,7 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
 
-      - name: Publish to VS Code Marketplace
+      - name: Publish to VS Code Marketplace (Pre-release)
         if: ${{ inputs.pre-release }}
         run: vsce publish --pre-release
         env:
