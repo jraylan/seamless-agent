@@ -17,6 +17,8 @@ A Language Model tool that enables Copilot to interactively prompt you for confi
 - **Interactive Input** — Provide additional context or instructions mid-conversation
 - **Task Validation** — Confirm whether a task was fulfilled your specs
 - **Seamless Integration** — Works naturally within the Copilot Chat workflow
+- **Paste Images** — Paste images directly into the input area for context
+- **References & Attachments** — Reference files in your workspace using `#filename` and attach files to your response
 
 ### Approve Plan Tool (`#approvePlan`)
 
@@ -86,6 +88,22 @@ This extension works out of the box with no configuration required. You only nee
 None at this time. Please report issues on [GitHub](https://github.com/jraylan/seamless-agent/issues).
 
 ## Release Notes
+
+### 0.1.9
+
+#### Added
+
+- **File Reference Autocomplete**: Type `#` in the response textarea to search and reference workspace files. Selected files are automatically attached and synced with your text.
+- **Attachment Chips**: File attachments are now displayed as visual chips above the textarea for easy management.
+- **Paste Images**: Paste images directly into the input area to attach them.
+- **Attach Button**: New 📎 button to quickly add file attachments via file picker.
+
+#### Changed
+
+- **Inline Image Support**: Images pasted in the `ask_user` tool are now passed directly to the AI using `LanguageModelDataPart.image()` binary data, eliminating the need for a separate image viewing tool.
+- **Simplified Attachments**: Attachments response format simplified to a string array of file URIs.
+- **Simplified Image Naming**: Pasted images now use simple names (`image-pasted.png`, `image-pasted-1.png`) instead of long timestamps.
+- **Simplified File References**: File references now use `#filename` format instead of `#file:filename`.
 
 ### 0.1.8
 

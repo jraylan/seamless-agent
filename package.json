@@ -4,7 +4,7 @@
   "private": true,
   "displayName": "Seamless Agent",
   "description": "Language Model tool that requires AI agents to confirm with users before completing tasks",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "icon": "resources/icon.png",
   "author": "jraylan",
   "contributors": [
@@ -15,6 +15,10 @@
     {
       "name": "Jefferson Raylan",
       "url": "https://github.com/jraylan"
+    },
+    {
+      "name": "4regab",
+      "url": "https://github.com/4regab"
     }
   ],
   "license": "MIT",

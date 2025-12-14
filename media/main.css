@@ -1,5 +1,14 @@
 /* Agent Console Webview Styles */
 
+/* CSS Custom Properties for theming and maintenance */
+:root {
+    --autocomplete-dropdown-max-height: 250px;
+    --autocomplete-list-max-height: 200px;
+    --textarea-max-height: 200px;
+    --chip-max-width: 200px;
+    --chips-container-max-height: 120px;
+}
+
 html,
 body {
     height: 100%;
@@ -190,6 +199,11 @@ body {
 .response-section {
     flex-shrink: 0;
     margin-top: 12px;
+}
+
+/* Response section needs relative positioning for dropdown */
+.response-section {
+    position: relative;
 }
 
 .response-label {
@@ -407,19 +421,85 @@ button:disabled {
     margin-bottom: 8px;
 }
 
-.attachment-item {
+/* ================================
+   Autocomplete Dropdown Styles
+   ================================ */
+
+.textarea-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* Autocomplete dropdown - appears above the input container */
+.autocomplete-dropdown {
+    position: relative;
+    width: 100%;
+    max-height: var(--autocomplete-dropdown-max-height);
+    background-color: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+    border-radius: 6px;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    margin-bottom: 8px;
+    overflow: hidden;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.autocomplete-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: var(--vscode-descriptionForeground);
+    border-bottom: 1px solid var(--vscode-widget-border);
+    flex-shrink: 0;
+}
+
+.autocomplete-header .codicon {
+    font-size: 14px;
+}
+
+.autocomplete-list {
+    overflow-y: auto;
+    max-height: var(--autocomplete-list-max-height);
+}
+
+.autocomplete-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.autocomplete-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.autocomplete-list::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 4px;
+}
+
+.autocomplete-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    width: 100%;
-    padding: 6px 10px;
-    background-color: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
-    box-sizing: border-box;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.1s;
 }
 
-.attachment-icon {
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.autocomplete-item.selected {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+.autocomplete-item-icon {
     flex-shrink: 0;
     width: 16px;
     height: 16px;
@@ -428,74 +508,261 @@ button:disabled {
     justify-content: center;
 }
 
-.attachment-icon .codicon {
+.autocomplete-item-icon .codicon {
     font-size: 14px;
     color: var(--vscode-descriptionForeground);
 }
 
-.attachment-name {
+.autocomplete-item.selected .autocomplete-item-icon .codicon {
+    color: inherit;
+}
+
+.autocomplete-item-content {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.autocomplete-item-name {
+    font-size: 0.9em;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.autocomplete-item-path {
+    font-size: 0.8em;
+    color: var(--vscode-descriptionForeground);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.autocomplete-item.selected .autocomplete-item-path {
+    color: inherit;
+    opacity: 0.8;
+}
+
+.autocomplete-empty {
+    padding: 16px 12px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
     font-size: 0.9em;
 }
 
-.btn-remove {
+/* ================================
+   Chips Container Styles
+   ================================ */
+
+/* Input container wraps everything */
+.input-container {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 6px;
+    background-color: var(--vscode-input-background);
+    /* Note: overflow is NOT hidden to allow autocomplete dropdown to appear above */
+    position: relative;
+}
+
+.input-container:focus-within {
+    border-color: var(--vscode-focusBorder);
+}
+
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+    background-color: var(--vscode-editor-background);
+    border-bottom: 1px solid var(--vscode-input-border);
+    /* Fix: Limit height and enable scrolling when many attachments are added */
+    max-height: var(--chips-container-max-height);
+    overflow-y: auto;
+}
+
+/* Monaco-style scrollbar for chips container */
+.chips-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.chips-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chips-container::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 4px;
+}
+
+.chips-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.chips-container:empty,
+.chips-container.hidden {
+    display: none;
+}
+
+/* Input area with attach button and textarea */
+.input-area {
+    display: flex;
+    align-items: stretch;
+}
+
+.attach-btn {
     flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+    padding: 8px 4px;
+    border-radius: 4px;
+}
+
+.attach-btn:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+    color: var(--vscode-foreground);
+}
+
+.attach-btn .codicon {
+    font-size: 16px;
+}
+
+/* Update textarea wrapper for new layout */
+.input-area .textarea-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.input-area .textarea-wrapper textarea {
+    width: 100%;
+    min-height: auto !important;
+    max-height: var(--textarea-max-height) !important;
+    height: auto;
+    padding: 8px 12px 8px 0;
+    border: none !important;
+    background: transparent !important;
+    color: var(--vscode-input-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    line-height: 1.4;
+    resize: none;
+    /* Focus is handled by parent .input-container:focus-within */
+    outline: 2px solid transparent;
+    /* Keeps a11y compliance while visually hidden */
+    box-sizing: border-box;
+    overflow: hidden;
+    /* Height controlled dynamically by JS */
+}
+
+.input-area .textarea-wrapper textarea:focus {
+    /* Parent .input-container shows focus border via :focus-within */
+    outline: 2px solid transparent;
+    /* a11y: outline present but transparent */
+    outline-offset: -2px;
+    border: none !important;
+}
+
+.input-area .textarea-wrapper textarea::placeholder {
+    color: var(--vscode-input-placeholderForeground);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: 12px;
+    font-size: 0.85em;
+    max-width: var(--chip-max-width);
+}
+
+.chip-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+}
+
+.chip-icon .codicon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.chip-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chip-remove {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 4px;
-    color: var(--vscode-descriptionForeground);
+    border-radius: 50%;
     cursor: pointer;
     padding: 0;
+    margin-left: 2px;
+    opacity: 0.7;
+    color: inherit;
 }
 
-.btn-remove:hover {
-    background-color: var(--vscode-toolbar-hoverBackground);
-    color: var(--vscode-errorForeground);
+.chip-remove:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
-.btn-remove .codicon {
-    font-size: 14px;
+.chip-remove .codicon {
+    font-size: 10px;
 }
 
-.btn-add-attachment {
+.chip-image {
+    background-color: var(--vscode-editorInfo-background);
+}
+
+/* ================================
+   Drop Zone Styles
+   ================================ */
+
+.drop-zone {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background-color: transparent;
-    color: var(--vscode-foreground);
-    border: 1px dashed var(--vscode-input-border);
+    justify-content: center;
+    background-color: var(--vscode-editor-background);
+    border: 2px dashed var(--vscode-focusBorder);
     border-radius: 4px;
-    font-size: 0.9em;
-    cursor: pointer;
-    transition: border-color 0.2s;
+    z-index: 100;
+    opacity: 0.95;
 }
 
-.btn-add-attachment:hover {
-    border-color: var(--vscode-focusBorder);
-    background-color: var(--vscode-input-background);
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--vscode-foreground);
 }
 
-.btn-add-attachment .codicon {
-    font-size: 14px;
-}
-
-.btn-small {
-    padding: 4px 12px;
-    font-size: 0.9em;
-}
-
-.no-attachments {
-    color: var(--vscode-descriptionForeground);
-    font-style: italic;
-    margin: 0;
-    font-size: 0.9em;
+.drop-zone-content .codicon {
+    font-size: 32px;
+    color: var(--vscode-focusBorder);
 }

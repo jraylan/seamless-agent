@@ -17,6 +17,8 @@ Uma ferramenta de Language Model que permite ao Copilot solicitar confirmação 
 - **Input Interativo** — Forneça contexto adicional ou instruções durante a conversa
 - **Validação de Tarefas** — Confirme se uma tarefa foi concluída conforme as suas especificações
 - **Integração Seamless** — Funciona naturalmente dentro do fluxo do Copilot Chat
+- **Colar Imagens** — Cole imagens diretamente na área de entrada para contexto
+- **Referências e Anexos** — Referencie ficheiros do seu workspace usando `#nomedoficheiro` e anexe ficheiros à sua resposta
 
 ### Ferramenta Approve Plan (`#approvePlan`)
 
@@ -74,7 +76,7 @@ Aguarde a minha aprovação (ou pedidos de ajuste). Só depois implemente o plan
 
 ## Requisitos
 
-- VS Code 1.104.1 ou superior
+- VS Code 1.106.1 ou superior
 - Extensão GitHub Copilot Chat
 
 ## Definições
@@ -86,6 +88,22 @@ Esta extensão funciona imediatamente sem necessidade de configuração.
 Nenhum até ao momento. Por favor, reporte problemas no [GitHub](https://github.com/jraylan/seamless-agent/issues).
 
 ## Notas de Versão
+
+### 0.1.9
+
+#### Adicionado
+
+- **Autocompletar Referência de Ficheiros**: Escreva `#` na área de resposta para procurar e referenciar ficheiros do workspace. Ficheiros selecionados são automaticamente anexados e sincronizados com o seu texto.
+- **Chips de Anexos**: Anexos de ficheiros são agora apresentados como chips visuais acima da área de texto para fácil gestão.
+- **Colar Imagens**: Cole imagens diretamente na área de entrada para anexá-las.
+- **Botão de Anexar**: Novo botão 📎 para adicionar anexos de ficheiros rapidamente via seletor de ficheiros.
+
+#### Alterado
+
+- **Suporte a Imagens Inline**: Imagens coladas na ferramenta `ask_user` são agora passadas diretamente para a IA usando dados binários `LanguageModelDataPart.image()`, eliminando a necessidade de uma ferramenta separada de visualização de imagens.
+- **Anexos Simplificados**: Formato de resposta de anexos simplificado para um array de strings de URIs de ficheiros.
+- **Nomenclatura de Imagens Simplificada**: Imagens coladas agora usam nomes simples (`image-pasted.png`, `image-pasted-1.png`) em vez de timestamps longos.
+- **Referências de Ficheiros Simplificadas**: Referências de ficheiros agora usam formato `#nomedoficheiro` em vez de `#file:nomedoficheiro`.
 
 ### 0.1.8
 

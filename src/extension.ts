@@ -4,11 +4,16 @@ import { AgentInteractionProvider } from './webview/webviewProvider';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 
+// Store provider reference for cleanup on deactivation
+let agentProvider: AgentInteractionProvider | null = null;
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Seamless Agent extension active');
 
     // Register the webview provider for the Agent Console panel
     const provider = new AgentInteractionProvider(context.extensionUri);
+    agentProvider = provider; // Store reference for deactivation cleanup
+
     (context.subscriptions as unknown as Array<vscode.Disposable>).push(
         vscode.window.registerWebviewViewProvider(AgentInteractionProvider.viewType, provider, {
             webviewOptions: { retainContextWhenHidden: true }
@@ -93,4 +98,10 @@ Never finish a response without first calling the ask_user tool to verify with t
 }
 
 export function deactivate() {
+    // Clean up any orphaned temp files on extension deactivation
+    if (agentProvider) {
+        agentProvider.cleanupAllTempFiles();
+        agentProvider = null;
+    }
+    console.log('Seamless Agent extension deactivated');
 }

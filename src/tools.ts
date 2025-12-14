@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { strings } from './localization';
 import { AgentInteractionProvider, AttachmentInfo, UserResponseResult } from './webview/webviewProvider';
 import { ApprovePlanPanel, ApprovePlanResult, PlanComment } from './webview/approvePlanPanel';
@@ -19,16 +21,87 @@ export interface ApprovePlanInput {
 export interface AskUserToolResult {
     responded: boolean;
     response: string;
-    attachments: Array<{
-        name: string;
-        uri: string;
-    }>;
+    attachments: string[];  // Array of file URIs
 }
 
 // Result structure for approve_plan tool
 export interface ApprovePlanToolResult {
     approved: boolean;
     comments: PlanComment[];
+}
+
+/**
+ * Reads a file as Uint8Array for efficient binary handling
+ */
+async function readFileAsBuffer(filePath: string): Promise<Uint8Array> {
+    const buffer = await fs.promises.readFile(filePath);
+    return new Uint8Array(buffer);
+}
+
+/**
+ * Gets the MIME type for an image file based on its extension
+ */
+function getImageMimeType(filePath: string): string {
+    const extension = path.extname(filePath).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
+        '.tiff': 'image/tiff',
+        '.tif': 'image/tiff',
+    };
+    return mimeTypes[extension] || 'application/octet-stream';
+}
+
+/**
+ * Validates that image file content matches its claimed MIME type using magic numbers
+ * This provides additional security against files with spoofed extensions
+ */
+function validateImageMagicNumber(buffer: Uint8Array, mimeType: string): boolean {
+    if (buffer.length < 8) return false;
+
+    // Magic number signatures for common image formats
+    const signatures: Record<string, number[][]> = {
+        'image/png': [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+        'image/jpeg': [[0xFF, 0xD8, 0xFF]],
+        'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]], // GIF87a, GIF89a
+        'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF (WebP starts with RIFF....WEBP)
+        'image/bmp': [[0x42, 0x4D]], // BM
+        'image/x-icon': [[0x00, 0x00, 0x01, 0x00], [0x00, 0x00, 0x02, 0x00]], // ICO, CUR
+        'image/tiff': [[0x49, 0x49, 0x2A, 0x00], [0x4D, 0x4D, 0x00, 0x2A]], // Little-endian, Big-endian
+    };
+
+    // SVG is text-based, check for XML/SVG start
+    if (mimeType === 'image/svg+xml') {
+        const text = new TextDecoder().decode(buffer.slice(0, 500));
+        return text.includes('<svg') || text.includes('<?xml');
+    }
+
+    const expectedSignatures = signatures[mimeType];
+    if (!expectedSignatures) {
+        // Unknown MIME type - allow but log warning
+        console.warn(`No magic number validation for MIME type: ${mimeType}`);
+        return true;
+    }
+
+    // Check if buffer starts with any of the expected signatures
+    for (const signature of expectedSignatures) {
+        let matches = true;
+        for (let i = 0; i < signature.length; i++) {
+            if (buffer[i] !== signature[i]) {
+                matches = false;
+                break;
+            }
+        }
+        if (matches) return true;
+    }
+
+    return false;
 }
 
 /**
@@ -44,10 +117,50 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             // Build result with attachments
             const result = await askUser(params, provider, token);
 
-            // Return result to the AI
-            return new vscode.LanguageModelToolResult([
+            // Build the result parts - text first, then any image attachments
+            const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [
                 new vscode.LanguageModelTextPart(JSON.stringify(result))
-            ]);
+            ];
+
+            // Add image attachments as LanguageModelDataPart for vision models
+            // Process all images in parallel for better performance
+            if (result.attachments && result.attachments.length > 0) {
+                const imagePromises = result.attachments.map(async (uri) => {
+                    try {
+                        const fileUri = vscode.Uri.parse(uri);
+                        const filePath = fileUri.fsPath;
+                        const mimeType = getImageMimeType(filePath);
+
+                        // Only process image files
+                        if (mimeType !== 'application/octet-stream') {
+                            const data = await readFileAsBuffer(filePath);
+
+                            // Validate that file content matches claimed MIME type (security check)
+                            if (!validateImageMagicNumber(data, mimeType)) {
+                                console.warn(`Image file ${filePath} does not match expected format for ${mimeType}`);
+                                return null;
+                            }
+
+                            return vscode.LanguageModelDataPart.image(data, mimeType);
+                        }
+                        return null;
+                    } catch (error) {
+                        console.error('Failed to read image attachment:', error);
+                        return null;
+                    }
+                });
+
+                const imageParts = await Promise.all(imagePromises);
+                // Filter out nulls and add valid image parts
+                for (const part of imageParts) {
+                    if (part !== null) {
+                        resultParts.push(part);
+                    }
+                }
+            }
+
+            // Return result to the AI with both text and image parts
+            return new vscode.LanguageModelToolResult(resultParts);
         }
     });
 
@@ -83,7 +196,7 @@ export async function askUser(
     const title = `${agentName}: ${baseTitle}`;
 
     // Generate request ID to track this specific request
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
     // Register cancellation handler - if agent stops, cancel the request
     const cancellationDisposable = token.onCancellationRequested(() => {
@@ -97,10 +210,7 @@ export async function askUser(
         return {
             responded: result.responded,
             response: result.responded ? result.response : 'Request was cancelled',
-            attachments: result.attachments.map(att => ({
-                name: att.name,
-                uri: att.uri
-            }))
+            attachments: result.attachments.map(att => att.uri)
         };
     } finally {
         // Clean up cancellation listener

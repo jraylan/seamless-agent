@@ -44,6 +44,10 @@ export const strings = {
     get minutesAgo() { return localize('time.minutesAgo'); },
     get hoursAgo() { return localize('time.hoursAgo'); },
     get daysAgo() { return localize('time.daysAgo'); },
+    // Autocomplete and file reference
+    get selectFile() { return localize('autocomplete.selectFile'); },
+    get noFilesFound() { return localize('autocomplete.noFilesFound'); },
+    get dropImageHere() { return localize('dropzone.dropImageHere'); },
     // Approve Plan
     get approvePlanAddCommentAction() { return localize('approvePlan.button.addComment'); },
     get approvePlanApprove() { return localize('approvePlan.button.approve'); },

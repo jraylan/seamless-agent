@@ -77,7 +77,7 @@ export class McpServerManager {
 
             // Create transport
             this.transport = new StreamableHTTPServerTransport({
-                sessionIdGenerator: () => `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                sessionIdGenerator: () => `sess_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
             });
 
             // Connect server to transport
