@@ -40,5 +40,7 @@
   "approvePlan.comments": "Comments",
   "approvePlan.input.commentPlaceholder": "Enter your feedback...",
   "approvePlan.noComments": "No comments yet. Hover over a line to add feedback.",
-  "approvePlan.panelTitle": "Review Plan"
+  "approvePlan.panelTitle": "Review Plan",
+  "config.ignoreCommonPaths.description": "When enabled, ignores well-known build, cache, and dependency folders (node_modules, dist, .git, etc.) when searching for files.",
+  "config.additionalIgnoredPaths.description": "Additional glob patterns for paths to ignore when searching for files. Use `**` for recursive matching. Example: `**/logs/**`, `**/*.log`"
 }

@@ -77,6 +77,24 @@
         "isSticky": false
       }
     ],
+    "configuration": {
+      "title": "Seamless Agent",
+      "properties": {
+        "seamless-agent.ignoreCommonPaths": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.ignoreCommonPaths.description%"
+        },
+        "seamless-agent.additionalIgnoredPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "%config.additionalIgnoredPaths.description%"
+        }
+      }
+    },
     "languageModelTools": [
       {
         "name": "ask_user",

@@ -33,5 +33,7 @@
   "approvePlan.button.cancel": "Cancelar",
   "approvePlan.button.save": "Salvar",
   "approvePlan.input.commentPlaceholder": "Digite seu feedback...",
-  "approvePlan.panelTitle": "Revisar Plano"
+  "approvePlan.panelTitle": "Revisar Plano",
+  "config.ignoreCommonPaths.description": "Quando ativado, ignora pastas conhecidas de build, cache e dependências (node_modules, dist, .git, etc.) ao buscar arquivos.",
+  "config.additionalIgnoredPaths.description": "Padrões glob adicionais para caminhos a ignorar ao buscar arquivos. Use `**` para correspondência recursiva. Exemplo: `**/logs/**`, `**/*.log`"
 }

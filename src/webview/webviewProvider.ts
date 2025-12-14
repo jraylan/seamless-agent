@@ -9,6 +9,7 @@ import {
     serializeInteractions,
     deserializeInteractions
 } from './sessionHistory';
+import { getExcludePattern } from '../config/ignorePaths';
 
 // Attachment info
 export interface AttachmentInfo {
@@ -411,8 +412,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return;
 
-        // Find all files in the workspace
-        const files = await vscode.workspace.findFiles('**/*', '**/node_modules/**', 1000);
+        // Find all files in the workspace, excluding configured ignore patterns
+        const excludePattern = getExcludePattern();
+        const files = await vscode.workspace.findFiles('**/*', excludePattern || undefined, 1000);
 
         if (files.length === 0) {
             vscode.window.showInformationMessage('No files found in workspace');
@@ -586,9 +588,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             // Sanitize query - remove path traversal patterns and limit length
             const sanitizedQuery = this._sanitizeSearchQuery(query);
 
-            // Fetch all workspace files first, then filter case-insensitively
+            // Fetch all workspace files, excluding configured ignore patterns
             // This ensures queries like 'readme' match 'README.md'
-            const allFiles = await vscode.workspace.findFiles('**/*', '**/node_modules/**', 2000);
+            const excludePattern = getExcludePattern();
+            const allFiles = await vscode.workspace.findFiles('**/*', excludePattern || undefined, 2000);
             const queryLower = sanitizedQuery.toLowerCase();
 
             // Extract unique folders from file paths (optimized)
