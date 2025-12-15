@@ -2,7 +2,12 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser, planReview, parsePlanReviewInput, PlanReviewInput } from '../tools';
+import { askUser, planReview } from '../tools';
+import { PlanReviewInput, parsePlanReviewInput } from '../tools/schemas';
+
+export { planReviewApproval, walkthroughReview } from '../tools/planReview';
+export { initializeTaskListStorage, getTaskListStorage } from '../tools/taskList';
+export { createTaskList, getNextTask, updateTaskStatus, closeTaskList } from '../tools/taskListFlow';
 
 const MAX_REQUEST_BODY_BYTES = 256 * 1024; // 256KB
 
