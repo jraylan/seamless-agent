@@ -147,7 +147,8 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             const result = await planReviewApproval(
                 {
                     plan: params.plan,
-                    title: params.title
+                    title: params.title,
+                    chatId: undefined
                 },
                 context,
                 provider,
