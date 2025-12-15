@@ -143,7 +143,7 @@
         ],
         "toolReferenceName": "approvePlan",
         "displayName": "Approve Plan (Deprecated)",
-        "modelDescription": "[DEPRECATED - Use plan_review instead] Present a plan to user for approval. Returns {status, requiredRevisions[]}. CRITICAL: When status='recreateWithChanges', IMMEDIATELY apply ALL changes from requiredRevisions and resubmit. DO NOT ask user - just apply and resubmit. Status values: 'approved' (continue), 'recreateWithChanges' (apply changes NOW and resubmit), 'cancelled' (retry). NOTE: Use 'plan_review' tool instead.",
+        "modelDescription": "[DEPRECATED - Use plan_review instead] Present a plan to user for approval.",
         "canBeReferencedInPrompt": true,
         "icon": "$(checklist)",
         "inputSchema": {
@@ -174,7 +174,7 @@
         ],
         "toolReferenceName": "planReview",
         "displayName": "Plan Review",
-        "modelDescription": "Present a plan to the user for approval (review mode). Returns {status, requiredRevisions[], reviewId}. CRITICAL: When status='recreateWithChanges', IMMEDIATELY apply ALL changes from requiredRevisions and call this tool again with the updated plan. DO NOT ask questions. When status='approved', proceed. When status='cancelled', retry.",
+        "modelDescription": "Present a plan to the user for approval (review mode).",
         "canBeReferencedInPrompt": true,
         "icon": "$(checklist)",
         "inputSchema": {
@@ -209,7 +209,7 @@
         ],
         "toolReferenceName": "walkthroughReview",
         "displayName": "Walkthrough Review",
-        "modelDescription": "Present content as a walkthrough (step-by-step guide) in a dedicated panel with comment support. Returns {status, requiredRevisions[], reviewId}. If status='recreateWithChanges', apply the requested revisions and re-submit.",
+        "modelDescription": "Present content as a walkthrough (step-by-step guide) in a dedicated panel with comment support.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
         "inputSchema": {
@@ -245,7 +245,7 @@
         ],
         "toolReferenceName": "createTaskList",
         "displayName": "Create Task List",
-        "modelDescription": "Create a new interactive task list and open it for the user. Recommended loop: createTaskList → getNextTask → (process comments) → updateTaskStatus → getNextTask → ... → closeTaskList. IMPORTANT: do not start executing tasks until you have called getNextTask and reviewed its comments. Returns {created, listId, title, totalTasks}.",
+        "modelDescription": "Create a new interactive task list and open it for the user.",
         "canBeReferencedInPrompt": true,
         "icon": "$(tasklist)",
         "inputSchema": {
@@ -304,7 +304,7 @@
         ],
         "toolReferenceName": "getNextTask",
         "displayName": "Get Next Task",
-        "modelDescription": "Return the next pending task (in order, prioritizing reopened tasks) plus any pending user comments for that task. Comments are marked as sent once returned. CRITICAL: always process comments BEFORE executing the task. If comments instruct to skip (e.g., 'skip'/'pule'), do NOT execute the task; instead mark it completed via updateTaskStatus and call getNextTask again. Returns {listId, closed, done, task|null, comments[]}.",
+        "modelDescription": "Return the next pending task (in order, prioritizing reopened tasks) plus any pending user comments for that task.",
         "canBeReferencedInPrompt": true,
         "icon": "$(arrow-right)",
         "inputSchema": {
@@ -332,7 +332,7 @@
         ],
         "toolReferenceName": "updateTaskStatus",
         "displayName": "Update Task Status",
-        "modelDescription": "Update a task status (in-progress|completed|blocked). After calling this, ALWAYS call getNextTask to fetch the next task and its pending comments (comments are delivered via getNextTask to ensure they arrive BEFORE execution). Returns {listId, taskId, updated, status, autoClosed}.",
+        "modelDescription": "Update a task status (in-progress|completed|blocked).",
         "canBeReferencedInPrompt": true,
         "icon": "$(check)",
         "inputSchema": {
@@ -375,7 +375,7 @@
         ],
         "toolReferenceName": "closeTaskList",
         "displayName": "Close Task List",
-        "modelDescription": "Archive a task list and return a summary plus any remaining pending user comments. Returns {listId, closed, summary, remainingPendingComments[]}.",
+        "modelDescription": "Archive a task list and return a summary plus any remaining pending user comments.",
         "canBeReferencedInPrompt": true,
         "icon": "$(archive)",
         "inputSchema": {
