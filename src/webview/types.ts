@@ -240,7 +240,6 @@ export type FromWebviewMessage = | {
     };
 
 
-
 // Plan review types (shared between extension and webview)
 export type PlanReviewMode = 'review' | 'walkthrough';
 
