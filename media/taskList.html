@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <link href="{{styleUri}}" rel="stylesheet" />
+    <link href="{{codiconsUri}}" rel="stylesheet" />
+    <title>{{taskListTitle}}</title>
+  </head>
+  <body>
+    <div class="task-list-container">
+      <!-- Header -->
+      <div class="header">
+        <h1 id="list-title">{{taskListTitle}}</h1>
+        <p id="list-description" class="header-description"></p>
+      </div>
+
+      <!-- Closed banner -->
+      <div id="closed-banner" class="closed-banner hidden">
+        <span class="codicon codicon-archive"></span>
+        <span>{{taskListArchived}}</span>
+      </div>
+
+      <!-- Tasks List (walkthrough style) -->
+      <div class="tasks-list" id="tasks-container">
+        <div class="empty-state">
+          <span class="codicon codicon-tasklist"></span>
+          <p>{{taskListNoTasks}}</p>
+        </div>
+      </div>
+
+      <!-- Comment Dialog -->
+      <div id="comment-dialog" class="dialog-overlay hidden">
+        <div class="dialog">
+          <div class="dialog-header">
+            <h3>{{taskListAddComment}}</h3>
+            <button id="dialog-close" class="btn-icon" title="{{cancel}}">
+              <span class="codicon codicon-close"></span>
+            </button>
+          </div>
+          <div class="dialog-content">
+            <div class="task-preview" id="task-preview"></div>
+            <textarea
+              id="comment-input"
+              class="comment-textarea"
+              placeholder="{{taskListCommentPlaceholder}}"
+              rows="4"
+            ></textarea>
+            <div class="dialog-checkbox">
+              <label class="checkbox-label"
+                ><input type="checkbox" id="reopen-checkbox" /><span
+                  >{{taskListReopenTask}}</span
+                ></label
+              >
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button id="dialog-save" class="btn btn-primary">
+              <span class="codicon codicon-check"></span
+              >{{taskListSubmit}}</button
+            ><button id="dialog-cancel" class="btn btn-secondary">
+              {{cancel}}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Store strings for JS -->
+    <script nonce="{{nonce}}">
+      window.__STRINGS__ = {
+        archived: "{{taskListArchived}}",
+        tasksCompleted: "{{taskListTasksCompleted}}",
+        noTasks: "{{taskListNoTasks}}",
+        addComment: "{{taskListAddComment}}",
+        comments: "{{taskListComments}}",
+        sent: "{{taskListSent}}",
+        pending: "{{taskListPending}}",
+        removeComment: "{{taskListRemoveComment}}",
+        submit: "{{taskListSubmit}}",
+        reopenTask: "{{taskListReopenTask}}",
+        commentPlaceholder: "{{taskListCommentPlaceholder}}",
+        cancel: "{{cancel}}",
+      };
+    </script>
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+  </body>
+</html>

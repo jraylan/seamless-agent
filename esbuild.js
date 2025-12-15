@@ -84,21 +84,35 @@ async function main() {
         plugins: [esbuildProblemMatcherPlugin],
     });
 
-    // Approve Plan webview bundle (browser)
-    const approvePlanCtx = await esbuild.context({
-        entryPoints: ['src/webview/approvePlan.ts'],
+    // Plan Review webview bundle (browser)
+    const planReviewCtx = await esbuild.context({
+        entryPoints: ['src/webview/planReview.ts'],
         bundle: true,
         format: 'iife',
         minify: production,
         sourcemap: !production,
         sourcesContent: false,
         platform: 'browser',
-        outfile: 'dist/approvePlan.js',
+        outfile: 'dist/planReview.js',
         logLevel: 'info',
         plugins: [esbuildProblemMatcherPlugin],
     });
 
-    const contexts = [extensionCtx, webviewCtx, approvePlanCtx];
+    // Task List webview bundle (browser)
+    const taskListCtx = await esbuild.context({
+        entryPoints: ['src/webview/taskList.ts'],
+        bundle: true,
+        format: 'iife',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/taskList.js',
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+
+    const contexts = [extensionCtx, webviewCtx, planReviewCtx, taskListCtx];
 
     // CLI bundle (Node.js standalone) - Only for Antigravity
     if (antigravity) {

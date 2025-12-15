@@ -6,10 +6,36 @@ const bundle = JSON.parse(
 );
 
 try {
-    const locale = vscode.env.language;
+    const locale = vscode.env.language?.toLowerCase();
+
+    // Attempt to load exact locale first (e.g. pt-br), then fall back to base language (e.g. pt)
     if (locale && locale !== 'en') {
-        const localizedBundle = require(`../package.nls.${locale}.json`);
-        Object.assign(bundle, localizedBundle);
+        const tryLoad = (loc: string): boolean => {
+            try {
+                const localizedBundle = require(`../package.nls.${loc}.json`);
+                Object.assign(bundle, localizedBundle);
+                return true;
+            } catch {
+                try {
+                    loc = loc.split(/[-_]/g)[0];
+                    const localizedBundle = require(`../package.nls.${loc}.json`);
+                    Object.assign(bundle, localizedBundle);
+                    return true;
+                } catch {
+                    console.log('[Seamless Agent] Lang not found: ' + loc);
+                }
+            }
+
+            return false;
+        };
+
+        const loadedExact = tryLoad(locale);
+        if (!loadedExact) {
+            const base = locale.split('-')[0];
+            if (base && base !== locale) {
+                tryLoad(base);
+            }
+        }
     }
 } catch { }
 
@@ -34,6 +60,8 @@ export const strings = {
     get inputPlaceholder() { return localize('input.placeholder'); },
     get consoleTitle() { return localize('console.title'); },
     get noPendingRequests() { return localize('console.noPendingRequests'); },
+    get noPendingItems() { return localize('console.noPendingItems'); },
+    get pendingItems() { return localize('console.pendingItems'); },
     get yourResponse() { return localize('console.yourResponse'); },
     get attachments() { return localize('console.attachments'); },
     get noAttachments() { return localize('console.noAttachments'); },
@@ -68,4 +96,71 @@ export const strings = {
     get noRecentSessions() { return localize('session.noRecent'); },
     get clearHistory() { return localize('session.clearHistory'); },
     get addFolder() { return localize('button.addFolder'); },
+    // Plan Review (extended modes)
+    get planReviewTitle() { return localize('approvePlan.panelTitle'); },
+    get planReviewAcknowledge() { return localize('planReview.button.acknowledge'); },
+    get planReviewContinue() { return localize('planReview.button.continue'); },
+    get planReviewDone() { return localize('planReview.button.done'); },
+    get planReviewClose() { return localize('planReview.button.close'); },
+    get planReviewExport() { return localize('planReview.button.export'); },
+    get planReviewReadOnly() { return localize('planReview.readOnly'); },
+    get planReviewReadOnlyMessage() { return localize('planReview.readOnlyMessage'); },
+    get planReviewRejectRequiresComments() { return localize('planReview.rejectRequiresComments'); },
+    // Chat History
+    get pendingReviews() { return localize('console.pendingReviews'); },
+    get noPendingReviews() { return localize('console.noPendingReviews'); },
+    get chatHistory() { return localize('console.chatHistory'); },
+    get planReviews() { return localize('console.planReviews'); },
+    get userInteractions() { return localize('console.userInteractions'); },
+    get noChats() { return localize('history.noChats'); },
+    get openInPanel() { return localize('button.openInPanel'); },
+    get deleteChat() { return localize('button.deleteChat'); },
+    get approved() { return localize('status.approved'); },
+    get rejected() { return localize('status.rejected'); },
+    get pending() { return localize('status.pending'); },
+    get acknowledged() { return localize('status.acknowledged'); },
+    get cancelled() { return localize('status.cancelled'); },
+    // Confirmation dialogs
+    get confirmClearHistory() { return localize('confirm.clearHistory'); },
+    get confirmDeleteItem() { return localize('confirm.deleteItem'); },
+    get confirm() { return localize('button.confirm'); },
+    // Interaction detail
+    get question() { return localize('detail.question'); },
+    get response() { return localize('detail.response'); },
+    get noResponse() { return localize('detail.noResponse'); },
+
+    // History filters
+    get historyFilterAll() { return localize('history.filter.all'); },
+    get historyFilterTaskLists() { return localize('history.filter.taskLists'); },
+    get historyFilterAskUser() { return localize('history.filter.askUser'); },
+    get historyFilterPlanReview() { return localize('history.filter.planReview'); },
+    // Task Lists
+    get taskLists() { return localize('console.taskLists'); },
+    get noTaskLists() { return localize('console.noTaskLists'); },
+    get taskListNotFound() { return localize('taskList.notFound'); },
+    get taskListClosed() { return localize('status.closed'); },
+    get taskListActive() { return localize('status.active'); },
+    get tasks() { return localize('console.tasks'); },
+    // Task List Panel
+    get taskListArchived() { return localize('taskList.archived'); },
+    get taskListTasksCompleted() { return localize('taskList.tasksCompleted'); },
+    get taskListNoTasks() { return localize('taskList.noTasks'); },
+    get taskListAddComment() { return localize('taskList.addComment'); },
+    get taskListComments() { return localize('taskList.comments'); },
+    get taskListSent() { return localize('taskList.sent'); },
+    get taskListPending() { return localize('taskList.pending'); },
+    get taskListSubmit() { return localize('taskList.submit'); },
+    get taskListReopenTask() { return localize('taskList.reopenTask'); },
+    get taskListCommentPlaceholder() { return localize('taskList.commentPlaceholder'); },
+    get taskListRemoveComment() { return localize('taskList.removeComment'); },
+
+    // Attachments / images
+    get attachmentNoFilesFound() { return localize('attachment.noFilesFound'); },
+    get attachmentInvalidDataUrl() { return localize('attachment.invalidDataUrl'); },
+    get attachmentSelectFolder() { return localize('attachment.selectFolder'); },
+    get attachmentSelectFolderDepth() { return localize('attachment.selectFolderDepth'); },
+    get attachmentFolderDepthCurrent() { return localize('attachment.folderDepth.current'); },
+    get attachmentFolderDepth1() { return localize('attachment.folderDepth.depth1'); },
+    get attachmentFolderDepth2() { return localize('attachment.folderDepth.depth2'); },
+    get attachmentFolderDepthRecursive() { return localize('attachment.folderDepth.recursive'); },
 };

@@ -1,153 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
-    <link href="{{styleUri}}" rel="stylesheet">
-    <link href="{{highlightStyleUri}}" rel="stylesheet">
-    <link href="{{codiconsUri}}" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <link href="{{styleUri}}" rel="stylesheet" />
+    <link href="{{highlightStyleUri}}" rel="stylesheet" />
+    <link href="{{codiconsUri}}" rel="stylesheet" />
     <title>{{consoleTitle}}</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <!-- Screen reader live region for announcing state changes -->
-    <div id="sr-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div
+      id="sr-announce"
+      class="sr-only"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
 
     <div class="container">
-        <!-- Header - only shown when viewing a request or session detail -->
-        <div id="request-header" class="request-header hidden">
-            <button id="back-btn" class="btn-back" title="{{back}}">
-                <span class="codicon codicon-arrow-left"></span>
-            </button>
-            <h2 id="header-title"></h2>
+      <!-- Header - only shown when viewing a request or session detail -->
+      <div id="request-header" class="request-header hidden">
+        <button id="back-btn" class="btn-back" title="{{back}}">
+          <span class="codicon codicon-arrow-left"></span>
+        </button>
+        <h2 id="header-title"></h2>
+      </div>
+
+      <!-- Home View - shows content area -->
+      <div id="home-view">
+        <!-- In-webview toolbar (badges + active tab indicator) -->
+        <div class="home-toolbar" role="toolbar" aria-label="{{consoleTitle}}">
+          <button
+            type="button"
+            class="home-toolbar-btn active"
+            data-tab="pending"
+            data-label="{{pendingItems}}"
+            title="{{pendingItems}}"
+            aria-label="{{pendingItems}}"
+            aria-pressed="true"
+          >
+            <span class="codicon codicon-bell"></span>
+            <span
+              class="home-toolbar-badge hidden"
+              data-badge-for="pending"
+            ></span>
+          </button>
+          <button
+            type="button"
+            class="home-toolbar-btn"
+            data-tab="tasks"
+            data-label="{{taskLists}}"
+            title="{{taskLists}}"
+            aria-label="{{taskLists}}"
+            aria-pressed="false"
+          >
+            <span class="codicon codicon-tasklist"></span>
+            <span
+              class="home-toolbar-badge hidden"
+              data-badge-for="tasks"
+            ></span>
+          </button>
+          <button
+            type="button"
+            class="home-toolbar-btn"
+            data-tab="history"
+            data-label="{{chatHistory}}"
+            title="{{chatHistory}}"
+            aria-label="{{chatHistory}}"
+            aria-pressed="false"
+          >
+            <span class="codicon codicon-history"></span>
+            <span
+              class="home-toolbar-badge hidden"
+              data-badge-for="history"
+            ></span>
+          </button>
+          <button
+            type="button"
+            class="home-toolbar-btn"
+            data-action="clearHistory"
+            title="{{clearHistory}}"
+            aria-label="{{clearHistory}}"
+          >
+            <span class="codicon codicon-trash"></span>
+          </button>
         </div>
 
-        <!-- Home View - shows pending requests and recent interactions -->
-        <div id="home-view">
-            <!-- Pending Requests Section -->
-            <div class="section" id="pending-section">
-                <h3 class="section-title">
-                    <span class="codicon codicon-checklist"></span>
-                    {{pendingRequests}}
-                </h3>
-                <div id="pending-requests-list">
-                    <p class="placeholder">{{noPendingRequests}}</p>
-                </div>
+        <!-- Content area - shows selected tab content -->
+        <div class="tab-content">
+          <!-- Pending Items Tab (Requests + Reviews only) -->
+          <div id="content-pending" class="tab-pane active">
+            <div id="pending-items-container">
+              <p id="pending-placeholder" class="placeholder">
+                {{noPendingItems}}
+              </p>
+              <div id="pending-requests-list"></div>
+              <div id="pending-reviews-list"></div>
             </div>
+          </div>
 
-            <!-- Divider -->
-            <hr class="section-divider">
-
-            <!-- Recent Interactions Section -->
-            <div class="section" id="interactions-section">
-                <div class="section-header">
-                    <h3 class="section-title">
-                        <span class="codicon codicon-history"></span>
-                        Recent Tool Calls
-                    </h3>
-                    <button id="clear-history-btn" class="btn-icon" title="{{clearHistory}}"
-                        aria-label="{{clearHistory}}">
-                        <span class="codicon codicon-trash"></span>
-                    </button>
-                </div>
-                <div id="recent-interactions-list">
-                    <p class="placeholder">{{noRecentSessions}}</p>
-                </div>
+          <!-- Task Lists Tab -->
+          <div id="content-tasks" class="tab-pane hidden">
+            <div id="tasks-items-container">
+              <p id="tasks-placeholder" class="placeholder">{{noTaskLists}}</p>
+              <div id="pending-task-lists-list"></div>
             </div>
+          </div>
+
+          <!-- History Tab (Individual Interactions + Closed Task Lists) -->
+          <div id="content-history" class="tab-pane hidden">
+            <!-- History Filter Bar -->
+            <div class="filter-bar">
+              <button
+                class="filter-btn active"
+                data-filter="all"
+                title="{{historyFilterAll}}"
+                aria-label="{{historyFilterAll}}"
+              >
+                <span class="codicon codicon-list-unordered"></span>
+              </button>
+              <button
+                class="filter-btn"
+                data-filter="taskList"
+                title="{{historyFilterTaskLists}}"
+                aria-label="{{historyFilterTaskLists}}"
+              >
+                <span class="codicon codicon-tasklist"></span>
+              </button>
+              <button
+                class="filter-btn"
+                data-filter="ask_user"
+                title="{{historyFilterAskUser}}"
+                aria-label="{{historyFilterAskUser}}"
+              >
+                <span class="codicon codicon-comment"></span>
+              </button>
+              <button
+                class="filter-btn"
+                data-filter="plan_review"
+                title="{{historyFilterPlanReview}}"
+                aria-label="{{historyFilterPlanReview}}"
+              >
+                <span class="codicon codicon-file-text"></span>
+              </button>
+            </div>
+            <div id="history-list">
+              <p class="placeholder">{{noChats}}</p>
+            </div>
+          </div>
+
+          <!-- Legacy recent interactions list for backwards compatibility -->
+          <div id="recent-interactions-list" class="hidden"></div>
+        </div>
+      </div>
+
+      <!-- Interaction Detail View - shows ask_user details -->
+      <div id="interaction-detail-view" class="hidden">
+        <div class="interaction-detail-content"></div>
+      </div>
+
+      <!-- Request list - shown when multiple requests -->
+      <div id="request-list" class="hidden">
+        <p class="section-title">{{pendingRequests}}</p>
+        <div id="request-list-items"></div>
+      </div>
+
+      <!-- Request form - hidden until a question is selected -->
+      <div id="request-form" class="hidden">
+        <div class="question-section">
+          <div class="question-content" id="question-content"></div>
         </div>
 
-        <!-- Request list - shown when multiple requests -->
-        <div id="request-list" class="hidden">
-            <p class="section-title">{{pendingRequests}}</p>
-            <div id="request-list-items"></div>
+        <div class="response-section">
+          <label class="response-label" for="response-input"
+            >{{yourResponse}}</label
+          >
+
+          <!-- Autocomplete dropdown - positioned above input container -->
+          <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden">
+            <div class="autocomplete-header">
+              <span class="codicon codicon-file"></span>
+              <span>{{selectFile}}</span>
+            </div>
+            <div id="autocomplete-list" class="autocomplete-list"></div>
+            <div id="autocomplete-empty" class="autocomplete-empty hidden">
+              {{noFilesFound}}
+            </div>
+          </div>
+
+          <!-- Modern input container with chips, attach icon, and textarea -->
+          <div class="input-container">
+            <!-- Chips bar (hidden when no attachments) -->
+            <div id="chips-container" class="chips-container hidden"></div>
+
+            <!-- Input area with attach button and textarea -->
+            <div class="input-area">
+              <!-- Attach button on the left -->
+              <button
+                type="button"
+                id="attach-btn"
+                class="attach-btn"
+                title="{{addAttachment}}"
+              >
+                <span class="codicon codicon-attach"></span>
+              </button>
+
+              <!-- Textarea wrapper -->
+              <div class="textarea-wrapper">
+                <textarea
+                  id="response-input"
+                  placeholder="{{inputPlaceholder}}"
+                  rows="1"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drop zone overlay for images -->
+          <div id="drop-zone" class="drop-zone hidden">
+            <div class="drop-zone-content">
+              <span class="codicon codicon-cloud-upload"></span>
+              <span>{{dropImageHere}}</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Request form - hidden until a question is selected -->
-        <div id="request-form" class="hidden">
-            <div class="question-section">
-                <div class="question-content" id="question-content"></div>
-            </div>
-
-            <div class="response-section">
-                <label class="response-label" for="response-input">{{yourResponse}}</label>
-
-                <!-- Autocomplete dropdown - positioned above input container -->
-                <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden">
-                    <div class="autocomplete-header">
-                        <span class="codicon codicon-file"></span>
-                        <span>{{selectFile}}</span>
-                    </div>
-                    <div id="autocomplete-list" class="autocomplete-list"></div>
-                    <div id="autocomplete-empty" class="autocomplete-empty hidden">
-                        {{noFilesFound}}
-                    </div>
-                </div>
-
-                <!-- Modern input container with chips, attach icon, and textarea -->
-                <div class="input-container">
-                    <!-- Chips bar (hidden when no attachments) -->
-                    <div id="chips-container" class="chips-container hidden"></div>
-
-                    <!-- Input area with attach button and textarea -->
-                    <div class="input-area">
-                        <!-- Attach button on the left -->
-                        <button type="button" id="attach-btn" class="attach-btn" title="{{addAttachment}}">
-                            <span class="codicon codicon-attach"></span>
-                        </button>
-
-                        <!-- Textarea wrapper -->
-                        <div class="textarea-wrapper">
-                            <textarea id="response-input" placeholder="{{inputPlaceholder}}" rows="1"></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Drop zone overlay for images -->
-                <div id="drop-zone" class="drop-zone hidden">
-                    <div class="drop-zone-content">
-                        <span class="codicon codicon-cloud-upload"></span>
-                        <span>{{dropImageHere}}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Attachments section (for non-inline display of added files) -->
-            <div id="attachments-section" class="attachments-section hidden">
-                <label class="attachments-label">{{attachments}}</label>
-                <div id="attachments-list" class="attachments-list">
-                    <p class="no-attachments">{{noAttachments}}</p>
-                </div>
-            </div>
-
-            <div class="button-group">
-                <button type="button" id="submit-btn" class="btn-primary">{{submit}}</button>
-                <button type="button" id="cancel-btn" class="btn-secondary">{{cancel}}</button>
-            </div>
+        <!-- Attachments section (for non-inline display of added files) -->
+        <div id="attachments-section" class="attachments-section hidden">
+          <label class="attachments-label">{{attachments}}</label>
+          <div id="attachments-list" class="attachments-list">
+            <p class="no-attachments">{{noAttachments}}</p>
+          </div>
         </div>
+
+        <div class="button-group">
+          <button type="button" id="submit-btn" class="btn-primary">
+            {{submit}}
+          </button>
+          <button type="button" id="cancel-btn" class="btn-secondary">
+            {{cancel}}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Store strings for JS -->
     <script nonce="{{nonce}}">
-        window.__STRINGS__ = {
-            noAttachments: "{{noAttachments}}",
-            remove: "{{remove}}",
-            justNow: "{{justNow}}",
-            minutesAgo: "{{minutesAgo}}",
-            hoursAgo: "{{hoursAgo}}",
-            daysAgo: "{{daysAgo}}",
-            selectFile: "{{selectFile}}",
-            noFilesFound: "{{noFilesFound}}",
-            dropImageHere: "{{dropImageHere}}",
-            noPendingRequests: "{{noPendingRequests}}",
-            noRecentSessions: "{{noRecentSessions}}",
-            input: "{{sessionInput}}",
-            output: "{{sessionOutput}}"
-        };
+      window.__STRINGS__ = {
+        noAttachments: "{{noAttachments}}",
+        remove: "{{remove}}",
+        justNow: "{{justNow}}",
+        minutesAgo: "{{minutesAgo}}",
+        hoursAgo: "{{hoursAgo}}",
+        daysAgo: "{{daysAgo}}",
+        selectFile: "{{selectFile}}",
+        noFilesFound: "{{noFilesFound}}",
+        dropImageHere: "{{dropImageHere}}",
+        noPendingRequests: "{{noPendingRequests}}",
+        noPendingReviews: "{{noPendingReviews}}",
+        noChats: "{{noChats}}",
+        noRecentSessions: "{{noRecentSessions}}",
+        input: "{{sessionInput}}",
+        output: "{{sessionOutput}}",
+        openInPanel: "{{openInPanel}}",
+        deleteChat: "{{deleteChat}}",
+        approved: "{{approved}}",
+        rejected: "{{rejected}}",
+        pending: "{{pending}}",
+        acknowledged: "{{acknowledged}}",
+        cancelled: "{{cancelled}}",
+        question: "{{question}}",
+        response: "{{response}}",
+        noResponse: "{{noResponse}}",
+        attachments: "{{attachments}}",
+        // Task list strings
+        taskLists: "{{taskLists}}",
+        noTaskLists: "{{noTaskLists}}",
+        tasks: "{{tasks}}",
+        closed: "{{closed}}",
+        active: "{{active}}",
+        // Home toolbar labels
+        pendingItems: "{{pendingItems}}",
+        chatHistory: "{{chatHistory}}",
+        clearHistory: "{{clearHistory}}",
+      };
     </script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
-</body>
-
+  </body>
 </html>

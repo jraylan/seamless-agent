@@ -8,7 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser } from '../tools';
+import { askUser, planReviewApproval, walkthroughReview, createTaskList, getNextTask, updateTaskStatus, closeTaskList } from '../tools';
 
 export class McpServerManager {
     private server: http.Server | undefined;
@@ -73,6 +73,216 @@ export class McpServerManager {
                             }
                         ]
                     };
+                }
+            );
+
+            // Register plan_review tool (explicit: plan approval)
+            this.mcpServer.registerTool(
+                "plan_review",
+                {
+                    inputSchema: z.object({
+                        plan: z.string().describe("The detailed plan in Markdown format to present to the user for review"),
+                        title: z.string().optional().describe("Optional title for the review panel"),
+                        chatId: z.string().optional().describe("Optional chat session ID for grouping reviews")
+                    })
+                },
+                async (args: any, { signal }: { signal?: AbortSignal }) => {
+                    // Convert MCP cancellation token to VS Code cancellation token
+                    const tokenSource = new vscode.CancellationTokenSource();
+                    if (signal) {
+                        signal.onabort = () => tokenSource.cancel();
+                    }
+
+                    // Validate args
+                    if (!args || typeof args !== 'object' || !('plan' in args)) {
+                        throw new Error('Invalid arguments: plan is required');
+                    }
+
+                    const result = await planReviewApproval(
+                        {
+                            plan: String(args.plan),
+                            title: args.title ? String(args.title) : undefined,
+                            chatId: args.chatId ? String(args.chatId) : undefined
+                        },
+                        this.context,
+                        this.provider,
+                        tokenSource.token
+                    );
+
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: JSON.stringify(result)
+                            }
+                        ]
+                    };
+                }
+            );
+
+            // Register walkthrough_review tool (explicit: walkthrough review mode)
+            this.mcpServer.registerTool(
+                "walkthrough_review",
+                {
+                    inputSchema: z.object({
+                        plan: z.string().describe("The walkthrough content in Markdown format to present to the user"),
+                        title: z.string().optional().describe("Optional title for the walkthrough panel"),
+                        chatId: z.string().optional().describe("Optional chat session ID for grouping walkthroughs")
+                    })
+                },
+                async (args: any, { signal }: { signal?: AbortSignal }) => {
+                    const tokenSource = new vscode.CancellationTokenSource();
+                    if (signal) {
+                        signal.onabort = () => tokenSource.cancel();
+                    }
+
+                    if (!args || typeof args !== 'object' || !('plan' in args)) {
+                        throw new Error('Invalid arguments: plan is required');
+                    }
+
+                    const result = await walkthroughReview(
+                        {
+                            plan: String(args.plan),
+                            title: args.title ? String(args.title) : undefined,
+                            chatId: args.chatId ? String(args.chatId) : undefined
+                        },
+                        this.context,
+                        this.provider,
+                        tokenSource.token
+                    );
+
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: JSON.stringify(result)
+                            }
+                        ]
+                    };
+                }
+            );
+
+            // -----------------------------
+            // Task List Flow Tools (New)
+            // -----------------------------
+
+            this.mcpServer.registerTool(
+                "createTaskList",
+                {
+                    inputSchema: z.object({
+                        title: z.string().describe('Task list title'),
+                        description: z.string().optional().describe('Optional description (informational)'),
+                        tasks: z.array(z.object({
+                            title: z.string(),
+                            description: z.string().optional(),
+                            status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).optional()
+                        })).optional().describe('Initial tasks array')
+                    })
+                },
+                async (args: any) => {
+                    const result = await createTaskList(
+                        {
+                            title: String(args.title),
+                            description: args.description ? String(args.description) : undefined,
+                            tasks: Array.isArray(args.tasks) ? args.tasks.map((t: any) => ({
+                                title: String(t.title),
+                                description: t.description ? String(t.description) : undefined,
+                                status: t.status
+                            })) : undefined
+                        },
+                        this.context,
+                        this.provider
+                    );
+
+                    const toolResult: Record<string, unknown> & {
+                        content: any[];
+                        structuredContent?: Record<string, unknown>;
+                    } = {
+                        content: [{ type: 'text', text: JSON.stringify(result) }],
+                        structuredContent: result as unknown as Record<string, unknown>
+                    };
+                    return toolResult;
+                }
+            );
+
+            this.mcpServer.registerTool(
+                "getNextTask",
+                {
+                    inputSchema: z.object({
+                        listId: z.string().describe('Task list id returned by createTaskList')
+                    })
+                },
+                async (args: any) => {
+                    const result = await getNextTask(
+                        { listId: String(args.listId) },
+                        this.context,
+                        this.provider
+                    );
+
+                    const toolResult: Record<string, unknown> & {
+                        content: any[];
+                        structuredContent?: Record<string, unknown>;
+                    } = {
+                        content: [{ type: 'text', text: JSON.stringify(result) }],
+                        structuredContent: result as unknown as Record<string, unknown>
+                    };
+                    return toolResult;
+                }
+            );
+
+            this.mcpServer.registerTool(
+                "updateTaskStatus",
+                {
+                    inputSchema: z.object({
+                        listId: z.string().describe('Task list id'),
+                        taskId: z.string().describe('Task id to update'),
+                        status: z.enum(['in-progress', 'completed', 'blocked']).describe('New status for the task')
+                    })
+                },
+                async (args: any) => {
+                    const result = await updateTaskStatus(
+                        {
+                            listId: String(args.listId),
+                            taskId: String(args.taskId),
+                            status: args.status
+                        },
+                        this.context,
+                        this.provider
+                    );
+
+                    const toolResult: Record<string, unknown> & {
+                        content: any[];
+                        structuredContent?: Record<string, unknown>;
+                    } = {
+                        content: [{ type: 'text', text: JSON.stringify(result) }],
+                        structuredContent: result as unknown as Record<string, unknown>
+                    };
+                    return toolResult;
+                }
+            );
+
+            this.mcpServer.registerTool(
+                "closeTaskList",
+                {
+                    inputSchema: z.object({
+                        listId: z.string().describe('Task list id')
+                    })
+                },
+                async (args: any) => {
+                    const result = await closeTaskList(
+                        { listId: String(args.listId) },
+                        this.context,
+                        this.provider
+                    );
+
+                    const toolResult: Record<string, unknown> & {
+                        content: any[];
+                        structuredContent?: Record<string, unknown>;
+                    } = {
+                        content: [{ type: 'text', text: JSON.stringify(result) }],
+                        structuredContent: result as unknown as Record<string, unknown>
+                    };
+                    return toolResult;
                 }
             );
 

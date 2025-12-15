@@ -88,6 +88,19 @@ body {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
+.btn-secondary:disabled,
+.btn-secondary.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: auto;
+    /* Allow hover for tooltip */
+}
+
+.btn-secondary:disabled:hover,
+.btn-secondary.disabled:hover {
+    background-color: var(--vscode-button-secondaryBackground);
+}
+
 .btn-icon {
     background: transparent;
     border: none;
@@ -127,10 +140,21 @@ body {
     font-weight: 600;
 }
 
-.plan-content h1 { font-size: 1.5em; }
-.plan-content h2 { font-size: 1.3em; }
-.plan-content h3 { font-size: 1.15em; }
-.plan-content h4 { font-size: 1.05em; }
+.plan-content h1 {
+    font-size: 1.5em;
+}
+
+.plan-content h2 {
+    font-size: 1.3em;
+}
+
+.plan-content h3 {
+    font-size: 1.15em;
+}
+
+.plan-content h4 {
+    font-size: 1.05em;
+}
 
 .plan-content p {
     margin: 0.8em 0;
@@ -409,11 +433,42 @@ body {
     .content-wrapper {
         flex-direction: column;
     }
-    
+
     .comments-sidebar {
         width: 100%;
         border-left: none;
         border-top: 1px solid var(--vscode-panel-border);
         max-height: 40vh;
     }
+}
+
+/* Hidden elements */
+.hidden {
+    display: none !important;
+}
+
+/* Read-only badge */
+.readonly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Read-only mode styles */
+.read-only-mode .add-comment-btn {
+    display: none !important;
+}
+
+.read-only-mode .line-wrapper:hover {
+    background-color: transparent;
+}
+
+.read-only-mode .line-wrapper:hover .add-comment-btn {
+    display: none;
 }

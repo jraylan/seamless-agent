@@ -117,6 +117,7 @@ code.hljs {
  * VS Code automatically provides different variable values for dark/light themes
  */
 @media (prefers-color-scheme: dark) {
+
     .hljs-keyword,
     .hljs-selector-tag,
     .hljs-literal,

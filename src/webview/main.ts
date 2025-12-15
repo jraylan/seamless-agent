@@ -94,58 +94,50 @@ declare global {
             noFilesFound: string;
             dropImageHere: string;
             noPendingRequests: string;
+            noPendingReviews: string;
+            noChats: string;
             noRecentSessions: string;
             input: string;
             output: string;
-        };
+            openInPanel: string;
+            deleteChat: string;
+            approved: string;
+            rejected: string;
+            pending: string;
+            acknowledged: string;
+            cancelled: string;
+            question: string;
+            response: string;
+            noResponse: string;
+            attachments: string;
+            // Task list strings
+            taskLists: string;
+            noTaskLists: string;
+            tasks: string;
+            closed: string;
+            active: string;
+            // Home toolbar labels
+            pendingItems: string;
+            chatHistory: string;
+            clearHistory: string;
+        }
+
+        ;
     }
 }
 
 window.renderMarkdown = renderMarkdown;
 
-// Types
-interface AttachmentInfo {
-    id: string;
-    name: string;
-    uri: string;
-    isImage?: boolean;
-    isTextReference?: boolean;  // True if added via #name syntax (should be synced with text)
-    thumbnail?: string;  // Base64 data URL for image preview
-    isFolder?: boolean;  // True if this is a folder reference
-    folderPath?: string; // Path to the folder
-    depth?: number;      // Folder depth (0=current, 1=1 level, 2=2 levels, -1=recursive)
-}
-
-interface RequestItem {
-    id: string;
-    question: string;
-    title: string;
-    createdAt: number;
-    attachments: AttachmentInfo[];
-}
-
-interface FileSearchResult {
-    name: string;
-    path: string;
-    uri: string;
-    icon: string;
-    isFolder?: boolean;  // True if this is a folder result
-}
-
-// Session History Types (mirroring sessionHistory.ts)
-interface ToolCallInteraction {
-    id: string;
-    timestamp: number;
-    input: {
-        question: string;
-        title: string;
-    };
-    output: {
-        response: string;
-        attachments: AttachmentInfo[];
-    };
-    status: 'completed' | 'cancelled';
-}
+// Types (centralized)
+import type {
+    AttachmentInfo,
+    RequestItem,
+    FileSearchResult,
+    ToolCallInteraction,
+    RequiredPlanRevisions,
+    StoredInteraction,
+    TaskListSession
+} from './types';
 
 // Webview initialization
 (function () {
@@ -155,7 +147,7 @@ interface ToolCallInteraction {
     // State
     let currentRequestId: string | null = null;
     let currentAttachments: AttachmentInfo[] = [];
-    let hasMultipleRequests = false;
+    let currentInteractionId: string | null = null;
 
     // Autocomplete state
     let autocompleteVisible = false;
@@ -167,12 +159,15 @@ interface ToolCallInteraction {
 
     // DOM Elements
     const homeView = document.getElementById('home-view');
+    const pendingPlaceholder = document.getElementById('pending-placeholder');
     const pendingRequestsList = document.getElementById('pending-requests-list');
+    const pendingReviewsList = document.getElementById('pending-reviews-list');
+    const pendingTaskListsList = document.getElementById('pending-task-lists-list');
+    const historyList = document.getElementById('history-list');
+    const interactionDetailView = document.getElementById('interaction-detail-view');
     const recentInteractionsList = document.getElementById('recent-interactions-list');
-    const clearHistoryBtn = document.getElementById('clear-history-btn');
     const requestHeader = document.getElementById('request-header');
     const requestList = document.getElementById('request-list');
-    const requestListItems = document.getElementById('request-list-items');
     const requestForm = document.getElementById('request-form');
     const questionContent = document.getElementById('question-content');
     const responseInput = document.getElementById('response-input') as HTMLTextAreaElement;
@@ -180,20 +175,274 @@ interface ToolCallInteraction {
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
 
+    // Tab content elements
+    const contentPending = document.getElementById('content-pending');
+    const contentTasks = document.getElementById('content-tasks');
+    const contentHistory = document.getElementById('content-history');
+    const tasksPlaceholder = document.getElementById('tasks-placeholder');
+
+    // History filter state
+    let currentHistoryFilter: string = 'all';
+
+    type HomeTab = 'pending' | 'history' | 'tasks';
+
+    function setHomeToolbarActiveTab(tab: HomeTab): void {
+        document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
+            const btnTab = btn.getAttribute('data-tab') as HomeTab | null;
+            const isActive = btnTab === tab;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        }
+
+        );
+    }
+
+    function formatBadgeCount(count: number): string {
+        if (count > 99) return '99+';
+        return String(count);
+    }
+
+    function setHomeToolbarBadge(kind: 'pending' | 'tasks' | 'history', count: number): void {
+        const el = document.querySelector(`.home-toolbar-badge[data-badge-for="${kind}"]`) as HTMLElement | null;
+        if (!el) return;
+
+        if (count <= 0) {
+            el.textContent = '';
+            el.classList.add('hidden');
+            return;
+        }
+
+        el.textContent = formatBadgeCount(count);
+        el.classList.remove('hidden');
+    }
+
+    function setHomeToolbarLabelWithCount(tab: HomeTab, count: number): void {
+        const btn = document.querySelector(`.home-toolbar-btn[data-tab="${tab}"]`) as HTMLElement | null;
+        if (!btn) return;
+
+        const base = btn.getAttribute('data-label') || btn.getAttribute('aria-label') || '';
+
+        const withCount = count > 0 ? `${base
+            }
+
+            (${count
+            }
+
+            )` : base;
+        btn.setAttribute('title', withCount);
+        btn.setAttribute('aria-label', withCount);
+    }
+
+    function updateHomeToolbarBadgesFromDom(): void {
+        const pendingRequestsCount = pendingRequestsList ? pendingRequestsList.querySelectorAll('.request-item').length : 0;
+
+        const pendingReviewsCount = pendingReviewsList ? pendingReviewsList.querySelectorAll('.pending-review-item').length : 0;
+
+        const pendingCount = pendingRequestsCount + pendingReviewsCount;
+
+        const tasksCount = pendingTaskListsList ? pendingTaskListsList.querySelectorAll('.task-list-item').length : 0;
+
+        const historyCount = historyList ? historyList.querySelectorAll('.history-item').length : 0;
+
+        // Keep UI minimal: numeric badge only for pending.
+        setHomeToolbarBadge('pending', pendingCount);
+        setHomeToolbarBadge('tasks', 0);
+        setHomeToolbarBadge('history', 0);
+
+        // Still expose counts via tooltip/aria without changing layout.
+        setHomeToolbarLabelWithCount('pending', pendingCount);
+        setHomeToolbarLabelWithCount('tasks', tasksCount);
+        setHomeToolbarLabelWithCount('history', historyCount);
+    }
+
+    function initHomeToolbar(): void {
+        document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = (btn.getAttribute('data-tab') || 'pending') as HomeTab;
+                switchTab(tab);
+            }
+
+            );
+        }
+
+        );
+
+        const clearBtn = document.querySelector('.home-toolbar-btn[data-action="clearHistory"]') as HTMLElement | null;
+
+        clearBtn?.addEventListener('click', () => {
+            vscode.postMessage({
+                type: 'clearHistory'
+            }
+
+            );
+        }
+
+        );
+    }
+
     /**
-     * Announce a message to screen readers via the live region
-     * @param message The message to announce
-     */
+ * Apply filter to history items
+ */
+    function applyHistoryFilter(filter: string): void {
+        currentHistoryFilter = filter;
+
+        // Update button active states
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
+        }
+
+        );
+
+        // Show/hide history items based on filter
+        if (historyList) {
+            historyList.querySelectorAll('.history-item').forEach(item => {
+                const type = item.getAttribute('data-type') || '';
+                let show = false;
+
+                if (filter === 'all') {
+                    show = true;
+                }
+
+                else if (filter === 'taskList') {
+                    show = type === 'taskList';
+                }
+
+                else if (filter === 'ask_user') {
+                    show = type === 'ask_user';
+                }
+
+                else if (filter === 'plan_review') {
+                    show = type === 'plan_review';
+                }
+
+                (item as HTMLElement).style.display = show ? '' : 'none';
+            }
+
+            );
+        }
+    }
+
+    /**
+ * Initialize history filter buttons
+ */
+    function initHistoryFilters(): void {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filter = btn.getAttribute('data-filter') || 'all';
+                applyHistoryFilter(filter);
+            }
+
+            );
+        }
+
+        );
+    }
+
+    /**
+ * Bind a single delegated handler for history list interactions.
+ * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
+ */
+    function initHistoryListDelegation(): void {
+        if (!historyList) return;
+
+        historyList.addEventListener('click', (e: Event) => {
+            const target = e.target as HTMLElement;
+
+            // Delete button takes precedence
+            const deleteBtn = target.closest('.history-item-delete') as HTMLElement | null;
+
+            if (deleteBtn) {
+                e.stopPropagation();
+                const id = deleteBtn.getAttribute('data-id');
+                const type = deleteBtn.getAttribute('data-type');
+                if (!id) return;
+
+                if (type === 'taskList') {
+                    vscode.postMessage({
+                        type: 'deleteTaskList', listId: id
+                    }
+
+                    );
+                }
+
+                else {
+                    vscode.postMessage({
+                        type: 'deleteInteraction', interactionId: id
+                    }
+
+                    );
+                }
+
+                return;
+            }
+
+            const item = target.closest('.history-item') as HTMLElement | null;
+            if (!item) return;
+
+            const id = item.getAttribute('data-id');
+            const type = item.getAttribute('data-type');
+            if (!id) return;
+
+            if (type === 'taskList') {
+                vscode.postMessage({
+                    type: 'openTaskList', listId: id
+                }
+
+                );
+            }
+
+            else if (type === 'plan_review') {
+                vscode.postMessage({
+                    type: 'openPlanReviewPanel', interactionId: id
+                }
+
+                );
+            }
+
+            else {
+                vscode.postMessage({
+                    type: 'selectInteraction', interactionId: id
+                }
+
+                );
+            }
+        }
+
+        );
+
+        historyList.addEventListener('keydown', (e: Event) => {
+            const keyEvent = e as KeyboardEvent;
+            if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+
+            const target = e.target as HTMLElement;
+            const item = target.closest('.history-item') as HTMLElement | null;
+            if (!item) return;
+
+            keyEvent.preventDefault();
+            (item as HTMLElement).click();
+        }
+
+        );
+    }
+
+    /**
+ * Announce a message to screen readers via the live region
+ * @param message The message to announce
+ */
     function announceToScreenReader(message: string): void {
         if (srAnnounce) {
             // Clear and set text to trigger announcement
             srAnnounce.textContent = '';
+
             // Use setTimeout to ensure the DOM change is detected
             setTimeout(() => {
                 srAnnounce.textContent = message;
-            }, 50);
+            }
+
+                , 50);
         }
     }
+
     const backBtn = document.getElementById('back-btn');
     const headerTitle = document.getElementById('header-title');
     const chipsContainer = document.getElementById('chips-container');
@@ -206,17 +455,70 @@ interface ToolCallInteraction {
     // Interaction history state
     let recentInteractions: ToolCallInteraction[] = [];
 
-    /**
- * Show the list of pending requests
- */
-    function showList(requests: RequestItem[]): void {
-        hasMultipleRequests = requests.length > 1;
+    type ElementChild = Node | string | null | undefined;
 
-        if (requests.length === 0) {
-            // No pending requests - show placeholder in pending section
-            if (pendingRequestsList) {
-                pendingRequestsList.innerHTML = `<p class="placeholder">${window.__STRINGS__?.noPendingRequests || 'No pending requests'}</p>`;
+    function clearChildren(element: Element): void {
+        // `replaceChildren()` é suportado no webview (Chromium).
+        element.replaceChildren();
+    }
+
+    function appendChildren(parent: Element, ...children: ElementChild[]): void {
+        for (const child of children) {
+            if (child === null || child === undefined) continue;
+            if (typeof child === 'string') {
+                parent.appendChild(document.createTextNode(child));
             }
+
+            else {
+                parent.appendChild(child);
+            }
+        }
+    }
+
+    function el<K extends keyof HTMLElementTagNameMap>(
+        tag: K,
+        options?: {
+            className?: string;
+            text?: string;
+            html?: string;
+            title?: string;
+            attrs?: Record<string, string>;
+        },
+        ...children: ElementChild[]
+    ): HTMLElementTagNameMap[K] {
+        const node = document.createElement(tag);
+
+        if (options?.className) node.className = options.className;
+        if (options?.title !== undefined) node.title = options.title;
+        if (options?.text !== undefined) node.textContent = options.text;
+        if (options?.html !== undefined) node.innerHTML = options.html;
+        if (options?.attrs) {
+            for (const [key, value] of Object.entries(options.attrs)) {
+                node.setAttribute(key, value);
+            }
+        }
+
+        appendChildren(node, ...children);
+        return node;
+    }
+
+    function codicon(name: string): HTMLSpanElement {
+        return el('span', { className: `codicon codicon-${name}` });
+    }
+
+    /**
+* Show the list of pending requests
+*/
+    function showList(requests: RequestItem[]): void {
+        if (requests.length === 0) {
+
+            // No pending requests - clear list and update placeholder
+            if (pendingRequestsList) {
+                clearChildren(pendingRequestsList);
+            }
+
+            updatePendingPlaceholder();
+            updateHomeToolbarBadgesFromDom();
             return;
         }
 
@@ -228,47 +530,43 @@ interface ToolCallInteraction {
 
         // Render pending requests in home view
         if (pendingRequestsList) {
-            pendingRequestsList.innerHTML = requests.map(req => `
-                <div class="request-item" data-id="${req.id}" tabindex="0">
-                    <div class="request-item-title">${escapeHtml(req.title)}</div>
-                    <div class="request-item-preview">${escapeHtml(truncate(req.question, 100))}</div>
-                    <div class="request-item-meta">${formatTime(req.createdAt)}</div>
-                </div>
-            `).join('');
+            clearChildren(pendingRequestsList);
 
-            // Bind click events
-            pendingRequestsList.querySelectorAll('.request-item').forEach(item => {
+            for (const req of requests) {
+                const item = el('div', {
+                    className: 'request-item',
+                    attrs: { 'data-id': req.id, tabindex: '0' }
+                });
+
+                const titleEl = el('div', { className: 'request-item-title', text: req.title });
+                const previewEl = el('div', { className: 'request-item-preview', text: truncate(req.question, 100) });
+                const metaEl = el('div', { className: 'request-item-meta', text: formatTime(req.createdAt) });
+
+                appendChildren(item, titleEl, previewEl, metaEl);
+
                 item.addEventListener('click', () => {
-                    const id = item.getAttribute('data-id');
-
-                    if (id) {
-                        vscode.postMessage({
-                            type: 'selectRequest', requestId: id
-                        });
-                    }
+                    vscode.postMessage({ type: 'selectRequest', requestId: req.id });
                 });
 
                 item.addEventListener('keydown', (e: Event) => {
                     const keyEvent = e as KeyboardEvent;
-
-                    if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-                        e.preventDefault();
-                        const id = (e.target as HTMLElement).getAttribute('data-id');
-
-                        if (id) {
-                            vscode.postMessage({
-                                type: 'selectRequest', requestId: id
-                            });
-                        }
-                    }
+                    if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+                    e.preventDefault();
+                    vscode.postMessage({ type: 'selectRequest', requestId: req.id });
                 });
-            });
+
+                pendingRequestsList.appendChild(item);
+            }
+
+            // Update placeholder visibility
+            updatePendingPlaceholder();
+            updateHomeToolbarBadgesFromDom();
         }
     }
 
     /**
- * Show the question form and hide other views
- */
+* Show the question form and hide other views
+*/
     function showQuestion(question: string, title: string, requestId: string): void {
         currentRequestId = requestId;
 
@@ -287,9 +585,10 @@ interface ToolCallInteraction {
             autoResizeTextarea();
         }
 
-        // Hide other views
+        // Hide ALL other views
         homeView?.classList.add('hidden');
         requestList?.classList.add('hidden');
+        interactionDetailView?.classList.add('hidden');
 
         // Show header and form
         requestHeader?.classList.remove('hidden');
@@ -303,26 +602,83 @@ interface ToolCallInteraction {
     }
 
     /**
-     * Show home view (pending requests + recent interactions)
-     */
+ * Switch between tabs in the home view
+ */
+    function switchTab(tab: 'pending' | 'history' | 'tasks'): void {
+        // Update content panes visibility
+        contentPending?.classList.toggle('hidden', tab !== 'pending');
+        contentTasks?.classList.toggle('hidden', tab !== 'tasks');
+        contentHistory?.classList.toggle('hidden', tab !== 'history');
+
+        setHomeToolbarActiveTab(tab);
+
+        // Announce tab change to screen readers
+        const tabNames: Record<string, string> = {
+            pending: window.__STRINGS__?.pendingItems || 'Pending Items',
+            history: window.__STRINGS__?.chatHistory || 'Chat History',
+            tasks: window.__STRINGS__?.taskLists || 'Task Lists'
+        }
+
+            ;
+
+        announceToScreenReader(`${tabNames[tab]
+            }
+
+                tab selected`);
+    }
+
+    /**
+ * Update the unified pending placeholder visibility
+ * Shows placeholder only when both requests and reviews are empty
+ */
+    function updatePendingPlaceholder(): void {
+        const hasRequests = ! !(pendingRequestsList && pendingRequestsList.children.length > 0);
+        const hasReviews = ! !(pendingReviewsList && pendingReviewsList.children.length > 0);
+
+        if (pendingPlaceholder) {
+            pendingPlaceholder.classList.toggle('hidden', hasRequests || hasReviews);
+        }
+    }
+
+    /**
+ * Update the tasks placeholder visibility
+ */
+    function updateTasksPlaceholder(): void {
+        const hasTaskLists = ! !(pendingTaskListsList && pendingTaskListsList.children.length > 0);
+
+        if (tasksPlaceholder) {
+            tasksPlaceholder.classList.toggle('hidden', hasTaskLists);
+        }
+    }
+
+    /**
+ * Show home view (pending requests + recent interactions)
+ */
     function showHome(): void {
         currentRequestId = null;
-        hasMultipleRequests = false;
+        currentInteractionId = null;
 
         // Hide other views
         requestForm?.classList.add('hidden');
         requestList?.classList.add('hidden');
         requestHeader?.classList.add('hidden');
+        interactionDetailView?.classList.add('hidden');
 
         // Show home view
         homeView?.classList.remove('hidden');
 
-        // Update pending requests placeholder if empty
-        if (pendingRequestsList && pendingRequestsList.children.length === 0) {
-            pendingRequestsList.innerHTML = `<p class="placeholder">${window.__STRINGS__?.noPendingRequests || 'No pending requests'}</p>`;
+        // Update unified pending placeholder
+        updatePendingPlaceholder();
+
+        // Update history list placeholder if empty
+        if (historyList && historyList.children.length === 0) {
+            historyList.innerHTML = `<p class="placeholder">${window.__STRINGS__?.noChats || 'No history yet'
+                }
+
+                </p>`;
         }
 
-        // Render recent interactions
+        // Render recent interactions (legacy)
         renderRecentInteractions();
 
         if (responseInput) {
@@ -331,23 +687,22 @@ interface ToolCallInteraction {
     }
 
     /**
-     * Extract a meaningful title from the LLM's input question
-     * Uses the first sentence (up to ~80 chars) as the title
-     */
+ * Extract a meaningful title from the LLM's input question
+ * Uses the first sentence (up to ~80 chars) as the title
+ */
     function extractTitleFromQuestion(question: string): string {
         if (!question) return 'Tool Call';
 
         // Remove markdown formatting for cleaner extraction
-        let text = question
-            .replace(/^\s*#+\s*/gm, '')  // Remove heading markers
-            .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove bold
-            .replace(/\*([^*]+)\*/g, '$1')  // Remove italic
-            .replace(/`([^`]+)`/g, '$1')  // Remove inline code
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // Remove links, keep text
+        let text = question.replace(/^\s*#+\s*/gm, '') // Remove heading markers
+            .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+            .replace(/\*([^*]+)\*/g, '$1') // Remove italic
+            .replace(/`([^`]+)`/g, '$1') // Remove inline code
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
             .trim();
 
         // Get first sentence (ending with . ! ? or first line)
-        const sentenceMatch = text.match(/^[^.!?\n]+[.!?]?/);
+        const sentenceMatch = text.match(/^[^. !?\n]+[. !?]?/);
         let firstSentence = sentenceMatch ? sentenceMatch[0].trim() : text.split('\n')[0].trim();
 
         // Truncate to ~80 chars if too long
@@ -362,107 +717,500 @@ interface ToolCallInteraction {
         if (!recentInteractionsList) return;
 
         if (recentInteractions.length === 0) {
-            recentInteractionsList.innerHTML = `<p class="placeholder">${window.__STRINGS__?.noRecentSessions || 'No recent tool calls'}</p>`;
+            clearChildren(recentInteractionsList);
+            recentInteractionsList.appendChild(el('p', {
+                className: 'placeholder',
+                text: window.__STRINGS__?.noRecentSessions || 'No recent tool calls'
+            }));
             return;
         }
 
-        recentInteractionsList.innerHTML = recentInteractions.map((interaction, index) => {
-            // Use first sentence of LLM's input as title instead of the redundant original title
-            const title = extractTitleFromQuestion(interaction.input.question);
+        clearChildren(recentInteractionsList);
+        const fragment = document.createDocumentFragment();
+
+        for (const [index, interaction] of recentInteractions.entries()) {
+            const titleText = extractTitleFromQuestion(interaction.input.question);
             const statusClass = interaction.status === 'completed' ? 'completed' : 'cancelled';
             const iconName = interaction.status === 'completed' ? 'check' : 'x';
+
             // Only first item (newest) is expanded by default
             const isExpanded = index === 0;
             const collapsedClass = isExpanded ? '' : 'collapsed';
-            const chevronIcon = isExpanded ? 'chevron-down' : 'chevron-right';
 
-            return `
-                <div class="interaction-item ${statusClass} ${collapsedClass}" data-interaction-id="${escapeHtml(interaction.id)}">
-                    <div class="interaction-header" role="button" tabindex="0" aria-expanded="${isExpanded}">
-                        <div class="interaction-chevron">
-                            <span class="codicon codicon-${chevronIcon}"></span>
-                        </div>
-                        <div class="interaction-icon">
-                            <span class="codicon codicon-${iconName}"></span>
-                        </div>
-                        <div class="interaction-title">${escapeHtml(title)}</div>
-                        <div class="interaction-time">${formatTime(interaction.timestamp)}</div>
-                    </div>
-                    <div class="interaction-body">
-                        <div class="interaction-section">
-                            <div class="interaction-section-label">
-                                <span class="codicon codicon-hubot"></span>
-                                AI
-                            </div>
-                            <div class="interaction-content">${renderMarkdown(interaction.input.question)}</div>
-                        </div>
-                        <div class="interaction-section">
-                            <div class="interaction-section-label">
-                                <span class="codicon codicon-account"></span>
-                                USER
-                            </div>
-                            <div class="interaction-content">${interaction.output.response ? escapeHtml(interaction.output.response) : '<em>No response</em>'}</div>
-                            ${interaction.output.attachments && interaction.output.attachments.length > 0 ? `
-                                <div class="interaction-attachments">
-                                    ${interaction.output.attachments.map(att => `
-                                        <span class="attachment-chip">
-                                            <span class="codicon codicon-${att.isFolder ? 'folder' : 'file'}"></span>
-                                            ${escapeHtml(att.name)}
-                                        </span>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Add click handlers to toggle collapsed state
-        recentInteractionsList.querySelectorAll('.interaction-header').forEach(header => {
-            header.addEventListener('click', () => {
-                const item = header.closest('.interaction-item');
-                if (item) {
-                    const isCollapsed = item.classList.toggle('collapsed');
-                    header.setAttribute('aria-expanded', String(!isCollapsed));
-                    const chevron = header.querySelector('.interaction-chevron .codicon');
-                    if (chevron) {
-                        chevron.className = `codicon codicon-${isCollapsed ? 'chevron-right' : 'chevron-down'}`;
-                    }
-                    // Announce state change to screen readers
-                    const title = item.querySelector('.interaction-title')?.textContent || 'Tool call';
-                    announceToScreenReader(`${title}, ${isCollapsed ? 'collapsed' : 'expanded'}`);
-                }
+            const item = el('div', {
+                className: `interaction-item ${statusClass} ${collapsedClass}`,
+                attrs: { 'data-interaction-id': interaction.id }
             });
 
+            const header = el('div', {
+                className: 'interaction-header',
+                attrs: { role: 'button', tabindex: '0', 'aria-expanded': String(isExpanded) }
+            });
+
+            const chevronWrap = el('div', { className: 'interaction-chevron' });
+            const chevronIcon = codicon(isExpanded ? 'chevron-down' : 'chevron-right');
+            chevronWrap.appendChild(chevronIcon);
+
+            const iconWrap = el('div', { className: 'interaction-icon' }, codicon(iconName));
+            const title = el('div', { className: 'interaction-title', text: titleText });
+            const time = el('div', { className: 'interaction-time', text: formatTime(interaction.timestamp) });
+            appendChildren(header, chevronWrap, iconWrap, title, time);
+
+            const body = el('div', { className: 'interaction-body' });
+
+            const aiSection = el('div', { className: 'interaction-section' });
+            const aiLabel = el('div', { className: 'interaction-section-label' });
+            appendChildren(aiLabel, codicon('hubot'), ' AI');
+            const aiContent = el('div', { className: 'interaction-content', html: renderMarkdown(interaction.input.question) });
+            appendChildren(aiSection, aiLabel, aiContent);
+
+            const userSection = el('div', { className: 'interaction-section' });
+            const userLabel = el('div', { className: 'interaction-section-label' });
+            appendChildren(userLabel, codicon('account'), ' USER');
+
+            const userContent = el('div', { className: 'interaction-content' });
+            if (interaction.output.response) {
+                userContent.textContent = interaction.output.response;
+            }
+
+            else {
+                userContent.appendChild(el('em', { text: window.__STRINGS__?.noResponse || 'No response' }));
+            }
+
+            appendChildren(userSection, userLabel, userContent);
+
+            if (interaction.output.attachments && interaction.output.attachments.length > 0) {
+                const attachments = el('div', { className: 'interaction-attachments' });
+                for (const att of interaction.output.attachments) {
+                    const chip = el('span', { className: 'attachment-chip' });
+                    appendChildren(chip, codicon(att.isFolder ? 'folder' : 'file'), ' ', att.name);
+                    attachments.appendChild(chip);
+                }
+                userSection.appendChild(attachments);
+            }
+
+            appendChildren(body, aiSection, userSection);
+            appendChildren(item, header, body);
+
+            const toggleCollapsed = (): void => {
+                const isCollapsed = item.classList.toggle('collapsed');
+                header.setAttribute('aria-expanded', String(!isCollapsed));
+                chevronIcon.className = `codicon codicon-${isCollapsed ? 'chevron-right' : 'chevron-down'}`;
+                announceToScreenReader(`${titleText}, ${isCollapsed ? 'collapsed' : 'expanded'}`);
+            };
+
+            header.addEventListener('click', toggleCollapsed);
             header.addEventListener('keydown', (e: Event) => {
                 const keyEvent = e as KeyboardEvent;
-                if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
-                    e.preventDefault();
-                    (header as HTMLElement).click();
-                }
+                if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+                e.preventDefault();
+                toggleCollapsed();
             });
-        });
+
+            fragment.appendChild(item);
+        }
+
+        recentInteractionsList.appendChild(fragment);
     }
 
     /**
- * Update attachments display - renders chips above textarea
- */
+     * Render pending plan reviews in the home view
+     */
+    function renderPendingReviews(reviews: StoredInteraction[]): void {
+        if (!pendingReviewsList) return;
+
+        if (reviews.length === 0) {
+            clearChildren(pendingReviewsList);
+            updatePendingPlaceholder();
+            updateHomeToolbarBadgesFromDom();
+            return;
+        }
+
+        clearChildren(pendingReviewsList);
+
+        for (const review of reviews) {
+            const item = el('div', {
+                className: 'request-item pending-review-item',
+                attrs: { 'data-id': review.id, tabindex: '0' }
+            });
+
+            const title = el('div', { className: 'request-item-title' });
+            appendChildren(title, codicon('file-text'), ' ', (review.title || 'Plan Review'));
+
+            const preview = el('div', { className: 'request-item-preview', text: truncate(review.plan || '', 100) });
+
+            const meta = el('div', { className: 'request-item-meta' });
+            const status = review.status || 'pending';
+            const statusBadge = el('span', { className: `status-badge status-${status}`, text: getStatusLabel(review.status) });
+            const time = el('span', { text: formatTime(review.timestamp) });
+            appendChildren(meta, statusBadge, ' ', time);
+
+            appendChildren(item, title, preview, meta);
+
+            item.addEventListener('click', () => {
+                vscode.postMessage({ type: 'openPlanReviewPanel', interactionId: review.id });
+            });
+
+            item.addEventListener('keydown', (e: Event) => {
+                const keyEvent = e as KeyboardEvent;
+                if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+                e.preventDefault();
+                vscode.postMessage({ type: 'openPlanReviewPanel', interactionId: review.id });
+            });
+
+            pendingReviewsList.appendChild(item);
+        }
+
+        // Update placeholder visibility
+        updatePendingPlaceholder();
+        updateHomeToolbarBadgesFromDom();
+    }
+
+    /**
+     * Render active task lists in the tasks tab
+     */
+    function renderActiveTaskLists(taskLists: TaskListSession[]): void {
+        if (!pendingTaskListsList) return;
+
+        if (taskLists.length === 0) {
+            clearChildren(pendingTaskListsList);
+            updateTasksPlaceholder();
+            updateHomeToolbarBadgesFromDom();
+            return;
+        }
+
+        clearChildren(pendingTaskListsList);
+
+        for (const taskList of taskLists) {
+            const completedCount = taskList.tasks.filter(t => t.status === 'completed').length;
+            const totalCount = taskList.tasks.length;
+            const progressText = `${completedCount}/${totalCount} ${window.__STRINGS__?.tasks || 'tasks'}`;
+
+            const item = el('div', {
+                className: 'request-item task-list-item',
+                attrs: { 'data-id': taskList.id, tabindex: '0' }
+            });
+
+            const title = el('div', { className: 'request-item-title' });
+            appendChildren(title, codicon('tasklist'), ' ', (taskList.title || 'Task List'));
+
+            const preview = el('div', { className: 'request-item-preview', text: progressText });
+
+            const meta = el('div', { className: 'request-item-meta' });
+            const badge = el('span', { className: 'status-badge status-active', text: window.__STRINGS__?.active || 'Active' });
+            const time = el('span', { text: formatTime(taskList.lastActivity) });
+            const deleteBtn = el('button', {
+                className: 'task-list-delete',
+                title: 'Remove',
+                attrs: { type: 'button', 'data-id': taskList.id }
+            }, codicon('trash'));
+
+            deleteBtn.addEventListener('click', (e: Event) => {
+                e.stopPropagation();
+                vscode.postMessage({ type: 'deleteTaskList', listId: taskList.id });
+            });
+
+            appendChildren(meta, badge, ' ', time, deleteBtn);
+            appendChildren(item, title, preview, meta);
+
+            item.addEventListener('click', (e: Event) => {
+                if ((e.target as HTMLElement).closest('.task-list-delete')) return;
+                vscode.postMessage({ type: 'openTaskList', listId: taskList.id });
+            });
+
+            item.addEventListener('keydown', (e: Event) => {
+                const keyEvent = e as KeyboardEvent;
+                if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+                e.preventDefault();
+                vscode.postMessage({ type: 'openTaskList', listId: taskList.id });
+            });
+
+            pendingTaskListsList.appendChild(item);
+        }
+
+        // Update placeholder visibility
+        updateTasksPlaceholder();
+        updateHomeToolbarBadgesFromDom();
+    }
+
+    /**
+     * Render unified history (ask_user + plan_review + closed task lists), sorted by timestamp desc.
+     */
+    function renderUnifiedHistory(interactions: StoredInteraction[], closedTaskLists: TaskListSession[]): void {
+        if (!historyList) return;
+
+        type UnifiedEntry = {
+            id: string;
+            type: 'ask_user' | 'plan_review' | 'taskList';
+            timestamp: number;
+            title: string;
+            preview: string;
+            status?: string;
+        }
+
+            ;
+
+        const entries: UnifiedEntry[] = [];
+
+        for (const interaction of interactions || []) {
+            const isPlanReview = interaction.type === 'plan_review';
+
+            const title = isPlanReview ? (interaction.title || 'Plan Review') : (interaction.agentName ? `${interaction.agentName}` : 'Ask User');
+            const preview = isPlanReview ? truncate(interaction.plan || '', 80) : truncate(interaction.question || '', 80);
+
+            entries.push({
+                id: interaction.id,
+                type: interaction.type,
+                timestamp: interaction.timestamp,
+                title,
+                preview,
+                status: interaction.status
+            }
+
+            );
+        }
+
+        for (const taskList of closedTaskLists || []) {
+            const completedCount = taskList.tasks.filter(t => t.status === 'completed').length;
+            const totalCount = taskList.tasks.length;
+
+            const progressText = `${completedCount}/${totalCount}${window.__STRINGS__?.tasks || 'tasks'}`;
+
+            entries.push({
+                id: taskList.id,
+                type: 'taskList',
+                timestamp: taskList.lastActivity || taskList.createdAt,
+                title: taskList.title || 'Task List',
+                preview: progressText
+            }
+
+            );
+        }
+
+        // Sort newest first, regardless of type
+        entries.sort((a, b) => b.timestamp - a.timestamp);
+
+        clearChildren(historyList);
+
+        if (entries.length === 0) {
+            historyList.appendChild(el('p', {
+                className: 'placeholder',
+                text: window.__STRINGS__?.noChats || 'No history yet'
+            }));
+            updateHomeToolbarBadgesFromDom();
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        for (const entry of entries) {
+            if (entry.type === 'taskList') {
+                const item = el('div', {
+                    className: 'history-item task-list-history-item',
+                    attrs: { 'data-id': entry.id, 'data-type': 'taskList', tabindex: '0' }
+                });
+
+                const header = el('div', { className: 'history-item-header' });
+                const title = el('span', { className: 'history-item-title', text: entry.title });
+                const deleteBtn = el('button', {
+                    className: 'history-item-delete',
+                    title: 'Remove',
+                    attrs: { type: 'button', 'data-id': entry.id, 'data-type': 'taskList' }
+                }, codicon('trash'));
+                appendChildren(header, codicon('tasklist'), ' ', title, deleteBtn);
+
+                const preview = el('div', { className: 'history-item-preview', text: entry.preview });
+                const meta = el('div', { className: 'history-item-meta' });
+                const closedBadge = el('span', { className: 'status-badge status-closed', text: window.__STRINGS__?.closed || 'Closed' });
+                const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
+                appendChildren(meta, closedBadge, ' ', time);
+
+                appendChildren(item, header, preview, meta);
+                fragment.appendChild(item);
+                continue;
+            }
+
+            const isPlanReview = entry.type === 'plan_review';
+            const icon = isPlanReview ? 'file-text' : 'comment';
+            const statusClass = entry.status || 'pending';
+
+            const item = el('div', {
+                className: 'history-item',
+                attrs: { 'data-id': entry.id, 'data-type': entry.type, tabindex: '0' }
+            });
+
+            const header = el('div', { className: 'history-item-header' });
+            const title = el('span', { className: 'history-item-title', text: entry.title });
+            const deleteBtn = el('button', {
+                className: 'history-item-delete',
+                title: 'Remove',
+                attrs: { type: 'button', 'data-id': entry.id }
+            }, codicon('trash'));
+            appendChildren(header, codicon(icon), ' ', title, deleteBtn);
+
+            const preview = el('div', { className: 'history-item-preview', text: entry.preview });
+            const meta = el('div', { className: 'history-item-meta' });
+            const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
+
+            if (isPlanReview) {
+                const statusBadge = el('span', {
+                    className: `status-badge status-${statusClass}`,
+                    text: getStatusLabel(entry.status)
+                });
+                appendChildren(meta, statusBadge, ' ', time);
+            }
+
+            else {
+                appendChildren(meta, time);
+            }
+
+            appendChildren(item, header, preview, meta);
+            fragment.appendChild(item);
+        }
+
+        historyList.appendChild(fragment);
+
+        // Apply current filter after render
+        applyHistoryFilter(currentHistoryFilter);
+
+        updateHomeToolbarBadgesFromDom();
+    }
+
+
+    /**
+     * Show interaction detail view (for ask_user)
+     */
+    function showInteractionDetail(interaction: StoredInteraction): void {
+        currentInteractionId = interaction.id;
+
+        // Hide ALL other views
+        homeView?.classList.add('hidden');
+        requestForm?.classList.add('hidden');
+        requestList?.classList.add('hidden');
+
+        // Show interaction detail view with header
+        interactionDetailView?.classList.remove('hidden');
+        requestHeader?.classList.remove('hidden');
+
+        // Set header title
+        if (headerTitle) {
+            const title = interaction.type === 'plan_review'
+                ? (interaction.title || 'Plan Review')
+                : (interaction.agentName ? `${interaction.agentName}: Ask User` : 'Ask User');
+            headerTitle.textContent = title;
+        }
+
+        // Render the detail content
+        if (interactionDetailView) {
+            const detailContent = interactionDetailView.querySelector('.interaction-detail-content') || interactionDetailView;
+
+            if (interaction.type === 'ask_user') {
+                const questionLabel = window.__STRINGS__?.question || 'Question';
+                const responseLabel = window.__STRINGS__?.response || 'Response';
+                const noResponseLabel = window.__STRINGS__?.noResponse || 'No response';
+                const attachmentsLabel = window.__STRINGS__?.attachments || 'Attachments';
+                const cancelledLabel = window.__STRINGS__?.cancelled || 'Cancelled';
+                const legacyCancelledValues = new Set([
+                    'Cancelled',
+                    'Request was cancelled',
+                    'Request cancelled',
+                    'All requests cancelled',
+                    'Agent stopped the request'
+                ]);
+                const isCancelled = interaction.status === 'cancelled'
+                    || interaction.response === cancelledLabel
+                    || (interaction.response ? legacyCancelledValues.has(interaction.response) : false);
+
+                const displayResponse = isCancelled
+                    ? ((interaction.response && !legacyCancelledValues.has(interaction.response)) ? interaction.response : cancelledLabel)
+                    : (interaction.response || noResponseLabel);
+
+                const attachmentsHtml = (interaction.attachments && interaction.attachments.length > 0)
+                    ? `
+                        <div class="detail-section">
+                            <div class="detail-label">
+                                <span class="codicon codicon-file"></span>
+                                ${attachmentsLabel}
+                            </div>
+                            <div class="detail-attachments">
+                                ${interaction.attachments.map(att => {
+                        const name = att.split('/').pop() || att;
+                        return `<span class="attachment-chip">${escapeHtml(name)}</span>`;
+                    }).join('')}
+                            </div>
+                        </div>
+                    `
+                    : '';
+
+                detailContent.innerHTML = `
+                    <div class="detail-section">
+                        <div class="detail-label">
+                            <span class="codicon codicon-question"></span>
+                            ${questionLabel}
+                        </div>
+                        <div class="detail-content markdown-content">${renderMarkdown(interaction.question || '')}</div>
+                    </div>
+                    <div class="detail-section">
+                        <div class="detail-label">
+                            <span class="codicon codicon-reply"></span>
+                            ${responseLabel}
+                        </div>
+                        <div class="detail-content ${isCancelled ? 'cancelled-response' : ''}">${escapeHtml(displayResponse)}</div>
+                    </div>
+                    ${attachmentsHtml}
+                    <div class="detail-meta">
+                        <span>${formatTime(interaction.timestamp)}</span>
+                    </div>
+                `;
+            }
+
+            else {
+
+                // For plan_review, redirect to panel
+                vscode.postMessage({
+                    type: 'openPlanReviewPanel', interactionId: interaction.id
+                }
+
+                );
+            }
+        }
+    }
+
+    /**
+     * Get localized status label
+     */
+    function getStatusLabel(status?: string): string {
+        switch (status) {
+            case 'approved': return window.__STRINGS__?.approved || 'Approved';
+            case 'recreateWithChanges': return window.__STRINGS__?.rejected || 'Rejected';
+            case 'acknowledged': return window.__STRINGS__?.acknowledged || 'Acknowledged';
+            case 'pending': return window.__STRINGS__?.pending || 'Pending';
+            case 'cancelled': return window.__STRINGS__?.cancelled || 'Cancelled';
+            default: return window.__STRINGS__?.pending || 'Pending';
+        }
+    }
+
+    /**
+    * Update attachments display - renders chips above textarea
+    */
     function updateAttachmentsDisplay(): void {
         updateChipsDisplay();
     }
 
     /**
- * Update chips display above textarea
- */
+    * Update chips display above textarea
+    */
     function updateChipsDisplay(): void {
         if (!chipsContainer) return;
 
         if (currentAttachments.length === 0) {
             chipsContainer.classList.add('hidden');
             chipsContainer.innerHTML = '';
-        } else {
+        }
+
+        else {
             chipsContainer.classList.remove('hidden');
+
             chipsContainer.innerHTML = currentAttachments.map(att => {
                 const isImage = att.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name);
                 const isFolder = att.isFolder;
@@ -477,59 +1225,68 @@ interface ToolCallInteraction {
                     iconClass = 'folder';
                     chipClass = 'chip chip-folder';
                     // No depth indicator - just show folder name
-                } else if (isImage) {
+                }
+
+                else if (isImage) {
                     displayName = att.id.startsWith('img_') ? 'Pasted Image' : att.name;
                     iconClass = 'file-media';
                     chipClass = 'chip chip-image';
-                } else {
+                }
+
+                else {
                     displayName = att.name;
                     iconClass = getFileIcon(att.name);
                     chipClass = 'chip';
                 }
 
-                return `
-                <div class="${chipClass}" data-id="${att.id}" title="${escapeHtml(att.folderPath || att.uri || att.name)}">
-                    <span class="chip-icon"><span class="codicon codicon-${iconClass}"></span></span>
-                    <span class="chip-text">${escapeHtml(displayName)}</span>
-                    <button class="chip-remove" data-remove="${att.id}" title="${window.__STRINGS__?.remove || 'Remove'}" aria-label="Remove ${escapeHtml(att.name)}">
-                        <span class="codicon codicon-close"></span>
-                    </button>
-                </div>
-            `;
-            }).join('');
+                return ` <div class="${chipClass}"data-id="${att.id}"title="${escapeHtml(att.folderPath || att.uri || att.name)}"> <span class="chip-icon"><span class="codicon codicon-${iconClass}"></span></span> <span class="chip-text">${escapeHtml(displayName)
+                    }
+
+                    </span> <button class="chip-remove"data-remove="${att.id}"title="${window.__STRINGS__?.remove || 'Remove'}"aria-label="Remove ${escapeHtml(att.name)}"> <span class="codicon codicon-close"></span> </button> </div> `;
+            }
+
+            ).join('');
 
             // Bind remove buttons
             chipsContainer.querySelectorAll('.chip-remove').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const attId = (btn as HTMLElement).getAttribute('data-remove');
+
                     if (attId) {
                         removeAttachment(attId);
                     }
-                });
-            });
+                }
+
+                );
+            }
+
+            );
         }
     }
 
     /**
- * Remove an attachment by ID
- */
+    * Remove an attachment by ID
+    */
     function removeAttachment(attachmentId: string): void {
         if (currentRequestId) {
             vscode.postMessage({
                 type: 'removeAttachment',
                 requestId: currentRequestId,
                 attachmentId: attachmentId
-            });
+            }
+
+            );
         }
+
         // Optimistically update local state
         currentAttachments = currentAttachments.filter(a => a.id !== attachmentId);
         updateChipsDisplay();
     }
 
     /**
- * Handle submit button click
- */
+    * Handle submit button click
+    */
     function handleSubmit(): void {
         const response = responseInput?.value.trim() || '';
 
@@ -539,7 +1296,9 @@ interface ToolCallInteraction {
                 response: response,
                 requestId: currentRequestId,
                 attachments: currentAttachments
-            });
+            }
+
+            );
         }
 
         currentAttachments = [];
@@ -547,14 +1306,16 @@ interface ToolCallInteraction {
     }
 
     /**
- * Handle cancel button click
- */
+    * Handle cancel button click
+    */
     function handleCancel(): void {
         if (currentRequestId) {
             vscode.postMessage({
                 type: 'cancel',
                 requestId: currentRequestId
-            });
+            }
+
+            );
         }
 
         currentAttachments = [];
@@ -565,21 +1326,27 @@ interface ToolCallInteraction {
      * Handle back button click
      */
     function handleBack(): void {
-        // Go back to list or home
-        vscode.postMessage({ type: 'backToList' });
-    }
 
-    /**
-     * Handle add attachment button click
-     */
-    function handleAddAttachment(): void {
-        if (currentRequestId) {
+        // If viewing any detail, go back to home
+        if (currentInteractionId) {
             vscode.postMessage({
-                type: 'addAttachment',
-                requestId: currentRequestId
-            });
+                type: 'backToHome'
+            }
+
+            );
+        }
+
+        else {
+
+            // Go back to list or home
+            vscode.postMessage({
+                type: 'backToList'
+            }
+
+            );
         }
     }
+
 
     // Utility functions
     function escapeHtml(str: string): string {
@@ -605,12 +1372,13 @@ interface ToolCallInteraction {
     }
 
     /**
- * Get Codicon icon name for a file based on its extension
- */
+    * Get Codicon icon name for a file based on its extension
+    */
     function getFileIcon(filename: string): string {
         const ext = filename.split('.').pop()?.toLowerCase() || '';
 
-        const iconMap: Record<string, string> = {
+        const iconMap: Record<string,
+            string> = {
             // TypeScript/JavaScript
             'ts': 'file-code',
             'tsx': 'file-code',
@@ -702,7 +1470,9 @@ interface ToolCallInteraction {
         if (results.length === 0) {
             autocompleteList.classList.add('hidden');
             autocompleteEmpty.classList.remove('hidden');
-        } else {
+        }
+
+        else {
             autocompleteList.classList.remove('hidden');
             autocompleteEmpty.classList.add('hidden');
             renderAutocompleteList();
@@ -737,31 +1507,35 @@ interface ToolCallInteraction {
     function renderAutocompleteList(): void {
         if (!autocompleteList) return;
 
-        autocompleteList.innerHTML = autocompleteResults.map((file, index) => `
-            <div class="autocomplete-item${index === selectedAutocompleteIndex ? ' selected' : ''}" 
-                 data-index="${index}" tabindex="-1">
-                <span class="autocomplete-item-icon">
-                    <span class="codicon codicon-${file.icon}"></span>
-                </span>
-                <div class="autocomplete-item-content">
-                    <span class="autocomplete-item-name">${escapeHtml(file.name)}</span>
-                    <span class="autocomplete-item-path">${escapeHtml(file.path)}</span>
-                </div>
-            </div>
-        `).join('');
+        autocompleteList.innerHTML = autocompleteResults.map((file, index) => ` <div class="autocomplete-item${index === selectedAutocompleteIndex ? ' selected' : ''}"
+
+            data-index="${index}"tabindex="-1"> <span class="autocomplete-item-icon"> <span class="codicon codicon-${file.icon}"></span> </span> <div class="autocomplete-item-content"> <span class="autocomplete-item-name">${escapeHtml(file.name)
+            }
+
+            </span> <span class="autocomplete-item-path">${escapeHtml(file.path)
+            }
+
+            </span> </div> </div> `).join('');
 
         // Bind click events
         autocompleteList.querySelectorAll('.autocomplete-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 const index = parseInt((item as HTMLElement).getAttribute('data-index') || '0', 10);
                 selectAutocompleteItem(index);
-            });
+            }
+
+            );
+
             item.addEventListener('mouseenter', () => {
                 const index = parseInt((item as HTMLElement).getAttribute('data-index') || '0', 10);
                 selectedAutocompleteIndex = index;
                 updateAutocompleteSelection();
-            });
-        });
+            }
+
+            );
+        }
+
+        );
 
         scrollToSelectedItem();
     }
@@ -775,10 +1549,14 @@ interface ToolCallInteraction {
         autocompleteList.querySelectorAll('.autocomplete-item').forEach((item, index) => {
             if (index === selectedAutocompleteIndex) {
                 item.classList.add('selected');
-            } else {
+            }
+
+            else {
                 item.classList.remove('selected');
             }
-        });
+        }
+
+        );
 
         scrollToSelectedItem();
     }
@@ -790,8 +1568,13 @@ interface ToolCallInteraction {
         if (!autocompleteList) return;
 
         const selectedItem = autocompleteList.querySelector('.autocomplete-item.selected') as HTMLElement;
+
         if (selectedItem) {
-            selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            selectedItem.scrollIntoView({
+                block: 'nearest', behavior: 'smooth'
+            }
+
+            );
         }
     }
 
@@ -809,7 +1592,10 @@ interface ToolCallInteraction {
         const cursorPos = responseInput.selectionStart;
 
         // Build the reference text in format #filename
-        const referenceText = `#${file.name} `;
+        const referenceText = `#${file.name
+            }
+
+        `;
 
         // Replace from # position to current cursor with the reference
         const beforeHash = value.substring(0, autocompleteStartPos);
@@ -839,8 +1625,18 @@ interface ToolCallInteraction {
      */
     function addFileAttachment(file: FileSearchResult, isTextReference: boolean = false): void {
         const isFolder = file.isFolder === true;
+
         const attachment: AttachmentInfo = {
-            id: `${isFolder ? 'folder' : 'file'}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+            id: `${isFolder ? 'folder' : 'file'
+                }
+
+            _${Date.now()
+                }
+
+            _${Math.random().toString(36).substring(2, 8)
+                }
+
+            `,
             // Note: substring(2, 8) extracts 6 chars starting at index 2, equivalent to deprecated substr(2, 6)
             name: file.name,
             uri: file.uri,
@@ -848,8 +1644,10 @@ interface ToolCallInteraction {
             isTextReference: isTextReference,
             isFolder: isFolder,
             folderPath: isFolder ? file.path : undefined,
-            depth: isFolder ? -1 : undefined  // Default to recursive for autocomplete-added folders
-        };
+            depth: isFolder ? -1 : undefined // Default to recursive for autocomplete-added folders
+        }
+
+            ;
 
         currentAttachments.push(attachment);
         updateChipsDisplay();
@@ -860,7 +1658,9 @@ interface ToolCallInteraction {
                 type: 'addFileReference',
                 requestId: currentRequestId,
                 file: file
-            });
+            }
+
+            );
         }
     }
 
@@ -875,7 +1675,7 @@ interface ToolCallInteraction {
         responseInput.style.overflow = 'hidden';
 
         // Min and max heights
-        const minHeight = 24;  // Single line
+        const minHeight = 24; // Single line
         const maxHeight = 200; // Max before scrolling
 
         // Calculate new height based on scroll height
@@ -907,12 +1707,15 @@ interface ToolCallInteraction {
 
         // Look backward from cursor to find # trigger
         let hashPos = -1;
+
         for (let i = cursorPos - 1; i >= 0; i--) {
             const char = value[i];
+
             if (char === '#') {
                 hashPos = i;
                 break;
             }
+
             // Stop if we hit a space before finding #
             if (char === ' ' || char === '\n') {
                 break;
@@ -934,9 +1737,16 @@ interface ToolCallInteraction {
                 vscode.postMessage({
                     type: 'searchFiles',
                     query: query
-                });
-            }, 150);
-        } else {
+                }
+
+                );
+            }
+
+                , 150);
+        }
+
+        else {
+
             // No # trigger - hide autocomplete
             if (autocompleteVisible) {
                 hideAutocomplete();
@@ -954,6 +1764,7 @@ interface ToolCallInteraction {
         const toRemove: string[] = [];
 
         currentAttachments.forEach(att => {
+
             // Keep pasted/dropped images - they don't have text references
             if (att.isImage && att.id.startsWith('img_')) {
                 return;
@@ -967,16 +1778,21 @@ interface ToolCallInteraction {
 
             // For text-referenced files, check if #filename still exists in text
             const reference = `#${att.name}`;
+
             if (!text.includes(reference)) {
                 toRemove.push(att.id);
             }
-        });
+        }
+
+        );
 
         // Remove attachments that no longer have text references
         if (toRemove.length > 0) {
             toRemove.forEach(id => {
                 removeAttachment(id);
-            });
+            }
+
+            );
         }
     }
 
@@ -991,14 +1807,18 @@ interface ToolCallInteraction {
         if (!event.clipboardData) return;
 
         const items = event.clipboardData.items;
+
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
+
             if (item.type.startsWith('image/')) {
                 event.preventDefault();
                 const file = item.getAsFile();
+
                 if (file) {
                     processImageFile(file);
                 }
+
                 return;
             }
         }
@@ -1009,6 +1829,7 @@ interface ToolCallInteraction {
      */
     function handleDragEnter(event: DragEvent): void {
         event.preventDefault();
+
         if (hasImageInDrag(event)) {
             dropZone?.classList.remove('hidden');
         }
@@ -1019,6 +1840,7 @@ interface ToolCallInteraction {
      */
     function handleDragOver(event: DragEvent): void {
         event.preventDefault();
+
         if (hasImageInDrag(event)) {
             event.dataTransfer!.dropEffect = 'copy';
         }
@@ -1030,6 +1852,7 @@ interface ToolCallInteraction {
     function handleDragLeave(event: DragEvent): void {
         // Only hide if leaving the drop zone entirely
         const related = event.relatedTarget as Node | null;
+
         if (!dropZone?.contains(related)) {
             dropZone?.classList.add('hidden');
         }
@@ -1045,8 +1868,10 @@ interface ToolCallInteraction {
         if (!event.dataTransfer) return;
 
         const files = event.dataTransfer.files;
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
+
             if (file.type.startsWith('image/')) {
                 processImageFile(file);
             }
@@ -1060,15 +1885,18 @@ interface ToolCallInteraction {
         if (!event.dataTransfer) return false;
 
         const types = event.dataTransfer.types;
+
         if (types.includes('Files')) {
             // Check items for image type
             const items = event.dataTransfer.items;
+
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.startsWith('image/')) {
                     return true;
                 }
             }
         }
+
         return false;
     }
 
@@ -1077,17 +1905,23 @@ interface ToolCallInteraction {
      */
     function processImageFile(file: File): void {
         const reader = new FileReader();
+
         reader.onload = (e) => {
             const dataUrl = e.target?.result as string;
+
             if (dataUrl && currentRequestId) {
                 vscode.postMessage({
                     type: 'saveImage',
                     requestId: currentRequestId,
                     data: dataUrl,
                     mimeType: file.type
-                });
+                }
+
+                );
             }
-        };
+        }
+
+            ;
         reader.readAsDataURL(file);
     }
 
@@ -1102,14 +1936,15 @@ interface ToolCallInteraction {
     // Attach button click handler - opens file picker
     attachBtn?.addEventListener('click', () => {
         if (currentRequestId) {
-            vscode.postMessage({ type: 'addAttachment', requestId: currentRequestId });
-        }
-    });
+            vscode.postMessage({
+                type: 'addAttachment', requestId: currentRequestId
+            }
 
-    // Clear history button handler
-    clearHistoryBtn?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'clearHistory' });
-    });
+            );
+        }
+    }
+
+    );
 
     // Textarea input handler for # autocomplete trigger
     responseInput?.addEventListener('input', handleTextareaInput);
@@ -1132,32 +1967,34 @@ interface ToolCallInteraction {
 
     // Handle keyboard navigation in textarea (for autocomplete and submit)
     responseInput?.addEventListener('keydown', (event: KeyboardEvent) => {
+
         // Autocomplete navigation
         if (autocompleteVisible) {
             switch (event.key) {
-                case 'ArrowDown':
-                    event.preventDefault();
+                case 'ArrowDown': event.preventDefault();
+
                     if (selectedAutocompleteIndex < autocompleteResults.length - 1) {
                         selectedAutocompleteIndex++;
                         updateAutocompleteSelection();
                     }
+
                     return;
-                case 'ArrowUp':
-                    event.preventDefault();
+                case 'ArrowUp': event.preventDefault();
+
                     if (selectedAutocompleteIndex > 0) {
                         selectedAutocompleteIndex--;
                         updateAutocompleteSelection();
                     }
+
                     return;
-                case 'Enter':
-                case 'Tab':
-                    if (selectedAutocompleteIndex >= 0) {
-                        event.preventDefault();
-                        selectAutocompleteItem(selectedAutocompleteIndex);
-                    }
-                    return;
-                case 'Escape':
+
+                case 'Enter': case 'Tab': if (selectedAutocompleteIndex >= 0) {
                     event.preventDefault();
+                    selectAutocompleteItem(selectedAutocompleteIndex);
+                }
+
+                    return;
+                case 'Escape': event.preventDefault();
                     hideAutocomplete();
                     return;
             }
@@ -1169,78 +2006,140 @@ interface ToolCallInteraction {
                 // Ctrl+Enter or Shift+Enter: insert new line (let default behavior)
                 return;
             }
+
             // Enter alone: submit
             event.preventDefault();
             handleSubmit();
         }
-    });
+    }
+
+    );
 
     // Listen for messages from the Extension Host
     window.addEventListener('message', (event: MessageEvent) => {
         const message = event.data;
 
         switch (message.type) {
-            case 'showQuestion':
-                showQuestion(message.question, message.title, message.requestId);
+            case 'showQuestion': showQuestion(message.question, message.title, message.requestId);
                 break;
-            case 'showList':
-                showList(message.requests);
+            case 'showList': showList(message.requests);
                 break;
-            case 'showHome':
-                recentInteractions = message.recentInteractions || [];
+            case 'showHome': recentInteractions = message.recentInteractions || [];
                 showHome();
-                // Also update pending requests if provided
+
+                // Update pending requests if provided
                 if (message.pendingRequests) {
                     showList(message.pendingRequests);
                 }
-                break;
-            case 'updateAttachments':
-                if (message.requestId === currentRequestId) {
-                    // Preserve flags from existing attachments when updating
-                    const existingFlags = new Map(
-                        currentAttachments.map(a => [a.id, { isImage: a.isImage, isTextReference: a.isTextReference }])
-                    );
-                    currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
-                        const existing = existingFlags.get(att.id);
-                        return {
-                            ...att,
-                            isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
-                            isTextReference: att.isTextReference ?? existing?.isTextReference ?? false
-                        };
-                    });
-                    updateAttachmentsDisplay();
+
+                // Update pending plan reviews if provided
+                if (message.pendingPlanReviews) {
+                    renderPendingReviews(message.pendingPlanReviews);
                 }
-                break;
-            case 'fileSearchResults':
-                if (autocompleteQuery !== undefined) {
-                    showAutocomplete(message.files || []);
+
+                // Update active task lists if provided
+                if (message.activeTaskLists) {
+                    renderActiveTaskLists(message.activeTaskLists);
                 }
+
+                // Update history interactions if provided
+                renderUnifiedHistory(message.historyInteractions || [], message.closedTaskLists || []);
+                // Auto-switch to pending tab if there are pending requests/reviews
+                // Task lists are now in their own tab
+                const totalPending = (message.pendingRequests?.length || 0) + (message.pendingPlanReviews?.length || 0);
+
+                if (totalPending > 0) {
+                    switchTab('pending');
+                }
+
+                else if (message.activeTaskLists?.length || 0 > 0) {
+                    // If no pending items but there are active task lists, show tasks tab
+                    switchTab('tasks');
+                }
+
                 break;
-            case 'imageSaved':
-                if (message.requestId === currentRequestId && message.attachment) {
-                    // Add to local attachments if not already there
-                    const exists = currentAttachments.some(a => a.id === message.attachment.id);
-                    if (!exists) {
-                        currentAttachments.push({
-                            ...message.attachment,
-                            isImage: true
-                        });
-                        updateChipsDisplay();
+            case 'showInteractionDetail': showInteractionDetail(message.interaction);
+                break;
+
+            case 'updateAttachments': if (message.requestId === currentRequestId) {
+
+                // Preserve flags from existing attachments when updating
+                const existingFlags = new Map(currentAttachments.map(a => [a.id, {
+                    isImage: a.isImage, isTextReference: a.isTextReference
+                }
+
+                ]));
+
+                currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
+                    const existing = existingFlags.get(att.id);
+
+                    return {
+                        ...att,
+                        isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
+                        isTextReference: att.isTextReference ?? existing?.isTextReference ?? false
+                    };
+                }
+
+                );
+                updateAttachmentsDisplay();
+            }
+
+                break;
+
+            case 'fileSearchResults': if (autocompleteQuery !== undefined) {
+                showAutocomplete(message.files || []);
+            }
+
+                break;
+
+            case 'imageSaved': if (message.requestId === currentRequestId && message.attachment) {
+                // Add to local attachments if not already there
+                const exists = currentAttachments.some(a => a.id === message.attachment.id);
+
+                if (!exists) {
+                    currentAttachments.push({
+                        ...message.attachment,
+                        isImage: true
                     }
+
+                    );
+                    updateChipsDisplay();
                 }
+            }
+
                 break;
-            case 'clear':
-                showHome();
+
+            case 'switchTab': if (message.tab) {
+                switchTab(message.tab);
+            }
+
+                break;
+            case 'clear': showHome();
                 hideAutocomplete();
                 break;
         }
-    });
+    }
 
-})();
+    );
+
+    // Initialize history filters
+    initHistoryFilters();
+
+    // Initialize in-webview toolbar (top buttons)
+    initHomeToolbar();
+
+    // Initialize delegated handler for history list clicks/keys
+    initHistoryListDelegation();
+
+}
+
+)();
 
 // Type declaration for VS Code API
 declare function acquireVsCodeApi(): {
     postMessage(message: unknown): void;
     getState(): unknown;
     setState(state: unknown): void;
-};
+}
+
+    ;

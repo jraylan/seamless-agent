@@ -18,13 +18,27 @@
       <div class="header">
         <h1 id="plan-title">{{paneTitle}}</h1>
         <div class="header-actions">
-          <button id="approve-btn" class="btn btn-primary">
-            <span class="codicon codicon-check"></span>
-            {{approve}}
+          <!-- Export button (always visible) -->
+          <button id="export-btn" class="btn btn-icon" title="{{export}}">
+            <span class="codicon codicon-cloud-download"></span>
           </button>
-          <button id="reject-btn" class="btn btn-secondary">
-            <span class="codicon codicon-edit"></span>
-            {{reject}}
+
+          <!-- Read-only badge (hidden by default) -->
+          <span id="readonly-badge" class="badge readonly-badge hidden">
+            <span class="codicon codicon-eye"></span>
+            {{readOnly}}
+          </span>
+
+          <!-- Primary action button (dynamic based on mode) -->
+          <button id="primary-btn" class="btn btn-primary">
+            <span id="primary-icon" class="codicon codicon-check"></span>
+            <span id="primary-text">{{approve}}</span>
+          </button>
+
+          <!-- Secondary action button (dynamic, hidden in some modes) -->
+          <button id="secondary-btn" class="btn btn-secondary">
+            <span id="secondary-icon" class="codicon codicon-edit"></span>
+            <span id="secondary-text">{{reject}}</span>
           </button>
         </div>
       </div>
@@ -83,6 +97,14 @@
         editComment: "{{editComment}}",
         removeComment: "{{removeComment}}",
         noComments: "{{noComments}}",
+        approve: "{{approve}}",
+        reject: "{{reject}}",
+        acknowledge: "{{acknowledge}}",
+        continue: "{{continue}}",
+        done: "{{done}}",
+        close: "{{close}}",
+        readOnlyMessage: "{{readOnlyMessage}}",
+        rejectRequiresComments: "{{rejectRequiresComments}}",
       };
     </script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>

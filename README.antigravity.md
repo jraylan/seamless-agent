@@ -18,9 +18,40 @@ A Language Model tool that enables Copilot to interactively prompt you for confi
 - **Task Validation** — Confirm whether a task was fulfilled your specs
 - **Seamless Integration** — Works naturally within the Copilot Chat workflow
 
+### Plan Review Tool (`plan_review`)
+
+Present Markdown content for review (approve/request changes) in a dedicated panel.
+
+- **Targeted Feedback** — Comments anchored to specific parts
+- **Structured Output** — Returns `{ status, requiredRevisions, reviewId }`
+
+### Walkthrough Review Tool (`walkthrough_review`)
+
+Present Markdown content as a step-by-step walkthrough for review (approve/request changes) in a dedicated panel.
+
+- **Comment Support** — Comments anchored to specific parts
+- **Structured Output** — Returns `{ status, requiredRevisions, reviewId }`
+
+### Task List Flow Tools (recommended)
+
+Interactive task lists visible in real-time (with a dedicated panel). This is the recommended flow for task execution **with comments arriving before execution**:
+
+- `createTaskList` → creates the list and returns `listId`
+- `getNextTask` → returns the next pending task **plus pending comments for that task**
+- `updateTaskStatus` → updates status (in-progress / completed / blocked). Then call `getNextTask` again
+- `closeTaskList` → archives the list and returns a summary
+
 ## Usage
 
-Once installed, the `ask_user` tool is automatically available to your Agent.
+Once installed, the MCP tools are automatically available to your Agent (tool names may appear as `mcp_<toolName>` depending on the client):
+
+- `ask_user`
+- `plan_review`
+- `walkthrough_review`
+- `createTaskList`
+- `getNextTask`
+- `updateTaskStatus`
+- `closeTaskList`
 
 ### Automatic Usage
 
@@ -35,12 +66,14 @@ Copilot will automatically use this tool when it needs your confirmation. When t
 
 ### Recommended System Prompt
 
-To ensure the AI always asks for your confirmation before completing tasks, add the a custom rule similar to the following:
+To ensure the AI always asks for your confirmation before completing tasks, add a custom rule similar to the following:
 
 ```
 # Ground rules NEVER BREAK IT, NO EXCEPTIONS
-- Whenever you have a question, or a decision to make, always ask the user through the tool `mcp_ask_user `
-- Never stop a task without permission from the tool `mcp_ask_user`
+- Whenever you have a question, or a decision to make, always ask the user through the tool `ask_user` (or `mcp_ask_user`)
+- Never stop a task without permission from the tool `ask_user` (or `mcp_ask_user`)
+
+- When using task lists, follow the loop: createTaskList → getNextTask → (process comments) → updateTaskStatus → getNextTask → ... → closeTaskList
 ```
 
 You can add this in Antigravity by opening the `Agent Option`, inside the `Agent` panel, and clicking in the option `Customizations`. Then you add a new `Rule` for general use or `Workflow` or specifics workflows.
@@ -80,7 +113,7 @@ The MCP config uses the standard command format:
 
 - **Node.js not found**: Ensure Node.js is installed and available in your system PATH
 - **Connection issues**: Use the "Restart API" button in the status bar to restart the service
-- **Agent aren't using the tool**: Inside the `Agent` panel, open the `Agent Option` and click in `MCP Server`. Click in the `Refresh` button and wait for a few seconds. If nothing changes, click `Restart API` in the status bar and try again.
+- **Agent isn't using the tools**: Inside the `Agent` panel, open `Agent Option` → `MCP Server`. Click `Refresh` and wait a few seconds. If nothing changes, click `Restart API` in the status bar and try again.
 
 ## Extension Settings
 

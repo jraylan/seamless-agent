@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser } from '../tools';
+import { askUser, planReview, parsePlanReviewInput, PlanReviewInput } from '../tools';
 
 const MAX_REQUEST_BODY_BYTES = 256 * 1024; // 256KB
 
@@ -52,6 +52,12 @@ export class ApiServiceManager {
                     // Ask user endpoint
                     if (url === '/ask_user' && req.method === 'POST') {
                         await this.handleAskUser(req, res);
+                        return;
+                    }
+
+                    // Plan review endpoint
+                    if (url === '/plan_review' && req.method === 'POST') {
+                        await this.handlePlanReview(req, res);
                         return;
                     }
 
@@ -157,6 +163,78 @@ export class ApiServiceManager {
                 responded: false,
                 response: `Error: ${error}`,
                 attachments: [],
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /plan_review requests
+     */
+    private async handlePlanReview(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        // Parse request body
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        // Parse and validate with Zod schema
+        let params: PlanReviewInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parsePlanReviewInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        // Create a cancellation token
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await planReview(
+                params,
+                this.context,
+                this.provider,
+                tokenSource.token
+            );
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'cancelled',
+                comments: [],
+                reviewId: '',
+                error: `Error: ${error}`,
             }));
         } finally {
             tokenSource.dispose();

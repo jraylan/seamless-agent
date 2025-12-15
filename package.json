@@ -138,11 +138,12 @@
           "review",
           "user-interaction",
           "seamless-agent",
-          "feedback"
+          "feedback",
+          "deprecated"
         ],
         "toolReferenceName": "approvePlan",
-        "displayName": "Approve Plan",
-        "modelDescription": "Present a detailed plan to the user for review and approval. The plan should be in Markdown format. The user can add comments to specific lines and either approve or request changes. Use this tool when you have created a multi-step plan that needs user validation before execution. Returns an object with 'approved' (boolean) and 'comments' (array of {citation, comment} objects with user feedback on specific sections).",
+        "displayName": "Approve Plan (Deprecated)",
+        "modelDescription": "[DEPRECATED - Use plan_review instead] Present a plan to user for approval. Returns {status, requiredRevisions[]}. CRITICAL: When status='recreateWithChanges', IMMEDIATELY apply ALL changes from requiredRevisions and resubmit. DO NOT ask user - just apply and resubmit. Status values: 'approved' (continue), 'recreateWithChanges' (apply changes NOW and resubmit), 'cancelled' (retry). NOTE: Use 'plan_review' tool instead.",
         "canBeReferencedInPrompt": true,
         "icon": "$(checklist)",
         "inputSchema": {
@@ -161,6 +162,265 @@
             "plan"
           ]
         }
+      },
+      {
+        "name": "plan_review",
+        "tags": [
+          "planning",
+          "review",
+          "user-interaction",
+          "seamless-agent",
+          "feedback"
+        ],
+        "toolReferenceName": "planReview",
+        "displayName": "Plan Review",
+        "modelDescription": "Present a plan to the user for approval (review mode). Returns {status, requiredRevisions[], reviewId}. CRITICAL: When status='recreateWithChanges', IMMEDIATELY apply ALL changes from requiredRevisions and call this tool again with the updated plan. DO NOT ask questions. When status='approved', proceed. When status='cancelled', retry.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(checklist)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "plan": {
+              "type": "string",
+              "description": "The Markdown content to present to the user for review"
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional title for the review panel"
+            },
+            "chatId": {
+              "type": "string",
+              "description": "Optional chat session ID for grouping reviews in history. If provided, reviews will be grouped under this chat."
+            }
+          },
+          "required": [
+            "plan"
+          ]
+        }
+      },
+      {
+        "name": "walkthrough_review",
+        "tags": [
+          "planning",
+          "walkthrough",
+          "user-interaction",
+          "seamless-agent",
+          "feedback"
+        ],
+        "toolReferenceName": "walkthroughReview",
+        "displayName": "Walkthrough Review",
+        "modelDescription": "Present content as a walkthrough (step-by-step guide) in a dedicated panel with comment support. Returns {status, requiredRevisions[], reviewId}. If status='recreateWithChanges', apply the requested revisions and re-submit.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(book)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "plan": {
+              "type": "string",
+              "description": "The Markdown walkthrough content to present to the user"
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional title for the walkthrough panel"
+            },
+            "chatId": {
+              "type": "string",
+              "description": "Optional chat session ID for grouping walkthroughs in history. If provided, walkthroughs will be grouped under this chat."
+            }
+          },
+          "required": [
+            "plan"
+          ]
+        }
+      },
+      {
+        "name": "createTaskList",
+        "tags": [
+          "task-management",
+          "progress",
+          "user-interaction",
+          "seamless-agent",
+          "async",
+          "recommended"
+        ],
+        "toolReferenceName": "createTaskList",
+        "displayName": "Create Task List",
+        "modelDescription": "Create a new interactive task list and open it for the user. Recommended loop: createTaskList → getNextTask → (process comments) → updateTaskStatus → getNextTask → ... → closeTaskList. IMPORTANT: do not start executing tasks until you have called getNextTask and reviewed its comments. Returns {created, listId, title, totalTasks}.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(tasklist)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Task list title"
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional description (informational)"
+            },
+            "tasks": {
+              "type": "array",
+              "description": "Initial tasks array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "in-progress",
+                      "completed",
+                      "blocked"
+                    ]
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title"
+          ]
+        }
+      },
+      {
+        "name": "getNextTask",
+        "tags": [
+          "task-management",
+          "progress",
+          "user-interaction",
+          "seamless-agent",
+          "async",
+          "recommended"
+        ],
+        "toolReferenceName": "getNextTask",
+        "displayName": "Get Next Task",
+        "modelDescription": "Return the next pending task (in order, prioritizing reopened tasks) plus any pending user comments for that task. Comments are marked as sent once returned. CRITICAL: always process comments BEFORE executing the task. If comments instruct to skip (e.g., 'skip'/'pule'), do NOT execute the task; instead mark it completed via updateTaskStatus and call getNextTask again. Returns {listId, closed, done, task|null, comments[]}.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(arrow-right)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "listId": {
+              "type": "string",
+              "description": "Task list id returned by createTaskList"
+            }
+          },
+          "required": [
+            "listId"
+          ]
+        }
+      },
+      {
+        "name": "updateTaskStatus",
+        "tags": [
+          "task-management",
+          "progress",
+          "user-interaction",
+          "seamless-agent",
+          "async",
+          "recommended"
+        ],
+        "toolReferenceName": "updateTaskStatus",
+        "displayName": "Update Task Status",
+        "modelDescription": "Update a task status (in-progress|completed|blocked). After calling this, ALWAYS call getNextTask to fetch the next task and its pending comments (comments are delivered via getNextTask to ensure they arrive BEFORE execution). Returns {listId, taskId, updated, status, autoClosed}.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(check)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "listId": {
+              "type": "string",
+              "description": "Task list id"
+            },
+            "taskId": {
+              "type": "string",
+              "description": "Task id to update"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "in-progress",
+                "completed",
+                "blocked"
+              ],
+              "description": "New status for the task"
+            }
+          },
+          "required": [
+            "listId",
+            "taskId",
+            "status"
+          ]
+        }
+      },
+      {
+        "name": "closeTaskList",
+        "tags": [
+          "task-management",
+          "progress",
+          "user-interaction",
+          "seamless-agent",
+          "async",
+          "recommended"
+        ],
+        "toolReferenceName": "closeTaskList",
+        "displayName": "Close Task List",
+        "modelDescription": "Archive a task list and return a summary plus any remaining pending user comments. Returns {listId, closed, summary, remainingPendingComments[]}.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(archive)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "listId": {
+              "type": "string",
+              "description": "Task list id"
+            }
+          },
+          "required": [
+            "listId"
+          ]
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "seamless-agent.cancelPendingPlans",
+        "title": "%command.cancelPendingPlans.title%",
+        "category": "Seamless Agent"
+      },
+      {
+        "command": "seamless-agent.showPending",
+        "title": "%command.showPending.title%",
+        "icon": "$(bell)",
+        "category": "Seamless Agent"
+      },
+      {
+        "command": "seamless-agent.showHistory",
+        "title": "%command.showHistory.title%",
+        "icon": "$(history)",
+        "category": "Seamless Agent"
+      },
+      {
+        "command": "seamless-agent.clearHistory",
+        "title": "%command.clearHistory.title%",
+        "icon": "$(trash)",
+        "category": "Seamless Agent"
+      },
+      {
+        "command": "seamless-agent.showTaskLists",
+        "title": "%command.showTaskLists.title%",
+        "icon": "$(tasklist)",
+        "category": "Seamless Agent"
       }
     ]
   },
@@ -190,6 +450,7 @@
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@vscode/codicons": "^0.0.43",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.1.0"
+    "markdown-it": "^14.1.0",
+    "zod": "^4.1.13"
   }
 }

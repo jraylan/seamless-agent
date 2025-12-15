@@ -1,0 +1,489 @@
+/* Task List Panel Styles - VS Code Walkthrough Style */
+
+:root {
+    --container-padding: 16px;
+    --input-padding: 8px;
+    --border-radius: 4px;
+    --step-checkbox-size: 22px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    padding: 0;
+    margin: 0;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+}
+
+.task-list-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: var(--container-padding);
+    padding-top: var(--container-padding);
+}
+
+/* Header - Walkthrough style */
+.header {
+    margin-bottom: 24px;
+}
+
+.header h1 {
+    margin: 0 0 8px 0;
+    font-size: 1.4em;
+    font-weight: 400;
+    color: var(--vscode-foreground);
+    line-height: 1.2;
+}
+
+.header-description {
+    margin: 0;
+    color: var(--vscode-descriptionForeground);
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+/* Closed banner */
+.closed-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: var(--border-radius);
+    font-size: 0.85em;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Tasks List - Walkthrough style */
+.tasks-list {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 0;
+}
+
+/* Task Step Item */
+.task-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 8px;
+    margin: 0;
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    transition: background-color 0.1s ease;
+}
+
+.task-step:focus-within {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.task-step:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+/* Circular checkbox */
+.task-checkbox {
+    flex-shrink: 0;
+    width: var(--step-checkbox-size);
+    height: var(--step-checkbox-size);
+    border-radius: 50%;
+    border: 2px solid var(--vscode-textLink-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    transition: all 0.15s ease;
+    background-color: transparent;
+}
+
+.task-checkbox.completed {
+    background-color: var(--vscode-textLink-foreground);
+    border-color: var(--vscode-textLink-foreground);
+}
+
+.task-checkbox.completed .codicon {
+    color: var(--vscode-editor-background);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.task-checkbox.in-progress {
+    border-color: var(--vscode-progressBar-background, #0078d4);
+    background-color: transparent;
+    position: relative;
+}
+
+.task-checkbox.in-progress::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: var(--vscode-progressBar-background, #0078d4);
+    border-radius: 50%;
+}
+
+.task-checkbox.blocked {
+    border-color: var(--vscode-inputValidation-errorBorder);
+    background-color: transparent;
+}
+
+.task-checkbox.blocked .codicon {
+    color: var(--vscode-inputValidation-errorBorder);
+    font-size: 12px;
+}
+
+/* Task content area */
+.task-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.task-title {
+    font-weight: 500;
+    margin: 0;
+    color: var(--vscode-foreground);
+    font-size: 1em;
+    line-height: 1.4;
+    flex: 1;
+    min-width: 0;
+}
+
+.task-step.completed .task-title {
+    color: var(--vscode-disabledForeground);
+}
+
+.task-description {
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+/* Task details (expanded content) */
+.task-details {
+    margin-top: 8px;
+    padding: 12px;
+    background-color: var(--vscode-editor-inactiveSelectionBackground);
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--vscode-textLink-foreground);
+}
+
+.task-details.in-progress {
+    border-left-color: var(--vscode-inputValidation-warningBorder);
+}
+
+.task-details.blocked {
+    border-left-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Comment action button */
+.task-comment-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    width: 28px;
+    height: 28px;
+    justify-content: center;
+    background-color: transparent;
+    color: var(--vscode-foreground);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.1s ease, opacity 0.1s ease;
+    margin-top: 0;
+    opacity: 0;
+}
+
+.task-step:hover .task-comment-btn {
+    opacity: 1;
+}
+
+.task-comment-btn:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Task actions (when no details) */
+.task-actions {
+    margin-top: 4px;
+}
+
+.task-actions .task-comment-btn {
+    margin-top: 0;
+}
+
+/* Comments section */
+.task-comments {
+    margin-top: 12px;
+}
+
+.comments-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    color: var(--vscode-textLink-foreground);
+    cursor: pointer;
+    font-size: 0.85em;
+}
+
+.comments-toggle:hover {
+    text-decoration: underline;
+}
+
+.comments-list {
+    margin-top: 8px;
+}
+
+.comment-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background-color: var(--vscode-editor-background);
+    border-radius: var(--border-radius);
+    margin-bottom: 6px;
+    border-left: 2px solid var(--vscode-inputValidation-warningBorder);
+}
+
+.comment-item.sent {
+    border-left-color: var(--vscode-testing-iconPassed);
+    opacity: 0.7;
+}
+
+.comment-content {
+    flex: 1;
+}
+
+.comment-instructions {
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: var(--vscode-descriptionForeground);
+}
+
+.comment-status {
+    font-size: 0.75em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.comment-status.sent {
+    background-color: var(--vscode-testing-iconPassed);
+    color: var(--vscode-editor-background);
+}
+
+.comment-status.pending {
+    background-color: var(--vscode-inputValidation-warningBackground);
+    color: var(--vscode-inputValidation-warningForeground);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: var(--vscode-font-size);
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.btn-primary {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+}
+
+.btn-primary:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.btn-secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.btn-secondary:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--border-radius);
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.1s ease, background-color 0.1s ease;
+}
+
+.btn-icon:hover {
+    opacity: 1;
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Dialog Overlay */
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.dialog {
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.dialog-header h3 {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.dialog-content {
+    padding: 16px;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* Checkbox in dialog */
+.dialog-checkbox {
+    margin-top: 12px;
+    display: none;
+    /* Hidden by default, shown via JS for completed tasks */
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--vscode-foreground);
+    font-size: var(--vscode-font-size);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--vscode-button-background);
+}
+
+.comment-textarea {
+    width: 100%;
+    padding: var(--input-padding);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: var(--border-radius);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    resize: vertical;
+    min-height: 80px;
+}
+
+.comment-textarea:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+}
+
+.task-preview {
+    padding: 8px 12px;
+    background-color: var(--vscode-textBlockQuote-background);
+    border-left: 3px solid var(--vscode-textBlockQuote-border);
+    margin-bottom: 12px;
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    font-size: 0.9em;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.empty-state .codicon {
+    font-size: 48px;
+    opacity: 0.5;
+    margin-bottom: 16px;
+}
+
+/* Scrollbar styling */
+.tasks-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tasks-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tasks-list::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 4px;
+}
+
+.tasks-list::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}

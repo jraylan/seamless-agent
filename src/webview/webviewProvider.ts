@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { strings } from '../localization';
+
+import { strings, localize } from '../localization';
+
 import {
     ToolCallInteraction,
     createInteraction,
@@ -9,67 +11,21 @@ import {
     serializeInteractions,
     deserializeInteractions
 } from './sessionHistory';
+
 import { getExcludePattern } from '../config/ignorePaths';
+import { ChatHistoryStorage, getChatHistoryStorage } from '../storage/chatHistoryStorage';
+import { getTaskListStorage } from '../tools/taskList';
+import { TaskListSession } from '../tools/taskListSchemas';
 
-// Attachment info
-export interface AttachmentInfo {
-    id: string;
-    name: string;
-    uri: string;
-    isTemporary?: boolean;  // True if this is a pasted/dropped image that should be cleaned up
-    isFolder?: boolean;     // True if this is a folder attachment
-    folderPath?: string;    // Full folder path for folder attachments
-    depth?: number;         // Folder depth (0=current, 1=1 level, 2=2 levels, -1=recursive)
-}
+import {
+    AttachmentInfo,
+    RequestItem,
+    ToWebviewMessage,
+    FromWebviewMessage,
+    FileSearchResult,
+    UserResponseResult,
+} from "./types";
 
-// Request item for the list
-export interface RequestItem {
-    id: string;
-    question: string;
-    title: string;
-    createdAt: number;
-    attachments: AttachmentInfo[];
-}
-
-// Message types for communication between Extension Host and Webview
-type ToWebviewMessage =
-    | { type: 'showQuestion'; question: string; title: string; requestId: string }
-    | { type: 'showList'; requests: RequestItem[] }
-    | { type: 'showHome'; pendingRequests: RequestItem[]; recentInteractions: ToolCallInteraction[] }
-    | { type: 'updateAttachments'; requestId: string; attachments: AttachmentInfo[] }
-    | { type: 'fileSearchResults'; files: FileSearchResult[] }
-    | { type: 'imageSaved'; requestId: string; attachment: AttachmentInfo }
-    | { type: 'clear' };
-
-type FromWebviewMessage =
-    | { type: 'submit'; response: string; requestId: string; attachments: AttachmentInfo[] }
-    | { type: 'cancel'; requestId: string }
-    | { type: 'selectRequest'; requestId: string }
-    | { type: 'backToList' }
-    | { type: 'backToHome' }
-    | { type: 'clearHistory' }
-    | { type: 'addAttachment'; requestId: string }
-    | { type: 'removeAttachment'; requestId: string; attachmentId: string }
-    | { type: 'searchFiles'; query: string }
-    | { type: 'saveImage'; requestId: string; data: string; mimeType: string }
-    | { type: 'addFileReference'; requestId: string; file: FileSearchResult }
-    | { type: 'addFolderAttachment'; requestId: string };
-
-// File search result for autocomplete
-export interface FileSearchResult {
-    name: string;
-    path: string;
-    uri: string;
-    icon: string;
-    isFolder?: boolean;  // True if this is a folder result
-}
-
-// Result type for user responses
-export interface UserResponseResult {
-    responded: boolean;
-    response: string;
-    attachments: AttachmentInfo[];
-}
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'seamlessAgentView';
@@ -77,10 +33,13 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
 
     // Multiple pending requests
-    private _pendingRequests: Map<string, {
-        item: RequestItem;
-        resolve: (result: UserResponseResult) => void;
-    }> = new Map();
+    private _pendingRequests: Map<string,
+        {
+            item: RequestItem;
+            resolve: (result: UserResponseResult) => void;
+        }
+
+    > = new Map();
 
     // Currently selected request
     private _selectedRequestId: string | null = null;
@@ -88,7 +47,20 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Interaction history
     private _recentInteractions: ToolCallInteraction[] = [];
 
-    constructor(private readonly _context: vscode.ExtensionContext) { }
+    // Chat history storage for plan reviews
+    private _chatHistoryStorage: ChatHistoryStorage;
+
+    constructor(private readonly _context: vscode.ExtensionContext) {
+        // Use the singleton instance that was initialized in extension.ts
+        this._chatHistoryStorage = getChatHistoryStorage();
+    }
+
+    /**
+     * Get the chat history storage instance
+     */
+    public getChatHistoryStorage(): ChatHistoryStorage {
+        return this._chatHistoryStorage;
+    }
 
     private get _extensionUri(): vscode.Uri {
         return this._context.extensionUri;
@@ -105,9 +77,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             if (fs.existsSync(historyPath)) {
                 const data = fs.readFileSync(historyPath, 'utf8');
                 this._recentInteractions = deserializeInteractions(data);
+
                 console.log(`Loaded ${this._recentInteractions.length} interactions from extension storage`);
             }
-        } catch (error) {
+        }
+
+        catch (error) {
             console.error('Failed to load interactions from extension storage:', error);
         }
     }
@@ -122,13 +97,20 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             // Ensure directory exists
             if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
+                fs.mkdirSync(storagePath, {
+                    recursive: true
+                }
+
+                );
             }
 
             const data = serializeInteractions(this._recentInteractions);
             fs.writeFileSync(historyPath, data, 'utf8');
+
             console.log(`Saved ${this._recentInteractions.length} interactions to extension storage`);
-        } catch (error) {
+        }
+
+        catch (error) {
             console.error('Failed to save interactions to extension storage:', error);
         }
     }
@@ -155,40 +137,54 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Clear all interaction history
+     * Clear all interaction history (both legacy and storage)
      */
     public clearHistory(): void {
+        // Clear legacy interactions
         this._recentInteractions = [];
         this.saveSessionsToDisk();
+
+        // Clear all chats and interactions from storage
+        this._chatHistoryStorage.clearAll();
+
+        // Also clear CLOSED task lists from storage (history should be empty)
+        try {
+            const taskListStorage = getTaskListStorage();
+            const sessions = taskListStorage.getAllSessions();
+            for (const session of sessions) {
+                if (session.closed) {
+                    taskListStorage.deleteSession(session.id);
+                }
+            }
+        } catch {
+            // TaskListStorage not initialized yet
+        }
+
         this._showHome();
     }
 
-    resolveWebviewView(
-        webviewView: vscode.WebviewView,
+    resolveWebviewView(webviewView: vscode.WebviewView,
         context: vscode.WebviewViewResolveContext,
-        token: vscode.CancellationToken
-    ): void {
+        token: vscode.CancellationToken): void {
         this._view = webviewView;
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [
-                vscode.Uri.joinPath(this._extensionUri, 'media'),
-                vscode.Uri.joinPath(this._extensionUri, 'dist'),
-                vscode.Uri.joinPath(this._extensionUri, 'node_modules', '@vscode', 'codicons', 'dist')
-            ]
-        };
+            localResourceRoots: [vscode.Uri.joinPath(this._extensionUri, 'media'),
+            vscode.Uri.joinPath(this._extensionUri, 'dist'),
+            vscode.Uri.joinPath(this._extensionUri, 'node_modules', '@vscode', 'codicons', 'dist')]
+        }
+
+            ;
 
         webviewView.webview.html = this._getHtmlContent(webviewView.webview);
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(
-            (message: FromWebviewMessage) => {
-                this._handleWebviewMessage(message);
-            },
+        webviewView.webview.onDidReceiveMessage((message: FromWebviewMessage) => {
+            void this._handleWebviewMessage(message);
+        },
             undefined,
-            []
-        );
+            []);
 
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
@@ -204,6 +200,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Supports multiple concurrent requests.
      */
     public async waitForUserResponse(question: string, title?: string): Promise<UserResponseResult> {
+
         // If the view isn't available, try to open it
         if (!this._view) {
             try {
@@ -215,10 +212,20 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
                 // If still not available after focusing, return error
                 if (!this._view) {
-                    return { responded: false, response: 'Agent Console view is not available.', attachments: [] };
+                    return {
+                        responded: false, response: 'Agent Console view is not available.', attachments: []
+                    }
+
+                        ;
                 }
-            } catch (error) {
-                return { responded: false, response: 'Agent Console view is not available.', attachments: [] };
+            }
+
+            catch (error) {
+                return {
+                    responded: false, response: 'Agent Console view is not available.', attachments: []
+                }
+
+                    ;
             }
         }
 
@@ -232,9 +239,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 title: title || strings.confirmationRequired,
                 createdAt: Date.now(),
                 attachments: []
-            };
+            }
 
-            this._pendingRequests.set(requestId, { item, resolve });
+                ;
+
+            this._pendingRequests.set(requestId, {
+                item, resolve
+            }
+
+            );
 
             // Update badge count
             this._setBadge(this._pendingRequests.size);
@@ -243,7 +256,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             if (this._pendingRequests.size === 1) {
                 this._selectedRequestId = requestId;
                 this._showQuestion(item);
-            } else {
+            }
+
+            else {
                 // Show list view
                 this._showList();
             }
@@ -256,26 +271,38 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             if (!this._view?.visible) {
                 this._showNotification();
             }
-        });
+        }
+
+        );
     }
 
     /**
      * Cancel a specific request by ID.
      * This is useful when the agent stops or the request is no longer needed.
      */
-    public cancelRequest(requestId: string, reason: string = 'Request cancelled'): boolean {
+    public cancelRequest(requestId: string, reason: string = strings.cancelled): boolean {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return false;
 
-        pending.resolve({ responded: false, response: reason, attachments: [] });
+        pending.resolve({
+            responded: false, response: reason, attachments: []
+        }
+
+        );
         this._pendingRequests.delete(requestId);
         this._setBadge(this._pendingRequests.size);
 
         // Update UI
         if (this._pendingRequests.size > 0) {
             this._showList();
-        } else {
-            this._view?.webview.postMessage({ type: 'clear' });
+        }
+
+        else {
+            this._view?.webview.postMessage({
+                type: 'clear'
+            }
+
+            );
             this._selectedRequestId = null;
         }
 
@@ -286,13 +313,23 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Cancel all pending requests.
      * This is useful when the extension is deactivated or the agent session ends.
      */
-    public cancelAllRequests(reason: string = 'All requests cancelled'): void {
+    public cancelAllRequests(reason: string = strings.cancelled): void {
         for (const [id, pending] of this._pendingRequests) {
-            pending.resolve({ responded: false, response: reason, attachments: [] });
+            pending.resolve({
+                responded: false, response: reason, attachments: []
+            }
+
+            );
         }
+
         this._pendingRequests.clear();
         this._setBadge(0);
-        this._view?.webview.postMessage({ type: 'clear' });
+
+        this._view?.webview.postMessage({
+            type: 'clear'
+        }
+
+        );
         this._selectedRequestId = null;
     }
 
@@ -312,7 +349,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             question: item.question,
             title: item.title,
             requestId: item.id
-        };
+        }
+
+            ;
         this._view?.webview.postMessage(message);
     }
 
@@ -321,7 +360,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private _showList(): void {
         const requests = Array.from(this._pendingRequests.values()).map(p => p.item);
-        const message: ToWebviewMessage = { type: 'showList', requests };
+
+        const message: ToWebviewMessage = {
+            type: 'showList', requests
+        }
+
+            ;
         this._view?.webview.postMessage(message);
     }
 
@@ -330,11 +374,61 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private _showHome(): void {
         const pendingRequests = Array.from(this._pendingRequests.values()).map(p => p.item);
+        const pendingPlanReviews = this._chatHistoryStorage.getPendingPlanReviews();
+        const historyInteractions = this._chatHistoryStorage.getCompletedInteractions();
+
+        // Get task lists (active and closed separately)
+        let activeTaskLists: TaskListSession[] = [];
+        let closedTaskLists: TaskListSession[] = [];
+        try {
+            const taskListStorage = getTaskListStorage();
+            const allTaskLists = taskListStorage.getAllSessions();
+            activeTaskLists = allTaskLists.filter((s: TaskListSession) => !s.closed);
+            closedTaskLists = allTaskLists.filter((s: TaskListSession) => s.closed);
+        } catch (e) {
+            // TaskListStorage not initialized yet
+            console.log('[Seamless Agent] TaskListStorage not initialized');
+        }
+
+        console.log('[Seamless Agent] _showHome called:', {
+            pendingRequestsCount: pendingRequests.length,
+            pendingPlanReviewsCount: pendingPlanReviews.length,
+            activeTaskListsCount: activeTaskLists.length,
+            closedTaskListsCount: closedTaskLists.length,
+            historyInteractionsCount: historyInteractions.length,
+            pendingPlanReviews: pendingPlanReviews.map(r => ({ id: r.id, title: r.title, status: r.status }))
+        });
 
         const message: ToWebviewMessage = {
             type: 'showHome',
             pendingRequests,
+            pendingPlanReviews,
+            activeTaskLists,
+            historyInteractions,
+            closedTaskLists,
             recentInteractions: this._recentInteractions
+        };
+        this._view?.webview.postMessage(message);
+
+        // Update badge with total pending count (requests + plan reviews + active task lists)
+        const totalPending = pendingRequests.length + pendingPlanReviews.length + activeTaskLists.length;
+        this._setBadge(totalPending);
+    }
+
+    /**
+     * Public method to refresh the home view (called from commands)
+     */
+    public refreshHome(): void {
+        this._showHome();
+    }
+
+    /**
+     * Public method to switch tabs in the webview (called from commands)
+     */
+    public switchTab(tab: 'pending' | 'history' | 'tasks'): void {
+        const message: ToWebviewMessage = {
+            type: 'switchTab',
+            tab
         };
         this._view?.webview.postMessage(message);
     }
@@ -343,64 +437,86 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Clear the current question from the webview
      */
     public clear(): void {
-        const message: ToWebviewMessage = { type: 'clear' };
+        const message: ToWebviewMessage = {
+            type: 'clear'
+        }
+
+            ;
         this._view?.webview.postMessage(message);
     }
 
     /**
      * Handle messages received from the webview
      */
-    private _handleWebviewMessage(message: FromWebviewMessage): void {
+    private async _handleWebviewMessage(message: FromWebviewMessage): Promise<void> {
         switch (message.type) {
-            case 'submit':
-                this._resolveRequest(message.requestId, {
-                    responded: true,
-                    response: message.response,
-                    attachments: message.attachments || []
-                });
+            case 'submit': this._resolveRequest(message.requestId, {
+                responded: true,
+                response: message.response,
+                attachments: message.attachments || []
+            }
+
+            );
                 break;
-            case 'cancel':
-                this._resolveRequest(message.requestId, {
-                    responded: false,
-                    response: '',
-                    attachments: []
-                });
+
+            case 'cancel': this._resolveRequest(message.requestId, {
+                responded: false,
+                response: '',
+                attachments: []
+            }
+
+            );
                 break;
-            case 'selectRequest':
-                this._selectedRequestId = message.requestId;
+            case 'selectRequest': this._selectedRequestId = message.requestId;
                 const pending = this._pendingRequests.get(message.requestId);
+
                 if (pending) {
                     this._showQuestion(pending.item);
                 }
+
                 break;
-            case 'backToList':
-                this._selectedRequestId = null;
+            case 'backToList': this._selectedRequestId = null;
                 this._showList();
                 break;
-            case 'backToHome':
-                this._selectedRequestId = null;
+            case 'backToHome': this._selectedRequestId = null;
                 this._showHome();
                 break;
-            case 'clearHistory':
-                this.clearHistory();
+            case 'clearHistory': {
+                const result = await vscode.window.showWarningMessage(
+                    strings.confirmClearHistory,
+                    { modal: true },
+                    strings.confirm
+                );
+                if (result === strings.confirm) {
+                    this.clearHistory();
+                }
                 break;
-            case 'addAttachment':
-                this._handleAddAttachment(message.requestId);
+            }
+            case 'addAttachment': this._handleAddAttachment(message.requestId);
                 break;
-            case 'addFolderAttachment':
-                this._handleAddFolderAttachment(message.requestId);
+            case 'addFolderAttachment': this._handleAddFolderAttachment(message.requestId);
                 break;
-            case 'removeAttachment':
-                this._handleRemoveAttachment(message.requestId, message.attachmentId);
+            case 'removeAttachment': this._handleRemoveAttachment(message.requestId, message.attachmentId);
                 break;
-            case 'searchFiles':
-                this._handleSearchFiles(message.query);
+            case 'searchFiles': this._handleSearchFiles(message.query);
                 break;
-            case 'saveImage':
-                this._handleSaveImage(message.requestId, message.data, message.mimeType);
+            case 'saveImage': this._handleSaveImage(message.requestId, message.data, message.mimeType);
                 break;
-            case 'addFileReference':
-                this._handleAddFileReference(message.requestId, message.file);
+            case 'addFileReference': this._handleAddFileReference(message.requestId, message.file);
+                break;
+            case 'clearChatHistory': this._handleClearChatHistory();
+                break;
+            case 'selectPlanReview': this._handleSelectInteraction(message.interactionId);
+                break;
+            case 'selectInteraction': this._handleSelectInteraction(message.interactionId);
+                break;
+            case 'openPlanReviewPanel': this._handleOpenPlanReviewPanel(message.interactionId);
+                break;
+            case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
+                break;
+            case 'openTaskList': this._handleOpenTaskList(message.listId);
+                break;
+            case 'deleteTaskList': this._handleDeleteTaskList(message.listId);
                 break;
         }
     }
@@ -417,39 +533,57 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const files = await vscode.workspace.findFiles('**/*', excludePattern || undefined, 1000);
 
         if (files.length === 0) {
-            vscode.window.showInformationMessage('No files found in workspace');
+            vscode.window.showInformationMessage(strings.attachmentNoFilesFound);
             return;
         }
 
         // Create quick pick items with file icons
-        const items: (vscode.QuickPickItem & { uri: vscode.Uri })[] = files.map(uri => {
+        const items: (vscode.QuickPickItem & {
+            uri: vscode.Uri
+        }
+
+        )[] = files.map(uri => {
             const relativePath = vscode.workspace.asRelativePath(uri);
             const fileName = uri.fsPath.split(/[\\/]/).pop() || 'file';
+
+            const posixPath = relativePath.replace(/\\/g, '/');
+            const posixDir = path.posix.dirname(posixPath);
+            const folderDisplay = posixDir === '.' ? '' : posixDir.replace(/\//g, '\\');
+
             return {
-                label: `$(${this._getFileIcon(fileName)}) ${fileName}`,
-                description: relativePath,
+                label: fileName,
+                description: folderDisplay,
+                detail: relativePath,
+                // Using the file URI lets VS Code render the icon in the left column (similar to Quick Open)
+                iconPath: uri,
                 uri: uri
             };
-        }).sort((a, b) => a.label.localeCompare(b.label));
+        }
+
+        ).sort((a, b) => a.label.localeCompare(b.label) || (a.description || '').localeCompare(b.description || ''));
 
         // Show quick pick with multi-select
         const selected = await vscode.window.showQuickPick(items, {
             canPickMany: true,
             placeHolder: strings.addAttachment,
-            matchOnDescription: true
-        });
+            matchOnDescription: true,
+            matchOnDetail: true
+        }
+
+        );
 
         if (selected && selected.length > 0) {
             for (const item of selected) {
                 const uri = item.uri;
-                // Extract clean file name (remove icon prefix)
-                const labelMatch = item.label.match(/\$\([^)]+\)\s*(.+)/);
-                const cleanName = labelMatch ? labelMatch[1] : item.label;
+                const cleanName = item.label;
+
                 const attachment: AttachmentInfo = {
                     id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
                     name: cleanName,
                     uri: uri.toString()
-                };
+                }
+
+                    ;
                 pending.item.attachments.push(attachment);
             }
 
@@ -458,7 +592,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 type: 'updateAttachments',
                 requestId,
                 attachments: pending.item.attachments
-            });
+            }
+
+            );
         }
     }
 
@@ -476,7 +612,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             type: 'updateAttachments',
             requestId,
             attachments: pending.item.attachments
-        });
+        }
+
+        );
     }
 
     /**
@@ -488,49 +626,64 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
         // Get workspace folders
         const workspaceFolders = vscode.workspace.workspaceFolders;
+
         if (!workspaceFolders || workspaceFolders.length === 0) {
             vscode.window.showInformationMessage('No workspace folder found');
             return;
         }
 
         // Find all folders in the workspace
-        const folderItems: (vscode.QuickPickItem & { uri: vscode.Uri })[] = [];
+        const folderItems: (vscode.QuickPickItem & {
+            uri: vscode.Uri
+        }
+
+        )[] = [];
 
         // Add workspace root folders
         for (const folder of workspaceFolders) {
             folderItems.push({
-                label: `$(folder) ${folder.name}`,
+                label: folder.name,
                 description: folder.uri.fsPath,
+                iconPath: folder.uri,
                 uri: folder.uri
-            });
+            }
+
+            );
         }
 
         // Find subdirectories
         try {
-            const allFiles = await vscode.workspace.findFiles('**/*', '**/node_modules/**', 5000);
+
+            const excludePattern = getExcludePattern();
+            const allFiles = await vscode.workspace.findFiles('**/*', excludePattern || undefined, 5000);
             const seenDirs = new Set<string>();
 
             for (const fileUri of allFiles) {
                 const dirPath = path.dirname(fileUri.fsPath);
+
                 if (!seenDirs.has(dirPath)) {
                     seenDirs.add(dirPath);
                     const relativePath = vscode.workspace.asRelativePath(dirPath);
                     const folderName = path.basename(dirPath);
 
                     // Skip root workspace folders (already added)
-                    const isWorkspaceRoot = workspaceFolders.some(
-                        wf => wf.uri.fsPath === dirPath
-                    );
+                    const isWorkspaceRoot = workspaceFolders.some(wf => wf.uri.fsPath === dirPath);
+
                     if (!isWorkspaceRoot) {
                         folderItems.push({
-                            label: `$(folder) ${folderName}`,
+                            label: folderName,
                             description: relativePath,
+                            iconPath: vscode.Uri.file(dirPath),
                             uri: vscode.Uri.file(dirPath)
-                        });
+                        }
+
+                        );
                     }
                 }
             }
-        } catch (error) {
+        }
+
+        catch (error) {
             console.error('Error finding folders:', error);
         }
 
@@ -539,28 +692,41 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
         // Show quick pick for folder selection
         const selectedFolder = await vscode.window.showQuickPick(folderItems, {
-            placeHolder: 'Select a folder to attach',
+            placeHolder: strings.attachmentSelectFolder,
             matchOnDescription: true
-        });
+        }
+
+        );
 
         if (!selectedFolder) return;
 
         // Ask for folder depth
         const depthOptions = [
-            { label: 'Current level only', depth: 0 },
-            { label: '1 level deep', depth: 1 },
-            { label: '2 levels deep', depth: 2 },
-            { label: 'All files (recursive)', depth: -1 }
+            {
+                label: strings.attachmentFolderDepthCurrent, depth: 0
+            },
+            {
+                label: strings.attachmentFolderDepth1, depth: 1
+            },
+            {
+                label: strings.attachmentFolderDepth2, depth: 2
+            },
+            {
+                label: strings.attachmentFolderDepthRecursive, depth: -1
+            }
         ];
 
         const selectedDepth = await vscode.window.showQuickPick(depthOptions, {
-            placeHolder: 'Select folder depth to include'
-        });
+            placeHolder: strings.attachmentSelectFolderDepth
+        }
+
+        );
 
         if (!selectedDepth) return;
 
         // Create folder attachment
         const folderName = path.basename(selectedFolder.uri.fsPath);
+
         const attachment: AttachmentInfo = {
             id: `folder_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
             name: folderName,
@@ -568,7 +734,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             isFolder: true,
             folderPath: selectedFolder.uri.fsPath,
             depth: selectedDepth.depth
-        };
+        }
+
+            ;
 
         pending.item.attachments.push(attachment);
 
@@ -577,7 +745,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             type: 'updateAttachments',
             requestId,
             attachments: pending.item.attachments
-        });
+        }
+
+        );
     }
 
     /**
@@ -608,79 +778,85 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     const folderName = parts[parts.length - 1];
 
                     // Only add if matches query (or query is empty)
-                    if (!queryLower ||
-                        folderName.toLowerCase().includes(queryLower) ||
-                        dirPath.toLowerCase().includes(queryLower)) {
+                    if (!queryLower || folderName.toLowerCase().includes(queryLower) || dirPath.toLowerCase().includes(queryLower)) {
                         // Use correct workspace folder for multi-root workspaces
                         const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri)?.uri ?? vscode.workspace.workspaceFolders![0].uri;
+
                         folderResults.push({
                             name: folderName,
                             path: dirPath,
-                            uri: vscode.Uri.joinPath(
-                                workspaceFolder,
-                                dirPath
-                            ).toString(),
+                            uri: vscode.Uri.joinPath(workspaceFolder,
+                                dirPath).toString(),
                             icon: 'folder',
                             isFolder: true
-                        });
+                        }
+
+                        );
                     }
                 }
             }
 
             // Map files to results
-            const fileResults: FileSearchResult[] = allFiles
-                .map(uri => {
-                    const relativePath = vscode.workspace.asRelativePath(uri);
-                    const fileName = uri.fsPath.split(/[\\/]/).pop() || 'file';
-                    return {
-                        name: fileName,
-                        path: relativePath,
-                        uri: uri.toString(),
-                        icon: this._getFileIcon(fileName),
-                        isFolder: false
-                    };
-                })
-                // Case-insensitive filtering on both filename and path
+            const fileResults: FileSearchResult[] = allFiles.map(uri => {
+                const relativePath = vscode.workspace.asRelativePath(uri);
+                const fileName = uri.fsPath.split(/[\\/]/).pop() || 'file';
+
+                return {
+                    name: fileName,
+                    path: relativePath,
+                    uri: uri.toString(),
+                    icon: this._getFileIcon(fileName),
+                    isFolder: false
+                }
+
+                    ;
+            }
+
+            ) // Case-insensitive filtering on both filename and path
                 // If query is empty, show all files
-                .filter(file =>
-                    !queryLower ||
-                    file.name.toLowerCase().includes(queryLower) ||
-                    file.path.toLowerCase().includes(queryLower)
-                );
+                .filter(file => !queryLower || file.name.toLowerCase().includes(queryLower) || file.path.toLowerCase().includes(queryLower));
 
             // Combine folders and files, then sort
-            const allResults = [...folderResults, ...fileResults]
-                .sort((a, b) => {
-                    // Prioritize folders over files
-                    if (a.isFolder && !b.isFolder) return -1;
-                    if (!a.isFolder && b.isFolder) return 1;
+            const allResults = [...folderResults,
+            ...fileResults].sort((a, b) => {
+                // Prioritize folders over files
+                if (a.isFolder && !b.isFolder) return -1;
+                if (!a.isFolder && b.isFolder) return 1;
 
-                    // Then prioritize exact name matches (starts with query)
-                    const aExact = a.name.toLowerCase().startsWith(queryLower);
-                    const bExact = b.name.toLowerCase().startsWith(queryLower);
-                    if (aExact && !bExact) return -1;
-                    if (!aExact && bExact) return 1;
+                // Then prioritize exact name matches (starts with query)
+                const aExact = a.name.toLowerCase().startsWith(queryLower);
+                const bExact = b.name.toLowerCase().startsWith(queryLower);
+                if (aExact && !bExact) return -1;
+                if (!aExact && bExact) return 1;
 
-                    // Secondary: prioritize name contains over path-only matches
-                    const aNameMatch = a.name.toLowerCase().includes(queryLower);
-                    const bNameMatch = b.name.toLowerCase().includes(queryLower);
-                    if (aNameMatch && !bNameMatch) return -1;
-                    if (!aNameMatch && bNameMatch) return 1;
+                // Secondary: prioritize name contains over path-only matches
+                const aNameMatch = a.name.toLowerCase().includes(queryLower);
+                const bNameMatch = b.name.toLowerCase().includes(queryLower);
+                if (aNameMatch && !bNameMatch) return -1;
+                if (!aNameMatch && bNameMatch) return 1;
 
-                    return a.name.localeCompare(b.name);
-                })
-                .slice(0, 50); // Limit to 50 results
+                return a.name.localeCompare(b.name);
+            }
+
+            ).slice(0, 50); // Limit to 50 results
 
             this._view?.webview.postMessage({
                 type: 'fileSearchResults',
                 files: allResults
-            });
-        } catch (error) {
+            }
+
+            );
+        }
+
+        catch (error) {
             console.error('File search error:', error);
+
             this._view?.webview.postMessage({
                 type: 'fileSearchResults',
                 files: []
-            });
+            }
+
+            );
         }
     }
 
@@ -700,8 +876,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             uri: file.uri,
             isFolder: isFolder,
             folderPath: isFolder ? file.path : undefined,
-            depth: isFolder ? -1 : undefined  // Default to recursive for autocomplete-added folders
-        };
+            depth: isFolder ? -1 : undefined // Default to recursive for autocomplete-added folders
+        }
+
+            ;
 
         // Add to pending request attachments
         pending.item.attachments.push(attachment);
@@ -711,7 +889,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             type: 'updateAttachments',
             requestId,
             attachments: pending.item.attachments
-        });
+        }
+
+        );
     }
 
     /**
@@ -725,44 +905,82 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
         try {
-            // Extract base64 data from data URL
-            const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
-            if (!base64Match) {
+            // Robust parse of data URL: data:<mime>[;base64],<data>
+            if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
                 console.error('Invalid data URL format');
-                vscode.window.showWarningMessage('Invalid image format: could not parse data URL');
+                vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
                 return;
             }
 
-            const base64Data = base64Match[1];
-            const buffer = Buffer.from(base64Data, 'base64');
+            const commaIndex = dataUrl.indexOf(',');
+            if (commaIndex === -1) {
+                console.error('Invalid data URL format (missing comma)');
+                vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
+                return;
+            }
+
+            const header = dataUrl.slice('data:'.length, commaIndex);
+            const dataPart = dataUrl.slice(commaIndex + 1);
+            const headerParts = header.split(';').map(p => p.trim()).filter(Boolean);
+
+            const mimeFromUrl = headerParts[0] && headerParts[0].includes('/') ? headerParts[0] : '';
+            const isBase64 = headerParts.some(p => p.toLowerCase() === 'base64');
+            const effectiveMimeType = mimeType || mimeFromUrl;
+
+            if (!effectiveMimeType) {
+                vscode.window.showWarningMessage(localize('attachment.unsupportedImageType', 'unknown'));
+                return;
+            }
+
+            let buffer: Buffer;
+            try {
+                buffer = isBase64
+                    ? Buffer.from(dataPart, 'base64')
+                    : Buffer.from(decodeURIComponent(dataPart), 'utf8');
+            } catch (e) {
+                console.error('Failed to decode data URL payload', e);
+                vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
+                return;
+            }
 
             // Validate image size
             if (buffer.length > MAX_IMAGE_SIZE_BYTES) {
                 const sizeMB = (buffer.length / (1024 * 1024)).toFixed(2);
-                vscode.window.showWarningMessage(`Image too large (${sizeMB}MB). Maximum allowed size is 10MB.`);
+
+                vscode.window.showWarningMessage(localize('attachment.imageTooLarge', sizeMB, 10));
                 return;
             }
 
             // Validate MIME type is a known image type
-            const validMimeTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
-            if (!validMimeTypes.includes(mimeType)) {
-                vscode.window.showWarningMessage(`Unsupported image type: ${mimeType}`);
+            const validMimeTypes = ['image/png',
+                'image/jpeg',
+                'image/gif',
+                'image/webp',
+                'image/bmp',
+                'image/svg+xml'];
+
+            if (!validMimeTypes.includes(effectiveMimeType)) {
+                vscode.window.showWarningMessage(localize('attachment.unsupportedImageType', effectiveMimeType));
                 return;
             }
 
             // Determine file extension from MIME type
-            const extMap: Record<string, string> = {
+            const extMap: Record<string,
+                string> = {
                 'image/png': '.png',
                 'image/jpeg': '.jpg',
                 'image/gif': '.gif',
                 'image/webp': '.webp',
                 'image/bmp': '.bmp',
                 'image/svg+xml': '.svg'
-            };
-            const ext = extMap[mimeType] || '.png';
+            }
+
+                ;
+            const ext = extMap[effectiveMimeType] || '.png';
 
             // Use VS Code storage for temp images
             const storageUri = this._context.storageUri;
+
             if (!storageUri) {
                 throw new Error('Storage URI not available');
             }
@@ -771,7 +989,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             // Ensure temp directory exists
             if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
+                fs.mkdirSync(tempDir, {
+                    recursive: true
+                }
+
+                );
             }
 
             // Generate simple incremental filename: image-pasted.png, image-pasted-1.png, etc.
@@ -781,15 +1003,20 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             if (existingImages === 0) {
                 fileName = `image-pasted${ext}`;
-            } else {
+            }
+
+            else {
                 fileName = `image-pasted-${existingImages}${ext}`;
             }
+
             filePath = path.join(tempDir, fileName);
 
             // Handle filename collision (if same name exists from previous request)
             let counter = existingImages;
+
             while (fs.existsSync(filePath)) {
                 counter++;
+
                 fileName = `image-pasted-${counter}${ext}`;
                 filePath = path.join(tempDir, fileName);
             }
@@ -799,11 +1026,13 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             // Create attachment info
             const attachment: AttachmentInfo = {
-                id: `img_${Date.now()}`,
+                id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
                 name: fileName,
                 uri: vscode.Uri.file(filePath).toString(),
-                isTemporary: true  // Mark for cleanup after request resolution
-            };
+                isTemporary: true // Mark for cleanup after request resolution
+            }
+
+                ;
 
             // Add to pending request attachments
             pending.item.attachments.push(attachment);
@@ -813,19 +1042,26 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 type: 'imageSaved',
                 requestId,
                 attachment
-            });
+            }
+
+            );
 
             // Also send updated attachments list
             this._view?.webview.postMessage({
                 type: 'updateAttachments',
                 requestId,
                 attachments: pending.item.attachments
-            });
+            }
 
-        } catch (error) {
+            );
+
+        }
+
+        catch (error) {
             console.error('Failed to save image:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            vscode.window.showErrorMessage(`Failed to save pasted image: ${errorMessage}`);
+
+            vscode.window.showErrorMessage(localize('attachment.saveImageFailed', errorMessage));
         }
     }
 
@@ -834,10 +1070,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private _resolveRequest(requestId: string, result: UserResponseResult): void {
         const pending = this._pendingRequests.get(requestId);
+
         if (pending) {
             // Create interaction record and add to history (keeps full attachment info)
-            const interaction = createInteraction(
-                requestId,
+            const interaction = createInteraction(requestId,
                 pending.item.question,
                 pending.item.title,
                 result.response,
@@ -846,19 +1082,37 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             );
             this._addInteraction(interaction);
 
+            // Persist ask_user interaction into ChatHistoryStorage so it shows in the History tab
+            // (This is separate from the legacy "recent interactions" list.)
+            try {
+                this._chatHistoryStorage.saveAskUserInteraction({
+                    question: pending.item.question,
+                    title: pending.item.title,
+                    response: result.responded ? result.response : strings.cancelled,
+                    attachments: (result.attachments || []).map(a => a.uri)
+                });
+            } catch (e) {
+                console.error('[Seamless Agent] Failed to save ask_user interaction to ChatHistoryStorage:', e);
+            }
+
             // Clean up temporary image files (pasted/dropped images)
             this._cleanupTempAttachments(pending.item.attachments);
 
             // Strip internal fields from attachments before returning to MCP caller
             // LLM only needs name and uri to access the content
             const cleanResult: UserResponseResult = {
+
                 responded: result.responded,
                 response: result.response,
                 attachments: result.attachments.map(att => ({
                     name: att.name,
                     uri: att.uri
-                })) as AttachmentInfo[]
-            };
+                }
+
+                )) as AttachmentInfo[]
+            }
+
+                ;
 
             pending.resolve(cleanResult);
             this._pendingRequests.delete(requestId);
@@ -869,7 +1123,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             // Show home view (pending requests + history)
             if (this._pendingRequests.size > 0) {
                 this._showList();
-            } else {
+            }
+
+            else {
                 this._showHome();
             }
         }
@@ -889,11 +1145,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 if (att.isTemporary && att.uri) {
                     try {
                         const filePath = vscode.Uri.parse(att.uri).fsPath;
+
                         if (fs.existsSync(filePath)) {
                             fs.unlinkSync(filePath);
+
                             console.log(`Cleaned up temp attachment: ${filePath}`);
                         }
-                    } catch (error) {
+                    }
+
+                    catch (error) {
                         console.error('Failed to cleanup temp attachment:', error);
                     }
                 }
@@ -911,24 +1171,33 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             if (!storageUri) return;
 
             const tempDir = path.join(storageUri.fsPath, 'temp-images');
+
             if (fs.existsSync(tempDir)) {
                 const files = fs.readdirSync(tempDir);
+
                 for (const file of files) {
                     try {
                         const filePath = path.join(tempDir, file);
                         fs.unlinkSync(filePath);
+
                         console.log(`Cleaned up orphaned temp file: ${filePath}`);
-                    } catch (err) {
+                    }
+
+                    catch (err) {
                         console.error(`Failed to clean up ${file}:`, err);
                     }
                 }
+
                 // Remove the directory if empty
                 const remainingFiles = fs.readdirSync(tempDir);
+
                 if (remainingFiles.length === 0) {
                     fs.rmdirSync(tempDir);
                 }
             }
-        } catch (error) {
+        }
+
+        catch (error) {
             console.error('Failed to cleanup temp directory:', error);
         }
     }
@@ -939,46 +1208,185 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     private _setBadge(count: number): void {
         if (this._view) {
             if (count === 0) {
+
                 // Workaround for VS Code API: set to 0 first, then undefined
                 // This ensures the badge properly clears in the UI
-                this._view.badge = { value: 0, tooltip: '' };
+                this._view.badge = {
+                    value: 0, tooltip: ''
+                }
+
+                    ;
+
                 setTimeout(() => {
                     if (this._view && this._pendingRequests.size === 0) {
                         this._view.badge = undefined;
                     }
-                }, 100);
-            } else {
-                this._view.badge = { value: count, tooltip: strings.inputRequired };
+                }
+
+                    , 100);
+            }
+
+            else {
+                this._view.badge = {
+                    value: count, tooltip: strings.inputRequired
+                }
+
+                    ;
             }
         }
-    }    /**
+    }
+
+    /**
      * Show a notification to alert the user of a pending request
      */
     private _showNotification(): void {
-        vscode.window.showInformationMessage(
-            strings.agentRequiresInput,
-            strings.openConsole
-        ).then(selection => {
-            if (selection === strings.openConsole) {
-                vscode.commands.executeCommand('seamlessAgentView.focus');
+
+        vscode.window.showInformationMessage(strings.agentRequiresInput,
+            strings.openConsole).then(selection => {
+                if (selection === strings.openConsole) {
+                    vscode.commands.executeCommand('seamlessAgentView.focus');
+                }
             }
-        });
+
+            );
+    }
+
+    // ========================
+    // Chat History Handlers
+    // ========================
+
+    /**
+     * Clear all chat history (with confirmation)
+     */
+    private async _handleClearChatHistory(): Promise<void> {
+        const confirmation = await vscode.window.showWarningMessage(
+            strings.confirmClearHistory || 'Are you sure you want to clear all history?',
+            { modal: true },
+            strings.confirm || 'Clear'
+        );
+
+        if (confirmation) {
+            this._chatHistoryStorage.clearAll();
+            this._showHome();
+        }
+    }
+
+    /**
+     * Handle selecting an interaction to show its detail
+     */
+    private _handleSelectInteraction(interactionId: string): void {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+
+        if (interaction) {
+            const message: ToWebviewMessage = {
+                type: 'showInteractionDetail',
+                interaction
+            };
+            this._view?.webview.postMessage(message);
+        }
+    }
+
+    /**
+     * Handle deleting an individual interaction (with confirmation)
+     */
+    private async _handleDeleteInteraction(interactionId: string): Promise<void> {
+        const confirmation = await vscode.window.showWarningMessage(
+            strings.confirmDeleteItem || 'Remove this item from history?',
+            { modal: true },
+            strings.remove || 'Remove'
+        );
+
+        if (confirmation) {
+            this._chatHistoryStorage.deleteInteraction(interactionId);
+            this._showHome();
+        }
+    }
+
+    /**
+     * Handle opening a plan review in the full PlanReviewPanel
+     * For pending reviews, uses reopenPendingReview to connect to the waiting agent
+     * For historical reviews, opens in read-only mode
+     */
+    private async _handleOpenPlanReviewPanel(interactionId: string): Promise<void> {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+
+        if (interaction && interaction.plan) {
+            // Import dynamically to avoid circular dependency
+            const { PlanReviewPanel } = await import('./planReviewPanel');
+            type PlanCommentType = import('./types').RequiredPlanRevisions;
+            type PlanReviewModeType = import('./types').PlanReviewMode;
+
+            // Determine if this is a pending review or historical
+            const isPending = interaction.status === 'pending';
+
+            const options = {
+                plan: interaction.plan,
+                title: interaction.title || strings.planReviewTitle,
+                mode: (interaction.mode || 'display') as PlanReviewModeType,
+                readOnly: !isPending,
+                existingComments: interaction.requiredRevisions as PlanCommentType[],
+                interactionId: interactionId
+            };
+
+            if (isPending) {
+                // Use reopenPendingReview to connect to the existing agent promise
+                await PlanReviewPanel.reopenPendingReview(this._extensionUri, interactionId, options);
+            } else {
+                // Historical view - just open in read-only mode
+                PlanReviewPanel.showWithOptions(this._extensionUri, options);
+            }
+        }
+    }
+
+    /**
+     * Handle opening a task list in the TaskListPanel
+     */
+    private async _handleOpenTaskList(listId: string): Promise<void> {
+        try {
+            const taskListStorage = getTaskListStorage();
+            const session = taskListStorage.getSession(listId);
+
+            if (session) {
+                // Import dynamically to avoid circular dependency
+                const { TaskListPanel } = await import('./taskListPanel');
+
+                // Open the task list panel
+                TaskListPanel.open(
+                    this._extensionUri,
+                    listId,
+                    taskListStorage
+                );
+            } else {
+                console.warn('[Seamless Agent] Task list not found:', listId);
+                vscode.window.showWarningMessage(strings.taskListNotFound || 'Task list not found');
+            }
+        } catch (e) {
+            console.error('[Seamless Agent] Error opening task list:', e);
+        }
+    }
+
+    /**
+     * Handle deleting a task list
+     */
+    private async _handleDeleteTaskList(listId: string): Promise<void> {
+        try {
+            const taskListStorage = getTaskListStorage();
+            taskListStorage.deleteSession(listId);
+            console.log('[Seamless Agent] Task list deleted:', listId);
+
+            // Refresh the home view
+            this._showHome();
+        } catch (e) {
+            console.error('[Seamless Agent] Error deleting task list:', e);
+        }
     }
 
     private _getHtmlContent(webview: vscode.Webview): string {
         // Get URIs for resources
-        const styleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css')
-        );
-        const highlightStyleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'highlight.css')
-        );
-        const codiconsUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
-        );
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js')
-        );
+        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
+        const highlightStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'highlight.css'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
 
         // Generate nonce for CSP
         const nonce = this._getNonce();
@@ -988,7 +1396,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         let template = fs.readFileSync(templatePath, 'utf8');
 
         // Replace placeholders
-        const replacements: Record<string, string> = {
+        const replacements: Record<string,
+            string> = {
             '{{cspSource}}': webview.cspSource,
             '{{nonce}}': nonce,
             '{{styleUri}}': styleUri.toString(),
@@ -998,6 +1407,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{consoleTitle}}': strings.consoleTitle,
             '{{back}}': strings.back,
             '{{noPendingRequests}}': strings.noPendingRequests,
+            '{{noPendingItems}}': strings.noPendingItems,
+            '{{pendingItems}}': strings.pendingItems,
+            '{{noTaskLists}}': strings.noTaskLists,
             '{{pendingRequests}}': strings.pendingRequests,
             '{{yourResponse}}': strings.yourResponse,
             '{{inputPlaceholder}}': strings.inputPlaceholder,
@@ -1020,7 +1432,32 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{clearHistory}}': strings.clearHistory,
             '{{sessionInput}}': strings.sessionInput,
             '{{sessionOutput}}': strings.sessionOutput,
-            '{{addFolder}}': strings.addFolder
+            '{{addFolder}}': strings.addFolder,
+            // Chat history & Plan Review strings
+            '{{pendingReviews}}': strings.pendingReviews,
+            '{{noPendingReviews}}': strings.noPendingReviews,
+            '{{chatHistory}}': strings.chatHistory,
+            '{{noChats}}': strings.noChats,
+            '{{openInPanel}}': strings.openInPanel,
+            '{{deleteChat}}': strings.deleteChat,
+            '{{approved}}': strings.approved,
+            '{{rejected}}': strings.rejected,
+            '{{pending}}': strings.pending,
+            '{{acknowledged}}': strings.acknowledged,
+            '{{cancelled}}': strings.cancelled,
+            '{{question}}': strings.question,
+            '{{response}}': strings.response,
+            '{{noResponse}}': strings.noResponse,
+            // History filter tooltips
+            '{{historyFilterAll}}': strings.historyFilterAll,
+            '{{historyFilterTaskLists}}': strings.historyFilterTaskLists,
+            '{{historyFilterAskUser}}': strings.historyFilterAskUser,
+            '{{historyFilterPlanReview}}': strings.historyFilterPlanReview,
+            // Task List strings
+            '{{taskLists}}': strings.taskLists,
+            '{{tasks}}': strings.tasks,
+            '{{closed}}': strings.taskListClosed,
+            '{{active}}': strings.taskListActive
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {
@@ -1033,9 +1470,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     private _getNonce(): string {
         let text = '';
         const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
         for (let i = 0; i < 32; i++) {
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
+
         return text;
     }
 
@@ -1066,7 +1505,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private _getFileIcon(filename: string): string {
         const ext = filename.split('.').pop()?.toLowerCase() || '';
-        const iconMap: Record<string, string> = {
+
+        const iconMap: Record<string,
+            string> = {
             // TypeScript/JavaScript
             'ts': 'symbol-file',
             'tsx': 'symbol-file',
@@ -1122,7 +1563,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             'zip': 'file-zip',
             'tar': 'file-zip',
             'gz': 'file-zip',
-        };
+        }
+
+            ;
         return iconMap[ext] || 'file';
     }
 }

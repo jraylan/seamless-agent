@@ -5,38 +5,8 @@
  * within the Seamless Agent console.
  */
 
-import { AttachmentInfo } from './webviewProvider';
+import { AttachmentInfo, ToolCallInteraction } from "./types";
 
-/**
- * Represents a single tool call interaction.
- * Each ask_user invocation creates one ToolCallInteraction.
- */
-export interface ToolCallInteraction {
-    /** Unique interaction ID (same as request ID) */
-    id: string;
-
-    /** Timestamp when this interaction was created */
-    timestamp: number;
-
-    /** Input data from the AI tool call */
-    input: {
-        /** The question asked by the AI */
-        question: string;
-        /** The title/label for this tool call */
-        title: string;
-    };
-
-    /** Output data from the user's response */
-    output: {
-        /** User's response text */
-        response: string;
-        /** Files/folders attached with the response */
-        attachments: AttachmentInfo[];
-    };
-
-    /** Status of this interaction */
-    status: 'completed' | 'cancelled';
-}
 
 /**
  * Maximum number of interactions to keep in history
@@ -103,3 +73,5 @@ export function deserializeInteractions(json: string): ToolCallInteraction[] {
         return [];
     }
 }
+export { ToolCallInteraction };
+
