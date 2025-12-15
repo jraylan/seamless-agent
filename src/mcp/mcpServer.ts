@@ -8,7 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser, planReviewApproval, walkthroughReview, createTaskList, getNextTask, updateTaskStatus, closeTaskList } from '../tools';
+import { askUser, planReviewApproval, walkthroughReview, createTaskList, getNextTask, updateTaskStatus, closeTaskList, resumeTaskList } from '../tools';
 
 export class McpServerManager {
     private server: http.Server | undefined;
@@ -271,6 +271,31 @@ export class McpServerManager {
                 async (args: any) => {
                     const result = await closeTaskList(
                         { listId: String(args.listId) },
+                        this.context,
+                        this.provider
+                    );
+
+                    const toolResult: Record<string, unknown> & {
+                        content: any[];
+                        structuredContent?: Record<string, unknown>;
+                    } = {
+                        content: [{ type: 'text', text: JSON.stringify(result) }],
+                        structuredContent: result as unknown as Record<string, unknown>
+                    };
+                    return toolResult;
+                }
+            );
+
+            this.mcpServer.registerTool(
+                "resume_task",
+                {
+                    inputSchema: z.object({
+                        listId: z.string().optional().describe('Task list id to resume. If omitted and only one list is open, it is inferred automatically.')
+                    })
+                },
+                async (args: any) => {
+                    const result = await resumeTaskList(
+                        { listId: args?.listId ? String(args.listId) : undefined },
                         this.context,
                         this.provider
                     );

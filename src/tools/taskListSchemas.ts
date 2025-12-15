@@ -39,6 +39,10 @@ export interface TaskItem {
     createdAt: number;
     updatedAt?: number;
     comments: TaskComment[];
+    /** If true, getNextTask will pause and request user input before returning this task */
+    breakpoint?: boolean;
+    /** Stores pending breakpoint input from user (not persisted after consumed) */
+    pendingBreakpointInput?: string;
 }
 
 /**
@@ -63,7 +67,9 @@ export interface TaskListSession {
 export const TaskInputSchema = z.object({
     title: z.string().min(1, 'Task title cannot be empty'),
     description: z.string().optional(),
-    status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).optional().default('pending')
+    status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).optional().default('pending'),
+    breakpoint: z.boolean().optional()
+        .describe('If true, getNextTask will pause and request user input before returning this task')
 });
 
 /**
@@ -122,6 +128,8 @@ export interface TaskItemResult {
     title: string;
     description?: string;
     status: TaskStatus;
+    /** If true, this task has a breakpoint that will pause execution */
+    breakpoint?: boolean;
 }
 
 /**

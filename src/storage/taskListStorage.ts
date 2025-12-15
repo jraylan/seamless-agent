@@ -23,6 +23,12 @@ const STORAGE_KEYS = {
 export class TaskListStorage {
     private context: vscode.ExtensionContext;
 
+    // In-memory storage for pending breakpoint inputs (not persisted)
+    private pendingBreakpointInputs: Map<string, {
+        resolve: (instruction: string) => void;
+        reject: (reason?: unknown) => void;
+    }> = new Map();
+
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
     }
@@ -39,6 +45,13 @@ export class TaskListStorage {
     }
 
     /**
+     * Get all open (not closed) task list sessions
+     */
+    getOpenSessions(): TaskListSession[] {
+        return this.getAllSessions().filter(s => !s.closed);
+    }
+
+    /**
      * Get a specific session by ID
      */
     getSession(listId: string): TaskListSession | undefined {
@@ -49,7 +62,7 @@ export class TaskListStorage {
     /**
      * Create a new task list session
      */
-    createSession(title: string, initialTasks?: Array<{ title: string; description?: string; status?: TaskStatus }>): TaskListSession {
+    createSession(title: string, initialTasks?: Array<{ title: string; description?: string; status?: TaskStatus; breakpoint?: boolean }>): TaskListSession {
         const listId = generateId('list');
         const now = Date.now();
 
@@ -59,7 +72,8 @@ export class TaskListStorage {
             description: t.description,
             status: t.status || 'pending',
             createdAt: now + index, // Ensure unique timestamps
-            comments: []
+            comments: [],
+            breakpoint: t.breakpoint
         }));
 
         const session: TaskListSession = {
@@ -107,7 +121,7 @@ export class TaskListStorage {
     updateTask(
         listId: string,
         taskId: string,
-        updates: { title?: string; description?: string; status?: TaskStatus }
+        updates: { title?: string; description?: string; status?: TaskStatus; breakpoint?: boolean }
     ): { updated: boolean; autoCompleted: boolean } {
         const session = this.getSession(listId);
         if (!session || session.closed) {
@@ -127,6 +141,9 @@ export class TaskListStorage {
         }
         if (updates.status !== undefined) {
             task.status = updates.status;
+        }
+        if (updates.breakpoint !== undefined) {
+            (task as TaskItem & { breakpoint?: boolean }).breakpoint = updates.breakpoint;
         }
         task.updatedAt = Date.now();
         session.lastActivity = Date.now();
@@ -394,6 +411,85 @@ export class TaskListStorage {
     }
 
     // ========================
+    // Breakpoint Methods
+    // ========================
+
+    /**
+     * Create a key for breakpoint input storage
+     */
+    private getBreakpointKey(listId: string, taskId: string): string {
+        return `${listId}:${taskId}`;
+    }
+
+    /**
+     * Wait for breakpoint input from user
+     * Returns a promise that resolves when user submits input
+     */
+    waitForBreakpointInput(listId: string, taskId: string): Promise<string> {
+        const key = this.getBreakpointKey(listId, taskId);
+
+        // Cancel any existing pending input for this task
+        this.cancelBreakpointInput(listId, taskId);
+
+        return new Promise((resolve, reject) => {
+            this.pendingBreakpointInputs.set(key, { resolve, reject });
+        });
+    }
+
+    /**
+     * Submit breakpoint input from user
+     */
+    submitBreakpointInput(listId: string, taskId: string, instruction: string): boolean {
+        const key = this.getBreakpointKey(listId, taskId);
+        const pending = this.pendingBreakpointInputs.get(key);
+
+        if (pending) {
+            pending.resolve(instruction);
+            this.pendingBreakpointInputs.delete(key);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Cancel pending breakpoint input
+     */
+    cancelBreakpointInput(listId: string, taskId: string): boolean {
+        const key = this.getBreakpointKey(listId, taskId);
+        const pending = this.pendingBreakpointInputs.get(key);
+
+        if (pending) {
+            pending.reject(new Error('Breakpoint input cancelled'));
+            this.pendingBreakpointInputs.delete(key);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if there's a pending breakpoint input for a task
+     */
+    hasPendingBreakpointInput(listId: string, taskId: string): boolean {
+        const key = this.getBreakpointKey(listId, taskId);
+        return this.pendingBreakpointInputs.has(key);
+    }
+
+    /**
+     * Cancel all pending breakpoint inputs for a list
+     */
+    cancelAllBreakpointInputs(listId: string): void {
+        const prefix = `${listId}:`;
+        for (const [key, pending] of this.pendingBreakpointInputs.entries()) {
+            if (key.startsWith(prefix)) {
+                pending.reject(new Error('Task list closed'));
+                this.pendingBreakpointInputs.delete(key);
+            }
+        }
+    }
+
+    // ========================
     // Helper Methods
     // ========================
 
@@ -405,7 +501,8 @@ export class TaskListStorage {
             id: t.id,
             title: t.title,
             description: t.description,
-            status: t.status
+            status: t.status,
+            breakpoint: t.breakpoint
         }));
     }
 

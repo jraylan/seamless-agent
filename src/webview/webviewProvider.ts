@@ -422,6 +422,81 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         this._showHome();
     }
 
+    // ========================
+    // Resume Task List Methods
+    // ========================
+
+    // Map of pending resume task requests
+    private _pendingResumeTaskRequests: Map<string, {
+        resolve: (listId: string) => void;
+        reject: (reason?: unknown) => void;
+    }> = new Map();
+
+    /**
+     * Request user to provide a task list ID for resuming.
+     * Opens an input card in the webview for the user to enter or select a list ID.
+     */
+    public async requestResumeTaskListId(
+        availableLists: Array<{ id: string; title: string }>
+    ): Promise<string> {
+        // If the view isn't available, try to open it
+        if (!this._view) {
+            try {
+                await vscode.commands.executeCommand('seamlessAgentView.focus');
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                if (!this._view) {
+                    throw new Error('Agent Console view is not available.');
+                }
+            } catch (error) {
+                throw new Error('Agent Console view is not available.');
+            }
+        }
+
+        const requestId = `resume_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+        return new Promise<string>((resolve, reject) => {
+            this._pendingResumeTaskRequests.set(requestId, { resolve, reject });
+
+            // Send message to show resume input
+            const message: ToWebviewMessage = {
+                type: 'showResumeTaskInput',
+                requestId,
+                availableLists
+            };
+            this._view?.webview.postMessage(message);
+
+            // Show notification if panel is not visible
+            if (!this._view?.visible) {
+                this._showNotification();
+            }
+        });
+    }
+
+    /**
+     * Resolve a pending resume task request
+     */
+    private _resolveResumeTaskRequest(requestId: string, listId: string): void {
+        const pending = this._pendingResumeTaskRequests.get(requestId);
+        if (pending) {
+            pending.resolve(listId);
+            this._pendingResumeTaskRequests.delete(requestId);
+            this._showHome();
+        }
+    }
+
+    /**
+     * Cancel a pending resume task request
+     */
+    private _cancelResumeTaskRequest(requestId: string): void {
+        const pending = this._pendingResumeTaskRequests.get(requestId);
+        if (pending) {
+            pending.reject(new Error('User cancelled'));
+            this._pendingResumeTaskRequests.delete(requestId);
+            this._showHome();
+        }
+    }
+
     /**
      * Public method to switch tabs in the webview (called from commands)
      */
@@ -517,6 +592,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openTaskList': this._handleOpenTaskList(message.listId);
                 break;
             case 'deleteTaskList': this._handleDeleteTaskList(message.listId);
+                break;
+            case 'resumeTaskInputSubmit': 
+                this._resolveResumeTaskRequest(message.requestId, message.listId);
+                break;
+            case 'resumeTaskInputCancel': 
+                this._cancelResumeTaskRequest(message.requestId);
                 break;
         }
     }

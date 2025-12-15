@@ -101,6 +101,42 @@
               </p>
               <div id="pending-requests-list"></div>
               <div id="pending-reviews-list"></div>
+
+              <!-- Resume Task Input Card (shown when resume_task called without ID) -->
+              <div id="resume-task-card" class="resume-task-card hidden">
+                <div class="resume-task-header">
+                  <span class="codicon codicon-debug-continue"></span>
+                  <h3>{{resumeTaskList}}</h3>
+                  <button
+                    id="resume-task-close"
+                    class="btn-icon"
+                    title="{{cancel}}"
+                    aria-label="{{cancel}}"
+                  >
+                    <span class="codicon codicon-close"></span>
+                  </button>
+                </div>
+                <p class="resume-task-description">{{resumeTaskDescription}}</p>
+                <div
+                  id="resume-available-lists"
+                  class="resume-available-lists hidden"
+                >
+                  <p class="resume-lists-label">{{availableLists}}</p>
+                  <div id="resume-lists-container"></div>
+                </div>
+                <div class="resume-task-input-row">
+                  <input
+                    type="text"
+                    id="resume-list-id-input"
+                    class="resume-input"
+                    placeholder="{{resumeIdPlaceholder}}"
+                  />
+                  <button id="resume-confirm-btn" class="btn btn-primary">
+                    <span class="codicon codicon-play"></span>
+                    {{resumeConfirm}}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -288,6 +324,12 @@
         pendingItems: "{{pendingItems}}",
         chatHistory: "{{chatHistory}}",
         clearHistory: "{{clearHistory}}",
+        // Resume task strings
+        resumeTaskList: "{{resumeTaskList}}",
+        resumeTaskDescription: "{{resumeTaskDescription}}",
+        resumeIdPlaceholder: "{{resumeIdPlaceholder}}",
+        resumeConfirm: "{{resumeConfirm}}",
+        availableLists: "{{availableLists}}",
       };
     </script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>

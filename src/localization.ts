@@ -153,6 +153,24 @@ export const strings = {
     get taskListReopenTask() { return localize('taskList.reopenTask'); },
     get taskListCommentPlaceholder() { return localize('taskList.commentPlaceholder'); },
     get taskListRemoveComment() { return localize('taskList.removeComment'); },
+    // Task List Breakpoint & Resume
+    get listId() { return localize('taskList.listId'); },
+    get copyId() { return localize('taskList.copyId'); },
+    get idCopied() { return localize('taskList.idCopied'); },
+    get breakpointActive() { return localize('taskList.breakpointBanner'); },
+    get breakpointPlaceholder() { return localize('taskList.breakpointPlaceholder'); },
+    get breakpointSubmit() { return localize('taskList.breakpointSubmit'); },
+    get breakpointCancel() { return localize('taskList.breakpointCancel'); },
+    get breakpointIndicator() { return localize('taskList.breakpointIndicator'); },
+    get addBreakpoint() { return localize('taskList.addBreakpoint'); },
+    get removeBreakpoint() { return localize('taskList.removeBreakpoint'); },
+    // Resume task
+    get resumeTitle() { return localize('resume.title'); },
+    get resumeDescription() { return localize('resume.description'); },
+    get resumeAvailableLists() { return localize('resume.availableLists'); },
+    get resumeInputPlaceholder() { return localize('resume.inputPlaceholder'); },
+    get resumeSubmit() { return localize('resume.submit'); },
+    get resumeNoOpenLists() { return localize('resume.noOpenLists'); },
 
     // Attachments / images
     get attachmentNoFilesFound() { return localize('attachment.noFilesFound'); },

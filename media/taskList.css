@@ -166,6 +166,13 @@ body {
     min-width: 0;
 }
 
+.task-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
 .task-step.completed .task-title {
     color: var(--vscode-disabledForeground);
 }
@@ -195,7 +202,8 @@ body {
 }
 
 /* Comment action button */
-.task-comment-btn {
+.task-comment-btn,
+.task-breakpoint-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -214,21 +222,24 @@ body {
     opacity: 0;
 }
 
-.task-step:hover .task-comment-btn {
+.task-step:hover .task-comment-btn,
+.task-step:hover .task-breakpoint-btn {
     opacity: 1;
 }
 
-.task-comment-btn:hover {
+.task-comment-btn:hover,
+.task-breakpoint-btn:hover {
     background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-/* Task actions (when no details) */
-.task-actions {
-    margin-top: 4px;
+/* Breakpoint button active state */
+.task-breakpoint-btn.active {
+    opacity: 1;
+    color: var(--vscode-debugIcon-breakpointForeground, #e51400);
 }
 
-.task-actions .task-comment-btn {
-    margin-top: 0;
+.task-breakpoint-btn.active:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 /* Comments section */
@@ -486,4 +497,135 @@ body {
 
 .tasks-list::-webkit-scrollbar-thumb:hover {
     background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* List ID Container */
+.list-id-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 6px 10px;
+    background: var(--vscode-textBlockQuote-background);
+    border-radius: var(--border-radius);
+    font-size: 12px;
+}
+
+.list-id-label {
+    color: var(--vscode-descriptionForeground);
+    font-weight: 500;
+}
+
+.list-id-value {
+    font-family: var(--vscode-editor-font-family);
+    color: var(--vscode-textPreformat-foreground);
+    user-select: all;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.copy-id-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    opacity: 0.7;
+    transition: opacity 0.2s, background-color 0.2s;
+}
+
+.copy-id-btn:hover {
+    opacity: 1;
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.copy-id-btn:active {
+    background-color: var(--vscode-toolbar-activeBackground);
+}
+
+.copy-id-btn.copied {
+    color: var(--vscode-testing-iconPassed);
+    opacity: 1;
+}
+
+/* Breakpoint Input Container */
+.breakpoint-input-container {
+    margin-bottom: 16px;
+    padding: 12px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    border-radius: var(--border-radius);
+}
+
+.breakpoint-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--vscode-inputValidation-warningBorder);
+    font-weight: 500;
+}
+
+.breakpoint-banner .codicon {
+    font-size: 16px;
+}
+
+.breakpoint-textarea {
+    width: 100%;
+    padding: var(--input-padding);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: var(--border-radius);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    resize: vertical;
+    min-height: 60px;
+    margin-bottom: 12px;
+}
+
+.breakpoint-textarea:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+}
+
+.breakpoint-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Task with breakpoint indicator */
+.task-step.has-breakpoint .task-checkbox {
+    border-color: var(--vscode-inputValidation-warningBorder);
+}
+
+.task-step.has-breakpoint .task-checkbox::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--vscode-inputValidation-warningBorder);
+    border-radius: 50%;
+}
+
+.breakpoint-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--vscode-inputValidation-warningBorder);
+    margin-left: 8px;
+}
+
+.breakpoint-indicator .codicon {
+    font-size: 12px;
 }

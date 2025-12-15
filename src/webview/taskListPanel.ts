@@ -129,6 +129,34 @@ export class TaskListPanel {
     }
 
     /**
+     * Request breakpoint input from user through the panel
+     */
+    public static requestBreakpointInput(listId: string, taskId: string, taskTitle: string): void {
+        const panel = TaskListPanel._panels.get(listId);
+        if (panel) {
+            panel._panel.reveal();
+            panel._panel.webview.postMessage({
+                type: 'requestBreakpointInput',
+                taskId,
+                taskTitle
+            } as ToWebviewMessage);
+        }
+    }
+
+    /**
+     * Cancel breakpoint input request
+     */
+    public static cancelBreakpointInput(listId: string, taskId: string): void {
+        const panel = TaskListPanel._panels.get(listId);
+        if (panel) {
+            panel._panel.webview.postMessage({
+                type: 'breakpointInputCancelled',
+                taskId
+            } as ToWebviewMessage);
+        }
+    }
+
+    /**
      * Send current state to webview
      */
     private _sendCurrentState(): void {
@@ -173,6 +201,30 @@ export class TaskListPanel {
 
             case 'close':
                 this._panel.dispose();
+                break;
+
+            case 'breakpointInputSubmit':
+                // Submit the breakpoint input to storage which will resolve the waiting promise
+                this._storage.submitBreakpointInput(this._listId, message.taskId, message.instruction);
+                break;
+
+            case 'breakpointInputCancel':
+                // Cancel the breakpoint input
+                this._storage.cancelBreakpointInput(this._listId, message.taskId);
+                break;
+
+            case 'copyListId':
+                // Show info message when ID is copied
+                vscode.window.showInformationMessage(strings.idCopied || 'ID copied to clipboard');
+                break;
+
+            case 'toggleBreakpoint':
+                this._storage.updateTask(
+                    this._listId,
+                    message.taskId,
+                    { breakpoint: message.breakpoint }
+                );
+                this._sendCurrentState();
                 break;
         }
     }
@@ -246,7 +298,15 @@ export class TaskListPanel {
             '{{taskListSubmit}}': strings.taskListSubmit,
             '{{taskListReopenTask}}': strings.taskListReopenTask,
             '{{taskListCommentPlaceholder}}': strings.taskListCommentPlaceholder,
-            '{{cancel}}': strings.cancel
+            '{{cancel}}': strings.cancel,
+            // New strings for ID and breakpoint
+            '{{copyId}}': strings.copyId || 'Copy ID',
+            '{{idCopied}}': strings.idCopied || 'ID copied to clipboard',
+            '{{breakpointActive}}': strings.breakpointActive || 'Breakpoint active',
+            '{{breakpointPlaceholder}}': strings.breakpointPlaceholder || 'Enter instructions for the agent to follow before continuing...',
+            '{{breakpointSubmit}}': strings.breakpointSubmit || 'Send',
+            '{{addBreakpoint}}': strings.addBreakpoint || 'Add Breakpoint',
+            '{{removeBreakpoint}}': strings.removeBreakpoint || 'Remove Breakpoint'
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

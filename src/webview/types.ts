@@ -110,6 +110,17 @@ export type ToWebviewMessage = | {
     }
 
     | {
+        type: 'showResumeTaskInput';
+        requestId: string;
+        availableLists: Array<{ id: string; title: string }>;
+    }
+
+    | {
+        type: 'resumeTaskInputCancelled';
+        requestId: string;
+    }
+
+    | {
         type: 'updateAttachments';
         requestId: string;
         attachments: AttachmentInfo[]
@@ -237,6 +248,17 @@ export type FromWebviewMessage = | {
     | {
         type: 'deleteTaskList';
         listId: string
+    }
+
+    | {
+        type: 'resumeTaskInputSubmit';
+        requestId: string;
+        listId: string
+    }
+
+    | {
+        type: 'resumeTaskInputCancel';
+        requestId: string
     };
 
 
@@ -277,12 +299,18 @@ export type PlanReviewPanelFromWebviewMessage =
 export type TaskListPanelToWebviewMessage =
     | { type: 'showTaskList'; listId: string; title: string; tasks: TaskItem[]; closed: boolean }
     | { type: 'updateTasks'; tasks: TaskItem[] }
-    | { type: 'listClosed' };
+    | { type: 'listClosed' }
+    | { type: 'requestBreakpointInput'; taskId: string; taskTitle: string }
+    | { type: 'breakpointInputCancelled'; taskId: string };
 
 export type TaskListPanelFromWebviewMessage =
     | { type: 'addComment'; taskId: string; revisedPart: string; revisorInstructions: string; reopened: boolean }
     | { type: 'removeComment'; taskId: string; commentId: string }
-    | { type: 'close' };
+    | { type: 'close' }
+    | { type: 'breakpointInputSubmit'; taskId: string; instruction: string }
+    | { type: 'breakpointInputCancel'; taskId: string }
+    | { type: 'copyListId'; listId: string }
+    | { type: 'toggleBreakpoint'; taskId: string; breakpoint: boolean };
 
 // File search result for autocomplete
 export interface FileSearchResult {

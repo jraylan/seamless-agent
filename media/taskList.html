@@ -17,12 +17,51 @@
       <div class="header">
         <h1 id="list-title">{{taskListTitle}}</h1>
         <p id="list-description" class="header-description"></p>
+        <!-- List ID with copy button -->
+        <div class="list-id-container" id="list-id-container">
+          <span class="list-id-label">ID:</span>
+          <code class="list-id-value" id="list-id-value"></code>
+          <button
+            class="btn-icon copy-id-btn"
+            id="copy-id-btn"
+            title="{{copyId}}"
+            aria-label="{{copyId}}"
+          >
+            <span class="codicon codicon-copy"></span>
+          </button>
+        </div>
       </div>
 
       <!-- Closed banner -->
       <div id="closed-banner" class="closed-banner hidden">
         <span class="codicon codicon-archive"></span>
         <span>{{taskListArchived}}</span>
+      </div>
+
+      <!-- Breakpoint Input (shown when a task has breakpoint) -->
+      <div
+        id="breakpoint-input-container"
+        class="breakpoint-input-container hidden"
+      >
+        <div class="breakpoint-banner">
+          <span class="codicon codicon-debug-pause"></span>
+          <span id="breakpoint-task-title">{{breakpointActive}}</span>
+        </div>
+        <textarea
+          id="breakpoint-input"
+          class="breakpoint-textarea"
+          placeholder="{{breakpointPlaceholder}}"
+          rows="3"
+        ></textarea>
+        <div class="breakpoint-actions">
+          <button id="breakpoint-submit" class="btn btn-primary">
+            <span class="codicon codicon-send"></span>
+            {{breakpointSubmit}}
+          </button>
+          <button id="breakpoint-cancel" class="btn btn-secondary">
+            {{cancel}}
+          </button>
+        </div>
       </div>
 
       <!-- Tasks List (walkthrough style) -->
@@ -84,6 +123,13 @@
         reopenTask: "{{taskListReopenTask}}",
         commentPlaceholder: "{{taskListCommentPlaceholder}}",
         cancel: "{{cancel}}",
+        copyId: "{{copyId}}",
+        idCopied: "{{idCopied}}",
+        breakpointActive: "{{breakpointActive}}",
+        breakpointPlaceholder: "{{breakpointPlaceholder}}",
+        breakpointSubmit: "{{breakpointSubmit}}",
+        addBreakpoint: "{{addBreakpoint}}",
+        removeBreakpoint: "{{removeBreakpoint}}",
       };
     </script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>

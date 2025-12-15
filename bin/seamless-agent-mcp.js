@@ -327,6 +327,27 @@ async function main() {
         }
     );
 
+    server.registerTool(
+        "resume_task",
+        {
+            description: "Resume a paused task list after a breakpoint. If listId is not provided and only one task list is open, it will be used automatically. Otherwise, prompts the user to paste the task list ID.",
+            inputSchema: z.object({
+                listId: z.string().optional().describe('Task list id to resume. If omitted and only one list is open, it is inferred automatically.')
+            })
+        }, async (args) => {
+            const result = await callExtensionApi(port, token, '/resume_task', { listId: args.listId ? String(args.listId) : undefined })
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(result),
+                    },
+                ],
+            };
+        }
+    );
+
 
     // Create stdio transport
     const transport = new StdioServerTransport();

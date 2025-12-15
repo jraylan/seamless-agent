@@ -1533,3 +1533,126 @@ button:disabled {
     border-radius: 2px;
     background-color: var(--vscode-panelTitle-activeBorder) !important;
 }
+
+/* ================================
+   Resume Task Card Styles
+   ================================ */
+.resume-task-card {
+    margin: 12px 0;
+    padding: 16px;
+    background-color: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 6px;
+}
+
+.resume-task-card.hidden {
+    display: none;
+}
+
+.resume-task-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.resume-task-header .codicon {
+    font-size: 18px;
+    color: var(--vscode-textLink-foreground);
+}
+
+.resume-task-header h3 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    flex: 1;
+}
+
+.resume-task-description {
+    margin: 0 0 12px;
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+}
+
+.resume-available-lists {
+    margin-bottom: 12px;
+}
+
+.resume-available-lists.hidden {
+    display: none;
+}
+
+.resume-lists-label {
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+    margin: 0 0 8px;
+}
+
+.resume-lists-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.resume-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--vscode-list-hoverBackground);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.resume-list-item:hover {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    border-color: var(--vscode-focusBorder);
+}
+
+.resume-list-item .codicon {
+    color: var(--vscode-textLink-foreground);
+}
+
+.resume-list-item-title {
+    flex: 1;
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resume-list-item-id {
+    font-size: 0.8em;
+    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-editor-font-family);
+}
+
+.resume-task-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.resume-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: var(--vscode-editor-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.resume-input:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+}
+
+.resume-input::placeholder {
+    color: var(--vscode-input-placeholderForeground);
+}

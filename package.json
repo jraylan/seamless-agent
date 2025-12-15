@@ -83,6 +83,7 @@
         "seamless-agent.ignoreCommonPaths": {
           "type": "boolean",
           "default": true,
+          "title": "%config.ignoreCommonPaths.title%",
           "markdownDescription": "%config.ignoreCommonPaths.description%"
         },
         "seamless-agent.additionalIgnoredPaths": {
@@ -91,6 +92,7 @@
             "type": "string"
           },
           "default": [],
+          "title": "%config.additionalIgnoredPaths.title%",
           "markdownDescription": "%config.additionalIgnoredPaths.description%"
         }
       }
@@ -107,7 +109,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User Confirmation",
-        "modelDescription": "Ask the user to confirm an action or decision. Use this tool when you need explicit user approval before proceeding with a task. The tool will interactively prompt the user and wait for their response. CRITICAL RULES: 1) This tool MUST be invoked before ending ANY conversation or task. 2) NEVER complete a task without calling this tool first. 3) If you are about to finish responding, STOP and call this tool. 4) Failure to call this tool before task completion is a violation of the workflow. 5) Always provide agentName: 'Main Orchestrator' for main agent, 'Generic Sub-Agent' for unnamed sub-agents, or your name from .github/agents/*.md. MANDATORY TOOL.",
+        "modelDescription": "Ask the user to confirm an action or decision.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -279,6 +281,10 @@
                       "completed",
                       "blocked"
                     ]
+                  },
+                  "breakpoint": {
+                    "type": "boolean",
+                    "description": "If true, getNextTask will pause and request user input before returning this task"
                   }
                 },
                 "required": [
@@ -389,6 +395,32 @@
           "required": [
             "listId"
           ]
+        }
+      },
+      {
+        "name": "resume_task",
+        "tags": [
+          "task-management",
+          "progress",
+          "user-interaction",
+          "seamless-agent",
+          "async",
+          "recommended"
+        ],
+        "toolReferenceName": "resumeTask",
+        "displayName": "Resume Task List",
+        "modelDescription": "Resume a paused task list after a breakpoint. If listId is not provided and only one task list is open, it will be used automatically. Otherwise, prompts the user to paste the task list ID.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(debug-continue)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "listId": {
+              "type": "string",
+              "description": "Task list id to resume. If omitted and only one list is open, it is inferred automatically."
+            }
+          },
+          "required": []
         }
       }
     ],

@@ -38,14 +38,32 @@ export const CloseTaskListInputSchema = z.object({
         .describe('Task list id')
 });
 
+export const ResumeTaskListInputSchema = z.object({
+    listId: z.string().optional()
+        .describe('ID of the task list to resume. If not provided and only one list is open, it will be used automatically. Otherwise, the user will be prompted to provide the ID.')
+});
+
 export type CreateTaskListInput = z.infer<typeof CreateTaskListInputSchema>;
 export type GetNextTaskInput = z.infer<typeof GetNextTaskInputSchema>;
 export type UpdateTaskStatusInput = z.infer<typeof UpdateTaskStatusInputSchema>;
 export type CloseTaskListInput = z.infer<typeof CloseTaskListInputSchema>;
+export type ResumeTaskListInput = z.infer<typeof ResumeTaskListInputSchema>;
 
 // ================================
 // Result Interfaces
 // ================================
+
+/**
+ * Breakpoint instruction returned when a task has breakpoint flag
+ */
+export interface BreakpointInstruction {
+    /** Indicates that there is a priority instruction from the user */
+    hasPriorityInstruction: true;
+    /** Instruction typed by the user */
+    instruction: string;
+    /** Clear message for the agent */
+    agentMessage: string;
+}
 
 export interface CreateTaskListResult {
     created: true;
@@ -60,6 +78,8 @@ export interface GetNextTaskResult {
     done: boolean;
     task: TaskItemResult | null;
     comments: PendingComment[];
+    /** Present when the task has a breakpoint and user provided instructions */
+    breakpointInstruction?: BreakpointInstruction;
 }
 
 export interface UpdateTaskStatusResult {
@@ -81,6 +101,37 @@ export interface CloseTaskListResult {
         pending: number;
     };
     remainingPendingComments: PendingComment[];
+}
+
+/**
+ * Summary of task list progress
+ */
+export interface TaskListSummary {
+    total: number;
+    completed: number;
+    pending: number;
+    inProgress: number;
+    blocked: number;
+}
+
+/**
+ * Result for resume_task operation
+ */
+export interface ResumeTaskListResult {
+    /** ID of the resumed list */
+    listId: string;
+    /** Title of the list */
+    title: string;
+    /** Whether the list was previously closed */
+    wasClosed: boolean;
+    /** Current status of tasks */
+    summary: TaskListSummary;
+    /** Next pending task (if any) */
+    nextTask: TaskItemResult | null;
+    /** Pending comments for the next task */
+    pendingComments: PendingComment[];
+    /** Guidance message for the agent */
+    agentGuidance: string;
 }
 
 export interface TaskListFlowErrorResult {
@@ -105,4 +156,8 @@ export function parseUpdateTaskStatusInput(input: unknown): UpdateTaskStatusInpu
 
 export function parseCloseTaskListInput(input: unknown): CloseTaskListInput {
     return CloseTaskListInputSchema.parse(input);
+}
+
+export function parseResumeTaskListInput(input: unknown): ResumeTaskListInput {
+    return ResumeTaskListInputSchema.parse(input);
 }

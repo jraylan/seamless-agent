@@ -30,6 +30,8 @@ declare function acquireVsCodeApi(): {
     let tasks: TaskItem[] = [];
     let isClosed = false;
     let currentTaskId = '';
+    let currentListId = '';
+    let currentBreakpointTaskId = '';
     const expandedComments: Set<string> = new Set();
 
     // DOM Elements
@@ -44,6 +46,15 @@ declare function acquireVsCodeApi(): {
     const dialogSave = document.getElementById('dialog-save') as HTMLButtonElement;
     const dialogCancel = document.getElementById('dialog-cancel') as HTMLButtonElement;
     const dialogClose = document.getElementById('dialog-close') as HTMLButtonElement;
+
+    // New DOM Elements for ID and Breakpoint
+    const listIdValue = document.getElementById('list-id-value') as HTMLElement;
+    const copyIdBtn = document.getElementById('copy-id-btn') as HTMLButtonElement;
+    const breakpointContainer = document.getElementById('breakpoint-input-container') as HTMLDivElement;
+    const breakpointTaskTitle = document.getElementById('breakpoint-task-title') as HTMLSpanElement;
+    const breakpointInput = document.getElementById('breakpoint-input') as HTMLTextAreaElement;
+    const breakpointSubmit = document.getElementById('breakpoint-submit') as HTMLButtonElement;
+    const breakpointCancel = document.getElementById('breakpoint-cancel') as HTMLButtonElement;
 
     function getProgressText(): string {
         const completed = tasks.filter(x => x.status === 'completed').length;
@@ -119,12 +130,25 @@ declare function acquireVsCodeApi(): {
                 }
             });
         });
+
+        // Bind toggle breakpoint events
+        document.querySelectorAll('.task-breakpoint-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = (e.currentTarget as HTMLElement).dataset.taskId;
+                const hasBreakpoint = (e.currentTarget as HTMLElement).dataset.hasBreakpoint === 'true';
+                if (taskId) {
+                    toggleBreakpoint(taskId, !hasBreakpoint);
+                }
+            });
+        });
     }
 
     function renderTaskStep(task: TaskItem): string {
         const isCompleted = task.status === 'completed';
         const isInProgress = task.status === 'in-progress';
         const isBlocked = task.status === 'blocked';
+        const hasBreakpoint = !!(task as TaskItem & { breakpoint?: boolean }).breakpoint;
 
         // Checkbox icon based on status
         let checkboxContent = '';
@@ -171,15 +195,42 @@ declare function acquireVsCodeApi(): {
             `
             : '';
 
+        // Toggle breakpoint button (only for non-closed lists and non-completed tasks)
+        const toggleBreakpointLabel = hasBreakpoint 
+            ? t('removeBreakpoint', 'Remove Breakpoint')
+            : t('addBreakpoint', 'Add Breakpoint');
+        const toggleBreakpointBtn = !isClosed && !isCompleted
+            ? `
+                <button
+                    class="task-breakpoint-btn ${hasBreakpoint ? 'active' : ''}"
+                    data-task-id="${task.id}"
+                    data-has-breakpoint="${hasBreakpoint}"
+                    type="button"
+                    title="${escapeHtml(toggleBreakpointLabel)}"
+                    aria-label="${escapeHtml(toggleBreakpointLabel)}"
+                >
+                    <span class="codicon codicon-debug-breakpoint${hasBreakpoint ? '' : '-unverified'}"></span>
+                </button>
+            `
+            : '';
+
+        // Breakpoint indicator
+        const breakpointIndicator = hasBreakpoint && !isCompleted
+            ? `<span class="breakpoint-indicator" title="${escapeHtml(t('breakpointActive', 'Breakpoint active'))}"><span class="codicon codicon-debug-pause"></span></span>`
+            : '';
+
         return `
-            <div class="task-step ${isCompleted ? 'completed' : ''} ${isInProgress ? 'in-progress' : ''} ${isBlocked ? 'blocked' : ''}" data-task-id="${task.id}">
+            <div class="task-step ${isCompleted ? 'completed' : ''} ${isInProgress ? 'in-progress' : ''} ${isBlocked ? 'blocked' : ''} ${hasBreakpoint && !isCompleted ? 'has-breakpoint' : ''}" data-task-id="${task.id}">
                 <div class="task-checkbox ${task.status}">
                     ${checkboxContent}
                 </div>
                 <div class="task-content">
                     <div class="task-title-row">
-                        <p class="task-title">${escapeHtml(task.title)}</p>
-                        ${addCommentBtn}
+                        <p class="task-title">${escapeHtml(task.title)}${breakpointIndicator}</p>
+                        <div class="task-actions">
+                            ${toggleBreakpointBtn}
+                            ${addCommentBtn}
+                        </div>
                     </div>
                     ${task.description && !isCompleted ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ''}
                     ${commentsHtml}
@@ -282,10 +333,114 @@ declare function acquireVsCodeApi(): {
         });
     }
 
+    function toggleBreakpoint(taskId: string, breakpoint: boolean): void {
+        vscode.postMessage({
+            type: 'toggleBreakpoint',
+            taskId,
+            breakpoint
+        });
+    }
+
     function escapeHtml(text: string): string {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // ========================
+    // Copy ID Functions
+    // ========================
+    
+    function copyListId(): void {
+        if (!currentListId) return;
+        
+        navigator.clipboard.writeText(currentListId).then(() => {
+            // Visual feedback
+            copyIdBtn?.classList.add('copied');
+            const icon = copyIdBtn?.querySelector('.codicon');
+            if (icon) {
+                icon.classList.remove('codicon-copy');
+                icon.classList.add('codicon-check');
+            }
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                copyIdBtn?.classList.remove('copied');
+                if (icon) {
+                    icon.classList.remove('codicon-check');
+                    icon.classList.add('codicon-copy');
+                }
+            }, 2000);
+        }).catch(() => {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = currentListId;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        });
+        
+        vscode.postMessage({
+            type: 'copyListId',
+            listId: currentListId
+        });
+    }
+
+    // ========================
+    // Breakpoint Input Functions
+    // ========================
+    
+    function showBreakpointInput(taskId: string, taskTitle: string): void {
+        currentBreakpointTaskId = taskId;
+        
+        if (breakpointTaskTitle) {
+            breakpointTaskTitle.textContent = `${t('breakpointActive', 'Breakpoint active')}: ${taskTitle}`;
+        }
+        
+        if (breakpointInput) {
+            breakpointInput.value = '';
+        }
+        
+        breakpointContainer?.classList.remove('hidden');
+        breakpointInput?.focus();
+    }
+    
+    function hideBreakpointInput(): void {
+        currentBreakpointTaskId = '';
+        breakpointContainer?.classList.add('hidden');
+        
+        if (breakpointInput) {
+            breakpointInput.value = '';
+        }
+    }
+    
+    function submitBreakpointInput(): void {
+        const instruction = breakpointInput?.value.trim();
+        
+        if (!instruction || !currentBreakpointTaskId) {
+            breakpointInput?.focus();
+            return;
+        }
+        
+        vscode.postMessage({
+            type: 'breakpointInputSubmit',
+            taskId: currentBreakpointTaskId,
+            instruction
+        });
+        
+        hideBreakpointInput();
+    }
+    
+    function cancelBreakpointInput(): void {
+        if (currentBreakpointTaskId) {
+            vscode.postMessage({
+                type: 'breakpointInputCancel',
+                taskId: currentBreakpointTaskId
+            });
+        }
+        
+        hideBreakpointInput();
     }
 
     function handleMessage(event: MessageEvent<ToWebviewMessage>): void {
@@ -293,9 +448,15 @@ declare function acquireVsCodeApi(): {
 
         switch (message.type) {
             case 'showTaskList':
+                currentListId = message.listId;
                 listTitle.textContent = message.title;
                 tasks = message.tasks;
                 isClosed = message.closed;
+
+                // Update list ID display
+                if (listIdValue) {
+                    listIdValue.textContent = message.listId;
+                }
 
                 if (isClosed && closedBanner) {
                     closedBanner.classList.remove('hidden');
@@ -318,6 +479,16 @@ declare function acquireVsCodeApi(): {
                 }
                 renderTasks();
                 break;
+                
+            case 'requestBreakpointInput':
+                showBreakpointInput(message.taskId, message.taskTitle);
+                break;
+                
+            case 'breakpointInputCancelled':
+                if (currentBreakpointTaskId === message.taskId) {
+                    hideBreakpointInput();
+                }
+                break;
         }
     }
 
@@ -325,6 +496,13 @@ declare function acquireVsCodeApi(): {
     dialogSave?.addEventListener('click', saveComment);
     dialogCancel?.addEventListener('click', closeCommentDialog);
     dialogClose?.addEventListener('click', closeCommentDialog);
+    
+    // Copy ID button
+    copyIdBtn?.addEventListener('click', copyListId);
+    
+    // Breakpoint input buttons
+    breakpointSubmit?.addEventListener('click', submitBreakpointInput);
+    breakpointCancel?.addEventListener('click', cancelBreakpointInput);
 
     // Keyboard shortcuts
     commentDialog?.addEventListener('keydown', (e) => {
@@ -332,6 +510,15 @@ declare function acquireVsCodeApi(): {
             closeCommentDialog();
         } else if (e.key === 'Enter' && e.ctrlKey) {
             saveComment();
+        }
+    });
+    
+    // Breakpoint input keyboard shortcuts
+    breakpointContainer?.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cancelBreakpointInput();
+        } else if (e.key === 'Enter' && e.ctrlKey) {
+            submitBreakpointInput();
         }
     });
 

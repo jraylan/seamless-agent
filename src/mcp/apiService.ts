@@ -2,13 +2,13 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser, closeTaskList, createTaskList, getNextTask, planReview, updateTaskStatus } from '../tools';
+import { askUser, closeTaskList, createTaskList, getNextTask, planReview, updateTaskStatus, resumeTaskList } from '../tools';
 import { PlanReviewInput, parsePlanReviewInput } from '../tools/schemas';
-import { CreateTaskListInput, parseCreateTaskListInput, GetNextTaskInput, parseGetNextTaskInput, UpdateTaskStatusInput, parseUpdateTaskStatusInput, CloseTaskListInput, parseCloseTaskListInput } from '../tools/taskListFlowSchemas';
+import { CreateTaskListInput, parseCreateTaskListInput, GetNextTaskInput, parseGetNextTaskInput, UpdateTaskStatusInput, parseUpdateTaskStatusInput, CloseTaskListInput, parseCloseTaskListInput, ResumeTaskListInput, parseResumeTaskListInput } from '../tools/taskListFlowSchemas';
 
 export { planReviewApproval, walkthroughReview } from '../tools/planReview';
 export { initializeTaskListStorage, getTaskListStorage } from '../tools/taskList';
-export { createTaskList, getNextTask, updateTaskStatus, closeTaskList } from '../tools/taskListFlow';
+export { createTaskList, getNextTask, updateTaskStatus, closeTaskList, resumeTaskList } from '../tools/taskListFlow';
 
 const MAX_REQUEST_BODY_BYTES = 256 * 1024; // 256KB
 
@@ -82,6 +82,10 @@ export class ApiServiceManager {
                     }
                     if (url === '/close_task_list' && req.method === 'POST') {
                         await this.handleCloseTaskList(req, res);
+                        return
+                    }
+                    if (url === '/resume_task' && req.method === 'POST') {
+                        await this.handleResumeTask(req, res);
                         return
                     }
 
@@ -499,6 +503,67 @@ export class ApiServiceManager {
             tokenSource.dispose();
         }
     }
+
+    /**
+     * Handle POST /resume_task requests
+     */
+    private async handleResumeTask(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: ResumeTaskListInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseResumeTaskListInput(parsed);
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        try {
+            const result = await resumeTaskList(
+                params,
+                this.context,
+                this.provider
+            );
+
+            if ((result as any).error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: (result as any).error }));
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            }
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Error: ${error}` }));
+        }
+    }
+
     /**
      * Read request body as string
      */

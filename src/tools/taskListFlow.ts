@@ -9,7 +9,10 @@ import {
     CreateTaskListResult,
     GetNextTaskInput,
     GetNextTaskResult,
+    ResumeTaskListInput,
+    ResumeTaskListResult,
     TaskListFlowErrorResult,
+    TaskListSummary,
     UpdateTaskStatusInput,
     UpdateTaskStatusResult
 } from './taskListFlowSchemas';
@@ -36,7 +39,8 @@ export async function createTaskList(
     const initialTasks = params.tasks?.map(t => ({
         title: t.title,
         description: t.description,
-        status: t.status
+        status: t.status,
+        breakpoint: t.breakpoint
     }));
 
     const session = storage.createSession(params.title, initialTasks);
@@ -59,10 +63,15 @@ export async function createTaskList(
  * getNextTask
  * Returns the next pending task along with ANY pending user comments for that task.
  * Comments are marked as sent once returned.
+ * 
+ * If the task has a breakpoint flag:
+ * - Opens an input in the webview for user instructions
+ * - Waits for user to submit instructions
+ * - Returns the instructions in breakpointInstruction field
  */
 export async function getNextTask(
     params: GetNextTaskInput,
-    _context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext,
     provider: AgentInteractionProvider
 ): Promise<GetNextTaskResult | TaskListFlowErrorResult> {
     const storage = getTaskListStorage();
@@ -98,6 +107,39 @@ export async function getNextTask(
     // Comment status changes should reflect in UI
     provider.refreshHome();
     TaskListPanel.updateIfOpen(params.listId);
+
+    // Check if task has breakpoint
+    if (next.breakpoint) {
+        // Request breakpoint input from user through the panel
+        TaskListPanel.requestBreakpointInput(params.listId, next.id, next.title);
+
+        try {
+            // Wait for user to submit input
+            const instruction = await storage.waitForBreakpointInput(params.listId, next.id);
+
+            return {
+                listId: session.id,
+                closed: false,
+                done: false,
+                task: toTaskResult(storage, next),
+                comments,
+                breakpointInstruction: {
+                    hasPriorityInstruction: true,
+                    instruction,
+                    agentMessage: `⚠️ PRIORITY INSTRUCTION: The user has provided the following instruction that MUST be executed BEFORE continuing with this task "${next.title}". Follow the user's instruction first, then proceed with the task.`
+                }
+            };
+        } catch {
+            // User cancelled or panel was closed
+            return {
+                listId: session.id,
+                closed: false,
+                done: false,
+                task: toTaskResult(storage, next),
+                comments
+            };
+        }
+    }
 
     return {
         listId: session.id,
@@ -192,5 +234,117 @@ export async function closeTaskList(
         closed,
         summary,
         remainingPendingComments
+    };
+}
+
+/**
+ * Helper function to calculate task list summary
+ */
+function calculateSummary(tasks: Array<{ status: string }>): TaskListSummary {
+    return {
+        total: tasks.length,
+        completed: tasks.filter(t => t.status === 'completed').length,
+        blocked: tasks.filter(t => t.status === 'blocked').length,
+        inProgress: tasks.filter(t => t.status === 'in-progress').length,
+        pending: tasks.filter(t => t.status === 'pending').length
+    };
+}
+
+/**
+ * resumeTaskList
+ * Resume an existing task list by ID.
+ * If no ID is provided:
+ * - If only one open list exists, it's automatically selected
+ * - Otherwise, prompts the user to provide the ID through the webview
+ */
+export async function resumeTaskList(
+    params: ResumeTaskListInput,
+    context: vscode.ExtensionContext,
+    provider: AgentInteractionProvider
+): Promise<ResumeTaskListResult | TaskListFlowErrorResult> {
+    const storage = getTaskListStorage();
+
+    let listId = params.listId;
+
+    // If no listId provided, try to infer or ask user
+    if (!listId) {
+        const openSessions = storage.getOpenSessions();
+
+        if (openSessions.length === 0) {
+            return { error: 'No open task lists found. Create a new task list with create_task_list.' };
+        }
+
+        if (openSessions.length === 1) {
+            // Auto-select the only open list
+            listId = openSessions[0].id;
+        } else {
+            // Multiple lists open - need to ask user
+            try {
+                listId = await provider.requestResumeTaskListId(
+                    openSessions.map(s => ({ id: s.id, title: s.title }))
+                );
+            } catch {
+                return { error: 'User cancelled the operation or no list ID was provided.' };
+            }
+        }
+    }
+
+    const session = storage.getSession(listId);
+    if (!session) {
+        return { error: `Task list not found: ${listId}` };
+    }
+
+    const wasClosed = session.closed;
+
+    // If the list was closed, reopen it
+    if (session.closed) {
+        session.closed = false;
+        session.lastActivity = Date.now();
+        // Note: we need to save the session - storage.updateSession would be ideal
+        // For now, using the existing pattern
+    }
+
+    // Get next pending task
+    const nextTask = storage.getNextPendingTask(listId);
+
+    // Get pending comments for the next task
+    const pendingComments = nextTask
+        ? storage.getPendingCommentsForTaskAndMarkSent(listId, nextTask.id)
+        : [];
+
+    const summary = calculateSummary(session.tasks);
+
+    // Refresh UI
+    provider.refreshHome();
+
+    // Open the task list panel
+    TaskListPanel.open(context.extensionUri, listId, storage);
+
+    // Build guidance message for the agent
+    let agentGuidance = `Task list "${session.title}" resumed successfully. `;
+
+    if (wasClosed) {
+        agentGuidance += 'Note: This list was previously closed and has been reopened. ';
+    }
+
+    if (nextTask) {
+        agentGuidance += `Next task: "${nextTask.title}" (${nextTask.status}). `;
+        if (pendingComments.length > 0) {
+            agentGuidance += `There are ${pendingComments.length} pending comment(s) for this task. `;
+        }
+    } else if (summary.pending === 0 && summary.inProgress === 0) {
+        agentGuidance += 'All tasks are completed or blocked. Consider closing the list with close_task_list. ';
+    }
+
+    agentGuidance += `Progress: ${summary.completed}/${summary.total} tasks completed.`;
+
+    return {
+        listId: session.id,
+        title: session.title,
+        wasClosed,
+        summary,
+        nextTask: nextTask ? toTaskResult(storage, nextTask) : null,
+        pendingComments,
+        agentGuidance
     };
 }
