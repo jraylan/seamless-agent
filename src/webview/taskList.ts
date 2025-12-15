@@ -28,7 +28,6 @@ declare function acquireVsCodeApi(): {
 
     // State
     let tasks: TaskItem[] = [];
-    let listId = '';
     let isClosed = false;
     let currentTaskId = '';
     const expandedComments: Set<string> = new Set();
@@ -294,7 +293,6 @@ declare function acquireVsCodeApi(): {
 
         switch (message.type) {
             case 'showTaskList':
-                listId = message.listId;
                 listTitle.textContent = message.title;
                 tasks = message.tasks;
                 isClosed = message.closed;

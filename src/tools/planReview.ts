@@ -71,7 +71,7 @@ export async function planReview(
 
 
         const interactionState = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
-            ? result.action : 'closed'
+            ? result.action : 'closed';
 
         // Update the stored interaction with the result
         storage.updateInteraction(interactionId, {

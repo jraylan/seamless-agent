@@ -11,7 +11,6 @@ import {
     TaskListUpdateResult,
     TaskListReadResult,
     TaskListCloseResult,
-    parseTaskListInput
 } from './taskListSchemas';
 
 // Singleton storage instance
