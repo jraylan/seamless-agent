@@ -1,6 +1,30 @@
 # Changelog
 
+## [0.1.11](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.10...seamless-agent-v0.1.11) (2025-12-16)
+
+
+### Features
+
+* Add session history, folder attachments & accessibility ([06445e1](https://github.com/jraylan/seamless-agent/commit/06445e1cae774fb0c8aaeaf43962cd8e2467af7c))
+* Added filters to search file panels. ([9d37707](https://github.com/jraylan/seamless-agent/commit/9d37707d71fb41c0ca9122c23537babe065bfa47))
+* Added plan_review and walkthroug_review to Antigravity ([17a5543](https://github.com/jraylan/seamless-agent/commit/9e9ce43d3d1fb59b84b3238d5f5ae75da37aae63))
+* Enhance image handling and cleanup processes, add validation for image MIME types, and improve search query sanitization ([17c7c3d](https://github.com/jraylan/seamless-agent/commit/17c7c3dbcd13230d8c2036f1ea35a458535f9d63))
+* update features in README and add scrolling CSS for attachment chips container ([1a27eda](https://github.com/jraylan/seamless-agent/commit/1a27eda7b7df2d7ec510f762be0dc406339b030a))
+* Deprecated tool approve_plan in favor of plan_review [#12](https://github.com/jraylan/seamless-agent/issues/12) ([c104e65](https://github.com/jraylan/seamless-agent/commit/c104e65d5ab115a4f416f2b1a4d64dd8941ad525))
+
+### Bug Fixes
+
+* address PR [#18](https://github.com/jraylan/seamless-agent/issues/18) code review feedback ([dcc6476](https://github.com/jraylan/seamless-agent/commit/dcc64760440d04a263d4385c028b34738ba46c2e))
+
+
+### Refactoring
+
+* general QoL improvements ([17a5543](https://github.com/jraylan/seamless-agent/commit/17a5543f828ec2711b10b2f48972a6989b6e096e))  ([c104e65](https://github.com/jraylan/seamless-agent/commit/c104e65d5ab115a4f416f2b1a4d64dd8941ad525))
+* Refactor extension overal layout ([c104e65](https://github.com/jraylan/seamless-agent/commit/c104e65d5ab115a4f416f2b1a4d64dd8941ad525))
+
+
 ## [0.1.10](https://github.com/jraylan/seamless-agent/compare/v0.1.9...v0.1.10) (2025-12-14)
+
 
 
 ### Bug Fixes
