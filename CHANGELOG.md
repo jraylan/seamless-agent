@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.12](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.11...seamless-agent-v0.1.12) (2025-12-17)
+
+
+### Features
+
+* Add configuration seamless-agent.storageContext ([c8a0f51](https://github.com/jraylan/seamless-agent/commit/c8a0f51b37b1bf5d296e8ffb69a4163862113afb))
+
+
+### Bug Fixes
+
+* Fix ask_user history question `pre code` style ([eec3ab7](https://github.com/jraylan/seamless-agent/commit/eec3ab7471b72d1a21d54daa3a34e35c14bd9e01))
+* Removed duplicated ask_user history entries. ([eed9177](https://github.com/jraylan/seamless-agent/commit/eed917785fcffa2c6709f3831f1bf1d20d3c0310))
+
 ## [0.1.11](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.10...seamless-agent-v0.1.11) (2025-12-16)
 
 
