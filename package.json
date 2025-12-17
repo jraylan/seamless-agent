@@ -94,6 +94,16 @@
           "default": [],
           "title": "%config.additionalIgnoredPaths.title%",
           "markdownDescription": "%config.additionalIgnoredPaths.description%"
+        },
+        "seamless-agent.storageContext": {
+          "type": "string",
+          "enum": [
+            "global",
+            "workspace"
+          ],
+          "default": "workspace",
+          "title": "%config.storageContext.title%",
+          "markdownDescription": "%config.storageContext.description%"
         }
       }
     },

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { RequiredPlanRevisions, StoredInteraction } from '../webview/types';
+import { getStorageContext } from '../config/storage';
 
 /**
  * Storage keys for global state
@@ -15,20 +16,30 @@ const STORAGE_KEYS = {
  */
 export class ChatHistoryStorage {
     private context: vscode.ExtensionContext;
+    private config: vscode.WorkspaceConfiguration;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
+        this.config = vscode.workspace.getConfiguration('seamless-agent');
     }
 
     // ========================
     // Interaction Methods
     // ========================
 
+
+    get storage(): vscode.Memento {
+        if (getStorageContext() === 'workspace') {
+            return this.context.workspaceState;
+        }
+        return this.context.globalState;
+    }
+
     /**
      * Get all interactions, sorted by timestamp (most recent first)
      */
     getAllInteractions(): StoredInteraction[] {
-        const interactions = this.context.globalState.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
+        const interactions = this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
         return interactions.sort((a, b) => b.timestamp - a.timestamp);
     }
 
@@ -96,7 +107,7 @@ export class ChatHistoryStorage {
      * Save an interaction to storage
      */
     private saveInteraction(interaction: StoredInteraction): void {
-        const interactions = this.context.globalState.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
+        const interactions = this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
         const existingIndex = interactions.findIndex(i => i.id === interaction.id);
 
         if (existingIndex >= 0) {
@@ -105,7 +116,7 @@ export class ChatHistoryStorage {
             interactions.push(interaction);
         }
 
-        this.context.globalState.update(STORAGE_KEYS.INTERACTIONS, interactions);
+        this.storage.update(STORAGE_KEYS.INTERACTIONS, interactions);
     }
 
     /**
@@ -124,7 +135,7 @@ export class ChatHistoryStorage {
      */
     deleteInteraction(interactionId: string): void {
         const interactions = this.getAllInteractions().filter(i => i.id !== interactionId);
-        this.context.globalState.update(STORAGE_KEYS.INTERACTIONS, interactions);
+        this.storage.update(STORAGE_KEYS.INTERACTIONS, interactions);
     }
 
     /**
@@ -135,7 +146,7 @@ export class ChatHistoryStorage {
         const allInteractions = this.getAllInteractions();
         // Keep only pending interactions - they should only be cancelled via command
         const pendingInteractions = allInteractions.filter(i => i.status === 'pending');
-        this.context.globalState.update(STORAGE_KEYS.INTERACTIONS, pendingInteractions);
+        this.storage.update(STORAGE_KEYS.INTERACTIONS, pendingInteractions);
     }
 
     // ========================
@@ -164,6 +175,7 @@ export class ChatHistoryStorage {
     getInteractionsByType(type: 'ask_user' | 'plan_review'): StoredInteraction[] {
         return this.getAllInteractions().filter(i => i.type === type);
     }
+
 
     // ========================
     // File Export

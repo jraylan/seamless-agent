@@ -51,6 +51,8 @@
   "config.ignoreCommonPaths.title": "Ignorar Caminhos Comuns",
   "config.additionalIgnoredPaths.description": "Padrões glob adicionais para caminhos a ignorar ao pesquisar ficheiros. Use `**` para correspondência recursiva. Exemplo: `**/logs/**`, `**/*.log`",
   "config.additionalIgnoredPaths.title": "Caminhos Adicionais a Ignorar",
+  "config.storageContext.description": "Determina onde o histórico de chat é armazenado. 'Global' armazena o histórico em todos os espaços de trabalho, enquanto 'Workspace' armazena o histórico específico para o espaço de trabalho atual.",
+  "config.storageContext.title": "Contexto de Armazenamento",
   "planReview.button.acknowledge": "Confirmar",
   "planReview.button.continue": "Continuar",
   "planReview.button.done": "Concluído",

@@ -120,6 +120,23 @@ Wait for my approval (or requested changes). Only then implement the plan.
 
 This extension works out of the box with no configuration required. You only need to instruct your agent to use it.
 
+### Storage Context (`seamless-agent.storageContext`) 🔧
+
+Determines where the tools history are stored.
+
+- **global** — Stores history across all workspaces (shared).
+- **workspace** — Stores history specific to the current workspace (default).
+
+**Default:** `workspace`
+
+Example (settings.json):
+
+```json
+"seamless-agent.storageContext": "global"
+```
+
+> Note: Changing this setting changes where the extension saves chat history; switching between values may make previously saved history unavailable in the current context.
+
 ## MCP / Antigravity
 
 If you're using Antigravity IDE via MCP, see [README.antigravity.md](README.antigravity.md) for integration details and troubleshooting.

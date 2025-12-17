@@ -58,6 +58,8 @@
   "config.ignoreCommonPaths.title": "Ignore Common Paths",
   "config.additionalIgnoredPaths.description": "Additional glob patterns for paths to ignore when searching for files. Use `**` for recursive matching. Example: `**/logs/**`, `**/*.log`",
   "config.additionalIgnoredPaths.title": "Additional Ignored Paths",
+  "config.storageContext.description": "Determines where the chat history is stored. 'Global' stores history across all workspaces, while 'Workspace' stores history specific to the current workspace.",
+  "config.storageContext.title": "Storage Context",
   "planReview.button.acknowledge": "Acknowledge",
   "planReview.button.continue": "Continue",
   "planReview.button.done": "Done",

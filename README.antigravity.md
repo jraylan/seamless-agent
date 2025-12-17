@@ -110,6 +110,23 @@ The MCP config uses the standard command format:
 
 This extension works out of the box with no configuration required. You only need to instruct your agent to use it.
 
+### Storage Context (`seamless-agent.storageContext`) 🔧
+
+Determines where the tools history are stored.
+
+- **global** — Stores history across all workspaces (shared).
+- **workspace** — Stores history specific to the current workspace (default).
+
+**Default:** `workspace`
+
+Example (settings.json):
+
+```json
+"seamless-agent.storageContext": "global"
+```
+
+> Note: Changing this setting changes where the extension saves chat history; switching between values may make previously saved history unavailable in the current context.
+
 ## Known Issues
 
 None at this time. Please report issues on [GitHub](https://github.com/jraylan/seamless-agent/issues).

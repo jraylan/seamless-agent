@@ -118,6 +118,23 @@ Aguarde minha aprovação (ou pedidos de ajuste). Só então implemente o plano.
 
 Esta extensão funciona imediatamente sem necessidade de configuração.
 
+### Contexto de Armazenamento (`seamless-agent.storageContext`) 🔧
+
+Determina onde o histórico das ferramentas são armazenados.
+
+- **global** — Armazena o histórico em todos os workspaces (compartilhado).
+- **workspace** — Armazena o histórico específico para o workspace atual (padrão).
+
+**Padrão:** `workspace`
+
+Exemplo (settings.json):
+
+```json
+"seamless-agent.storageContext": "global"
+```
+
+> Observação: Alterar essa configuração muda onde a extensão salva o histórico do chat; alternar entre valores pode fazer com que históricos anteriores não fiquem disponíveis no contexto atual.
+
 ## MCP / Antigravity
 
 Se você usa Antigravity IDE via MCP, veja [README.antigravity.md](README.antigravity.md) para detalhes de integração e troubleshooting.
