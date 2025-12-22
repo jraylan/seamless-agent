@@ -207,11 +207,7 @@ import type {
 
         const base = btn.getAttribute('data-label') || btn.getAttribute('aria-label') || '';
 
-        const withCount = count > 0 ? `${base
-            }
-
-            (${count
-            })` : base;
+        const withCount = count > 0 ? `${base}(${count})` : base;
         btn.setAttribute('title', withCount);
         btn.setAttribute('aria-label', withCount);
     }
@@ -449,8 +445,8 @@ import type {
     }
 
     /**
-* Show the list of pending requests
-*/
+    * Show the list of pending requests
+    */
     function showList(requests: RequestItem[]): void {
         if (requests.length === 0) {
 
@@ -561,10 +557,7 @@ import type {
 
             ;
 
-        announceToScreenReader(`${tabNames[tab]
-            }
-
-                tab selected`);
+        announceToScreenReader(`${tabNames[tab]}tab selected`);
     }
 
     /**
