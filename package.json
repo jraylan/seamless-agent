@@ -27,6 +27,7 @@
   ],
   "license": "MIT",
   "main": "./dist/extension.js",
+  "types": "./dist/extension.d.ts",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -38,6 +39,14 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jraylan/seamless-agent.git"
@@ -50,7 +59,8 @@
     "ia-tool",
     "vibe-coding",
     "ai",
-    "copilot"
+    "copilot",
+    "extensible"
   ],
   "contributes": {
     "viewsContainers": {
@@ -280,6 +290,7 @@
     "compile": "npm run compile:vscode",
     "compile:vscode": "npm run check-types && node esbuild.js",
     "compile:antigravity": "npm run check-types && node esbuild.js --target=antigravity",
+    "build:addon-typedefs": "node build-addon-typedefs.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:antigravity": "node esbuild.js --watch --target=antigravity",
@@ -294,13 +305,13 @@
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^24.10.1",
     "@types/vscode": "^1.104.0",
+    "@vscode/codicons": "^0.0.44",
     "esbuild": "^0.27.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.3",
-    "@vscode/codicons": "^0.0.43",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "zod": "^4.1.13"

@@ -97,5 +97,13 @@
   "command.showHistory.title": "Ver Histórico",
   "command.clearHistory.title": "Limpar Histórico",
   "status.closed": "Fechado",
-  "status.active": "Ativo"
+  "status.active": "Ativo",
+  "settings.title": "Configurações",
+  "settings.description": "Configure o Seamless Agent e os addons instalados",
+  "settings.loading": "Carregando configurações...",
+  "settings.registeredAddons": "Addons Registrados",
+  "settings.noAddonsRegistered": "Nenhum addon registrado",
+  "settings.openInVSCodeSettings": "Abrir nas Configurações do VS Code",
+  "settings.addonVersion": "Versão",
+  "settings.addonAuthor": "Autor"
 }

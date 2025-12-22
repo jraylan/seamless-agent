@@ -144,4 +144,14 @@ export const strings = {
     get attachmentFolderDepth2() { return localize('attachment.folderDepth.depth2'); },
     get attachmentFolderDepthRecursive() { return localize('attachment.folderDepth.recursive'); },
     get pastedImage() { return localize('attachment.pastedImage'); },
+    
+    // Settings
+    get settings() { return localize('settings.title'); },
+    get settingsDescription() { return localize('settings.description'); },
+    get loadingSettings() { return localize('settings.loading'); },
+    get registeredAddons() { return localize('settings.registeredAddons'); },
+    get noAddonsRegistered() { return localize('settings.noAddonsRegistered'); },
+    get openInVSCodeSettings() { return localize('settings.openInVSCodeSettings'); },
+    get addonVersion() { return localize('settings.addonVersion'); },
+    get addonAuthor() { return localize('settings.addonAuthor'); },
 };

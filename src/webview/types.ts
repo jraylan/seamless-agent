@@ -126,7 +126,13 @@ export type ToWebviewMessage = | {
 
     | {
         type: 'switchTab';
-        tab: 'pending' | 'history'
+        tab: 'pending' | 'history' | 'settings'
+    }
+
+    | {
+        type: 'showSettings';
+        settings: SettingsSectionData[];
+        addons: AddonInfoData[];
     }
 
     | {
@@ -221,6 +227,20 @@ export type FromWebviewMessage = | {
         type: 'deleteInteraction';
         interactionId: string
     }
+
+    | {
+        type: 'getSettings'
+    }
+
+    | {
+        type: 'updateSetting';
+        key: string;
+        value: unknown
+    }
+
+    | {
+        type: 'openVSCodeSettings'
+    }
     ;
 
 
@@ -270,4 +290,35 @@ export interface UserResponseResult {
     responded: boolean;
     response: string;
     attachments: AttachmentInfo[];
+}
+
+// Settings data types for webview
+export interface SettingItemData {
+    key: string;
+    label: string;
+    description?: string;
+    type: 'boolean' | 'string' | 'number' | 'select' | 'multiselect' | 'text';
+    value: unknown;
+    defaultValue?: unknown;
+    options?: Array<{ value: string; label: string }>;
+}
+
+export interface SettingsSectionData {
+    id: string;
+    title: string;
+    description?: string;
+    settings: SettingItemData[];
+    priority?: number;
+}
+
+export interface AddonInfoData {
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    author?: string;
+    repositoryUrl?: string;
+    isActive: boolean;
+    toolCount: number;
+    tabCount: number;
 }

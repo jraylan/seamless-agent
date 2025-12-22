@@ -20,6 +20,7 @@ import {
     FileSearchResult,
     UserResponseResult,
 } from "./types";
+import { IExtensionCore } from '../core/types';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -45,7 +46,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
 
-    constructor(private readonly _context: vscode.ExtensionContext) {
+
+    constructor(private core: IExtensionCore) {
         // Use the singleton instance that was initialized in extension.ts
         this._chatHistoryStorage = getChatHistoryStorage();
         //this.loadSessionsFromDisk()
@@ -59,7 +61,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     private get _extensionUri(): vscode.Uri {
-        return this._context.extensionUri;
+        return this.core.getContext().extensionUri;
     }
 
     /**
@@ -388,6 +390,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openPlanReviewPanel': this._handleOpenPlanReviewPanel(message.interactionId);
                 break;
             case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
+                break;
+            case 'getSettings': this._handleGetSettings();
+                break;
+            case 'updateSetting': this._handleUpdateSetting(message.key, message.value);
+                break;
+            case 'openVSCodeSettings': this._handleOpenVSCodeSettings();
                 break;
         }
     }
@@ -823,7 +831,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             const ext = extMap[effectiveMimeType] || '.png';
 
             // Use VS Code storage for temp images
-            const storageUri = this._context.storageUri;
+            const storageUri = this.core.getContext().storageUri;
 
             if (!storageUri) {
                 throw new Error('Storage URI not available');
@@ -1001,7 +1009,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public cleanupAllTempFiles(): void {
         try {
-            const storageUri = this._context.storageUri;
+            const storageUri = this.core.getContext().storageUri;
             if (!storageUri) return;
 
             const tempDir = path.join(storageUri.fsPath, 'temp-images');
@@ -1164,6 +1172,101 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * Handle getting settings data for the Settings tab
+     */
+    private _handleGetSettings(): void {
+        // Import types
+        type SettingsSectionDataType = import('./types').SettingsSectionData;
+        type AddonInfoDataType = import('./types').AddonInfoData;
+
+        const settings: SettingsSectionDataType[] = [];
+        const addons: AddonInfoDataType[] = [];
+
+        try {
+            const api = this.core.getAPI();
+            const registry = api.registry;
+
+            // Get settings sections from addons
+            const addonSections = api.ui.getSettingsSections();
+            for (const section of addonSections) {
+                settings.push({
+                    id: section.id,
+                    title: section.title,
+                    description: section.description,
+                    settings: section.settings.map(s => ({
+                        key: s.key,
+                        label: s.label,
+                        description: s.description,
+                        type: s.type,
+                        value: s.value,
+                        defaultValue: s.defaultValue,
+                        options: s.options,
+                    })),
+                    priority: section.priority,
+                });
+            }
+
+            // Get addon info
+            const registrations = registry.getAll();
+            for (const reg of registrations) {
+                const addon = reg.addon;
+                addons.push({
+                    id: addon.id,
+                    name: addon.name,
+                    version: addon.version,
+                    description: addon.description,
+                    author: addon.author,
+                    repositoryUrl: addon.repositoryUrl,
+                    isActive: reg.isActive,
+                    toolCount: addon.ai?.tools?.length ?? 0,
+                    tabCount: addon.ui?.tabs?.length ?? 0,
+                });
+            }
+        } catch (err) {
+            console.error('[Seamless Agent] Error getting addon settings:', err);
+        }
+
+        // Send settings to webview
+        const message: ToWebviewMessage = {
+            type: 'showSettings',
+            settings,
+            addons,
+        };
+        this._view?.webview.postMessage(message);
+    }
+
+    /**
+     * Handle updating a setting value
+     */
+    private async _handleUpdateSetting(key: string, value: unknown): Promise<void> {
+        try {
+            // Check if it's a VS Code setting (seamless-agent.*)
+            if (key.startsWith('seamless-agent.')) {
+                const settingKey = key.replace('seamless-agent.', '');
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                await config.update(settingKey, value, vscode.ConfigurationTarget.Global);
+            } else {
+                // It's an addon setting - store in extension storage
+                const api = this.core.getAPI();
+                await api.storage.set(key, value);
+            }
+
+            // Refresh settings view
+            this._handleGetSettings();
+        } catch (err) {
+            console.error('[Seamless Agent] Error updating setting:', err);
+            vscode.window.showErrorMessage(`Failed to update setting: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Handle opening VS Code settings filtered to Seamless Agent
+     */
+    private _handleOpenVSCodeSettings(): void {
+        vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.core.getContext().extension.id}`);
+    }
+
     private _getHtmlContent(webview: vscode.Webview): string {
         // Get URIs for resources
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
@@ -1235,6 +1338,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{historyFilterAll}}': strings.historyFilterAll,
             '{{historyFilterAskUser}}': strings.historyFilterAskUser,
             '{{historyFilterPlanReview}}': strings.historyFilterPlanReview,
+            // Settings strings
+            '{{settings}}': strings.settings,
+            '{{settingsDescription}}': strings.settingsDescription,
+            '{{loadingSettings}}': strings.loadingSettings,
+            '{{registeredAddons}}': strings.registeredAddons,
+            '{{noAddonsRegistered}}': strings.noAddonsRegistered,
+            '{{openInVSCodeSettings}}': strings.openInVSCodeSettings,
+            '{{addonVersion}}': strings.addonVersion,
+            '{{addonAuthor}}': strings.addonAuthor,
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

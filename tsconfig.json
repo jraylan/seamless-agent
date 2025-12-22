@@ -10,7 +10,9 @@
     "rootDir": "src",
     "lib": ["ES2022"],
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { askUser, planReviewApproval, walkthroughReview } from '../tools';
+import { IExtensionCore } from '../core/types';
 
 export class McpServerManager {
     private server: http.Server | undefined;
@@ -17,7 +18,7 @@ export class McpServerManager {
     private transport: StreamableHTTPServerTransport | undefined;
 
     constructor(
-        private context: vscode.ExtensionContext,
+        private core: IExtensionCore,
         private provider: AgentInteractionProvider
     ) { }
 
@@ -104,7 +105,7 @@ export class McpServerManager {
                             title: args.title ? String(args.title) : undefined,
                             chatId: args.chatId ? String(args.chatId) : undefined
                         },
-                        this.context,
+                        this.core,
                         this.provider,
                         tokenSource.token
                     );
@@ -146,7 +147,7 @@ export class McpServerManager {
                             title: args.title ? String(args.title) : undefined,
                             chatId: args.chatId ? String(args.chatId) : undefined
                         },
-                        this.context,
+                        this.core,
                         this.provider,
                         tokenSource.token
                     );

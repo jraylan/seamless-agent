@@ -95,3 +95,12 @@ jobs:
             [Provenance attestations](${{ steps.attestation.outputs.attestation-url }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build addon typedefs package
+        run: npm run build:addon-typedefs
+
+      - name: Publish addon typedefs to npm
+        working-directory: ./dist-addon-api
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

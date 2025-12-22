@@ -27,11 +27,12 @@ import {
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
 } from './schemas';
+import { IExtensionCore } from '../core/types';
 
 /**
  * Registers the native VS Code LM Tools
  */
-export function registerNativeTools(context: vscode.ExtensionContext, provider: AgentInteractionProvider) {
+export function registerNativeTools(core: IExtensionCore, provider: AgentInteractionProvider) {
 
     // Register the tool defined in package.json
     const confirmationTool = vscode.lm.registerTool('ask_user', {
@@ -133,7 +134,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                     title: params.title,
                     chatId: undefined
                 },
-                context,
+                core,
                 provider,
                 token
             );
@@ -173,7 +174,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                     title: params.title,
                     chatId: params.chatId
                 },
-                context,
+                core,
                 provider,
                 token
             );
@@ -209,7 +210,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                     title: params.title,
                     chatId: params.chatId
                 },
-                context,
+                core,
                 provider,
                 token
             );
@@ -220,7 +221,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         }
     });
 
-    (context.subscriptions as unknown as Array<vscode.Disposable>).push(
+    core.subscriptions.push(
         confirmationTool,
         approvePlanTool,
         planReviewTool,
@@ -228,5 +229,36 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
     );
 
     // Initialize chat history storage
-    initializeChatHistoryStorage(context);
+    initializeChatHistoryStorage(core);
+
+    // Set up native tool functions in the API for addon access
+    const api = core.getAPI();
+
+    // Configure askUser implementation (internal - addons call api.tools.askUser())
+    api._setAskUserFunction(async (params) => {
+        const result = await askUser(
+            { question: params.question, title: params.title, agentName: params.agentName },
+            provider,
+            new vscode.CancellationTokenSource().token
+        );
+        return result;
+    });
+
+    // Configure planReview implementation (internal - addons call api.tools.planReview())
+    api._setPlanReviewFunction(async (params) => {
+        const { planReviewApproval: planReviewFn } = await import('./planReview');
+        const result = await planReviewFn(
+            { plan: params.plan, title: params.title, chatId: params.chatId },
+            core,
+            provider,
+            new vscode.CancellationTokenSource().token
+        );
+        return {
+            status: result.status,
+            requiredRevisions: result.requiredRevisions,
+            reviewId: result.reviewId
+        };
+    });
+
+    console.log('[Seamless Agent] Native tools registered and API functions configured');
 }
