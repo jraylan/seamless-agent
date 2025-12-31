@@ -49,6 +49,14 @@ class AddonRegistrationImpl implements IAddonRegistration {
         return this.data.isActive;
     }
 
+    get tabCount(): number {
+        return this.data.registeredTabs.length;
+    }
+
+    get toolCount(): number {
+        return this.data.registeredTools.length;
+    }
+
     /**
      * Deactivate the addon without unregistering
      */

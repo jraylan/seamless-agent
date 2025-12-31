@@ -314,6 +314,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * @param tab - Tab ID: 'pending', 'history', 'settings', or a custom tab ID
      */
     public switchTab(tab: string): void {
+        // Focus the webview panel first
+        this._view?.show(true);
+
         const message: ToWebviewMessage = {
             type: 'switchTab',
             tab
@@ -1222,6 +1225,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             const registrations = registry.getAll();
             for (const reg of registrations) {
                 const addon = reg.addon;
+                // Count tabs from registry + tabs registered via API (by prefix/pattern matching)
+                const apiTabCount = (api.ui as { getTabCountByAddon?: (id: string) => number }).getTabCountByAddon?.(addon.id) ?? 0;
+                const totalTabCount = reg.tabCount + apiTabCount;
                 addons.push({
                     id: addon.id,
                     name: addon.name,
@@ -1230,8 +1236,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     author: addon.author,
                     repositoryUrl: addon.repositoryUrl,
                     isActive: reg.isActive,
-                    toolCount: addon.ai?.tools?.length ?? 0,
-                    tabCount: addon.ui?.tabs?.length ?? 0,
+                    toolCount: reg.toolCount,
+                    tabCount: totalTabCount,
                 });
             }
         } catch (err) {

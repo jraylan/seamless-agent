@@ -111,6 +111,12 @@ export interface IAddonRegistration extends vscode.Disposable {
     /** Whether the addon is currently active */
     readonly isActive: boolean;
 
+    /** Number of tabs registered by this addon */
+    readonly tabCount: number;
+
+    /** Number of tools registered by this addon */
+    readonly toolCount: number;
+
     /** Deactivate the addon without unregistering */
     deactivate(): void;
 
@@ -143,9 +149,10 @@ export interface IUIIntegration {
     /**
      * Register a custom tab in the webview
      * @param tab - Tab configuration
+     * @param addonId - Addon ID for ownership tracking
      * @returns Disposable for cleanup
      */
-    registerTab(tab: ICustomTab): vscode.Disposable;
+    registerTab(tab: ICustomTab, addonId: string): vscode.Disposable;
 
     /**
      * Register a history item provider

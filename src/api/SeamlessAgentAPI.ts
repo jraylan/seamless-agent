@@ -41,6 +41,8 @@ class UIIntegrationImpl implements IUIIntegration {
     private readonly historyProviders: Map<string, IHistoryItemProvider> = new Map();
     private readonly settingsSections: Map<string, ISettingsSection> = new Map();
     private switchTabFn?: (tabId: string) => void;
+    // Map tabId -> addonId for explicit ownership tracking
+    private readonly tabOwners: Map<string, string> = new Map();
 
     constructor(
         private readonly registry: AddonRegistry,
@@ -49,18 +51,22 @@ class UIIntegrationImpl implements IUIIntegration {
 
     /**
      * Register a custom tab
+     * @param tab - Tab configuration
+     * @param addonId - Addon ID for ownership tracking
      */
-    registerTab(tab: ICustomTab): vscode.Disposable {
+    registerTab(tab: ICustomTab, addonId: string): vscode.Disposable {
         if (this.customTabs.has(tab.id)) {
             throw new Error(`Tab with ID '${tab.id}' is already registered`);
         }
 
         this.customTabs.set(tab.id, tab);
+        this.tabOwners.set(tab.id, addonId);
         this.eventEmitter.emit(SeamlessAgentEvents.UI_REFRESH, { type: 'tab_added', tabId: tab.id });
 
         return {
             dispose: () => {
                 this.customTabs.delete(tab.id);
+                this.tabOwners.delete(tab.id);
                 this.eventEmitter.emit(SeamlessAgentEvents.UI_REFRESH, { type: 'tab_removed', tabId: tab.id });
             }
         };
@@ -144,6 +150,21 @@ class UIIntegrationImpl implements IUIIntegration {
      */
     getHistoryProviders(): IHistoryItemProvider[] {
         return Array.from(this.historyProviders.values());
+    }
+
+    /**
+     * Count tabs registered by a specific addon
+     * @param addonId - The addon ID to count tabs for
+     * @returns Number of tabs registered by the addon
+     */
+    getTabCountByAddon(addonId: string): number {
+        let count = 0;
+        for (const ownerId of this.tabOwners.values()) {
+            if (ownerId === addonId) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
