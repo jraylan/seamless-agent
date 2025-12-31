@@ -310,9 +310,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Public method to switch tabs in the webview (called from commands)
+     * Public method to switch tabs in the webview (called from commands or API)
+     * @param tab - Tab ID: 'pending', 'history', 'settings', or a custom tab ID
      */
-    public switchTab(tab: 'pending' | 'history'): void {
+    public switchTab(tab: string): void {
         const message: ToWebviewMessage = {
             type: 'switchTab',
             tab

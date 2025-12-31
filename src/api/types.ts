@@ -175,6 +175,12 @@ export interface IUIIntegration {
      * Get all registered settings sections
      */
     getSettingsSections(): ISettingsSection[];
+
+    /**
+     * Select/open a specific tab in the webview
+     * @param tabId - The tab identifier ('pending', 'history', 'settings', or a custom tab ID)
+     */
+    selectTab(tabId: string): void;
 }
 
 /**

@@ -259,6 +259,10 @@ export function registerNativeTools(core: IExtensionCore, provider: AgentInterac
             reviewId: result.reviewId
         };
     });
+    // Configure switchTab implementation (internal - addons call api.ui.selectTab())
+    api._setSwitchTabFunction((tabId) => {
+        provider.switchTab(tabId);
+    });
 
     console.log('[Seamless Agent] Native tools registered and API functions configured');
 }

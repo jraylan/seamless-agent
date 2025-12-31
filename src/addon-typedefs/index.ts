@@ -1,12 +1,12 @@
 /**
- * Seamless Agent — Addon API (somente tipos)
+ * Seamless Agent — Addon API (types only)
  *
- * Este entrypoint existe para que extensões "addon" consigam tipar a integração
- * com o Seamless Agent sem depender de implementações (runtime).
+ * This entrypoint allows addon extensions to type their integration
+ * with Seamless Agent without depending on runtime implementations.
  *
- * IMPORTANTE:
- * - Este módulo deve ser usado apenas em contexto de tipos.
- * - Prefira sempre `import type { ... }`.
+ * IMPORTANT:
+ * - This module should only be used in type contexts.
+ * - Always prefer `import type { ... }`.
  */
 
 export type {
@@ -57,10 +57,10 @@ export type {
 } from '../api/types';
 
 /**
- * Nomes de eventos padrão emitidos pelo Seamless Agent.
+ * Default event names emitted by Seamless Agent.
  *
- * Observação: esta é uma UNIÃO de strings (tipo), não um `const`.
- * Isso evita que addons tentem usar este pacote em runtime.
+ * Note: this is a UNION of strings (type), not a `const`.
+ * This prevents addons from trying to use this package at runtime.
  */
 export type SeamlessAgentEventName =
     | 'addon:registered'

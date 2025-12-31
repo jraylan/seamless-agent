@@ -40,6 +40,7 @@ class UIIntegrationImpl implements IUIIntegration {
     private readonly customTabs: Map<string, ICustomTab> = new Map();
     private readonly historyProviders: Map<string, IHistoryItemProvider> = new Map();
     private readonly settingsSections: Map<string, ISettingsSection> = new Map();
+    private switchTabFn?: (tabId: string) => void;
 
     constructor(
         private readonly registry: AddonRegistry,
@@ -143,6 +144,24 @@ class UIIntegrationImpl implements IUIIntegration {
      */
     getHistoryProviders(): IHistoryItemProvider[] {
         return Array.from(this.historyProviders.values());
+    }
+
+    /**
+     * Select/open a specific tab in the webview
+     */
+    selectTab(tabId: string): void {
+        if (this.switchTabFn) {
+            this.switchTabFn(tabId);
+        } else {
+            console.warn('[UIIntegration] selectTab called but no webview provider is connected');
+        }
+    }
+
+    /**
+     * @internal Set the function to switch tabs (called during extension initialization)
+     */
+    setSwitchTabFunction(fn: (tabId: string) => void): void {
+        this.switchTabFn = fn;
     }
 }
 
@@ -446,6 +465,16 @@ export class SeamlessAgentAPI implements ISeamlessAgentAPI, vscode.Disposable {
      */
     _setPlanReviewFunction(fn: (params: IPlanReviewParams) => Promise<IPlanReviewResult>): void {
         this._tools.setPlanReviewFunction(fn);
+    }
+
+    /**
+     * @internal
+     * Set the function to switch tabs in the webview.
+     * This is called during extension initialization, not by addons.
+     * Addons should use api.ui.selectTab() to switch tabs.
+     */
+    _setSwitchTabFunction(fn: (tabId: string) => void): void {
+        this._ui.setSwitchTabFunction(fn);
     }
 
     /**
