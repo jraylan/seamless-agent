@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.15...seamless-agent-v0.1.16) (2025-12-31)
+
+
+### Bug Fixes
+
+* preserve VS Code keyboard shortcuts in textarea input ([5abd48c](https://github.com/jraylan/seamless-agent/commit/5abd48c8e520cb96421b62ea83c5e27a3e22bce4))
+
 ## [0.1.15](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.14...seamless-agent-v0.1.15) (2025-12-18)
 
 
