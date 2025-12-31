@@ -1,14 +1,14 @@
 /* eslint-disable no-console */
 
 /**
- * Gera um pacote "types-only" para autores de addons.
+ * Generates a types-only package for addon authors.
  *
- * Saída padrão: ./dist-addon-api
+ * Default output: ./dist-addon-api
  *
- * O pacote gerado contém:
+ * The generated package contains:
  * - .d.ts (emitDeclarationOnly)
- * - package.json minimal
- * - README.md (composto a partir de src/api/README.md e src/addons/README.md)
+ * - minimal package.json
+ * - README.md (composed from src/api/README.md and src/addons/README.md)
  * - LICENSE
  */
 
@@ -100,19 +100,26 @@ function main() {
         stdio: 'inherit',
     });
 
-    // Criar index.d.ts na raiz do pacote para facilitar imports
-    // (reexporta o entrypoint gerado em dist-addon-api/addon-typedefs/index.d.ts)
-    const indexDts = `/**\n * Seamless Agent Addon API (types-only)\n *\n * Use apenas em contexto de tipos: \`import type { ... }\`.\n */\n\nexport * from './addon-typedefs';\n`;
+    // Create index.d.ts at the package root to simplify imports
+    // (re-exports the entrypoint generated in dist-addon-api/addon-typedefs/index.d.ts)
+    const indexDts = [
+        "/**",
+        "* Seamless Agent Addon API (types-only)",
+        "*",
+        "* Use only in type-only contexts: `import type { ... }`.",
+        "*/",
+        "export * from './addon-typedefs';",
+    ].join('\n');
     writeFile(path.join(outDir, 'index.d.ts'), indexDts);
 
-    // README: compor a partir dos READMEs dos módulos
+    // README: compose from the modules' README files
     const apiReadme = safeReadText(path.join(repoRoot, 'src', 'api', 'README.md'));
     const addonsReadme = safeReadText(path.join(repoRoot, 'src', 'addons', 'README.md'));
 
     const readmeParts = [
         '# Seamless Agent — Addon API (Types Only)\n',
-        'Este pacote contém **apenas definições de tipos** (TypeScript) para autores de addons integrarem com a extensão **Seamless Agent**.\n',
-        '\n> Dica: use sempre `import type { ... }` para garantir que nada seja importado em runtime.\n',
+        'This package contains **type definitions only** (TypeScript) for addon authors to integrate with the **Seamless Agent** extension.\n',
+        '\n> Tip: always use `import type { ... }` to ensure nothing is imported at runtime.\n',
         apiReadme ? `\n---\n\n## API\n\n${apiReadme.trim()}\n` : '',
         addonsReadme ? `\n---\n\n## Addons\n\n${addonsReadme.trim()}\n` : '',
     ].filter(Boolean);
@@ -125,7 +132,7 @@ function main() {
         copyFile(licenseSrc, path.join(outDir, 'LICENSE.md'));
     }
 
-    // package.json do pacote types-only
+    // package.json for the types-only package
     const typesPkg = {
         name: pkgName,
         version,
@@ -140,7 +147,7 @@ function main() {
                 types: './index.d.ts'
             }
         },
-        // Dependências apenas de tipagem/compilação do consumidor
+        // Dependencies used only for consumer typing/compilation
         peerDependencies: {
             '@types/vscode': vscodeVersion,
             '@vscode/codicons': codiconsVersion,

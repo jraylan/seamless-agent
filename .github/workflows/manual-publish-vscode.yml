@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  publish-vscode:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
