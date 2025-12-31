@@ -35,9 +35,6 @@ jobs:
       - name: Install ovsx
         run: npm install ovsx
 
-      - name: Build Antigravity
-        run: npm run compile:antigravity
-
       - name: Pack Antigravity
         run: npm run package:ovsx
 

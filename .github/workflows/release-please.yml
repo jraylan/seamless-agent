@@ -47,9 +47,6 @@ jobs:
       - name: Install vsce and ovsx
         run: npm install -g @vscode/vsce ovsx
 
-      - name: Build for Vscode
-        run: npm run compile:vscode
-
       - name: Pack for Vscode
         run: npm run package:vsce
 
@@ -60,9 +57,6 @@ jobs:
 
       - name: Clear build artifacts
         run: rm -rf dist/*
-
-      - name: Build Antigravity
-        run: npm run compile:antigravity
 
       - name: Pack Antigravity
         run: npm run package:ovsx

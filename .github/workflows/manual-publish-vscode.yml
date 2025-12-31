@@ -35,12 +35,6 @@ jobs:
       - name: Install vsce and ovsx
         run: npm install -g @vscode/vsce ovsx
 
-      - name: Build for Vscode
-        run: npm run compile:vscode
-
-      - name: Pack for Vscode
-        run: npm run package:vsce
-
       - name: Pack for Vscode
         run: npm run package:vsce
 
