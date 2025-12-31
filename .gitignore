@@ -7,4 +7,5 @@ node_modules
 dist/**
 **/*.vsix
 .seamless-agent/
+dist-addon-api/**
 TODO

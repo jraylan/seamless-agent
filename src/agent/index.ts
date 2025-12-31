@@ -7,7 +7,7 @@ export class OrchestrationAgent {
 
 
     public dispose() {
-
+        // Intentionally left empty: OrchestrationAgent currently has no resources to dispose.
     }
 
     public handler: vscode.ChatRequestHandler = async (
@@ -67,7 +67,7 @@ export class OrchestrationAgent {
             }
         } catch (err) {
             if (err instanceof vscode.LanguageModelError) {
-                stream.markdown(`Error: ${err.message}`);
+                stream.markdown(`Error: ${String(err)}`);
             } else {
                 throw err;
             }

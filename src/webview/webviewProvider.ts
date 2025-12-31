@@ -1256,7 +1256,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             this._handleGetSettings();
         } catch (err) {
             console.error('[Seamless Agent] Error updating setting:', err);
-            vscode.window.showErrorMessage(`Failed to update setting: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            vscode.window.showErrorMessage(`Failed to update setting: ${err instanceof Error ? String(err) : 'Unknown error'}`);
         }
     }
 

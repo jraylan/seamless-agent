@@ -72,7 +72,7 @@ function getLocalTscBin(repoRoot) {
 }
 
 function main() {
-    const repoRoot = __dirname;
+    const repoRoot = path.resolve(__dirname, '..');
     const args = parseArgs(process.argv.slice(2));
 
     const outDir = path.resolve(repoRoot, args.get('--outDir') || 'dist-addon-api');
@@ -80,6 +80,10 @@ function main() {
 
     const rootPkg = readJson(path.join(repoRoot, 'package.json'));
     const version = String(args.get('--version') || rootPkg.version);
+
+    const vscodeVersion = rootPkg.devDependencies['@types/vscode'] || '^1.81.0';
+    const codiconsVersion = rootPkg.devDependencies['@vscode/codicons'] || '^0.0.44';
+
 
     console.log('[addon-typedefs] output:', outDir);
     console.log('[addon-typedefs] package name:', pkgName);
@@ -138,13 +142,13 @@ function main() {
         },
         // Dependências apenas de tipagem/compilação do consumidor
         peerDependencies: {
-            '@types/vscode': '^1.104.0',
-            '@vscode/codicons': '^0.0.44'
+            '@types/vscode': vscodeVersion,
+            '@vscode/codicons': codiconsVersion,
         },
         files: [
             '**/*.d.ts',
             'README.md',
-            'LICENSE.md'
+            'LICENSE.md',
         ]
     };
 
