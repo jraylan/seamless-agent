@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.17...seamless-agent-v0.1.18) (2025-12-31)
+
+
+### Bug Fixes
+
+* Fix tab item title spacing ([3e1d078](https://github.com/jraylan/seamless-agent/commit/3e1d0785b2c5978a2404779063f70ccf7a0244e0))
+
 ## [0.1.17](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.16...seamless-agent-v0.1.17) (2025-12-31)
 
 
