@@ -917,6 +917,28 @@ button:disabled {
     white-space: nowrap;
 }
 
+/* Custom tabs container for addons */
+.custom-tabs-container {
+    display: contents;
+}
+
+/* Custom tab content pane */
+.custom-tab-pane {
+    display: none;
+    padding: 8px 0;
+}
+
+.custom-tab-pane.active {
+    display: block;
+}
+
+.custom-tab-pane .custom-tab-loading {
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    padding: 16px;
+    text-align: center;
+}
+
 #home-view .section {
     flex-shrink: 0;
 }
@@ -1789,7 +1811,7 @@ button:disabled {
 
 .addon-card-version {
     font-size: 11px;
-    color: var(--vscode-descriptionForeground);
+    color: var(--vscode-badge-foreground);
     background-color: var(--vscode-badge-background);
     padding: 1px 6px;
     border-radius: 10px;

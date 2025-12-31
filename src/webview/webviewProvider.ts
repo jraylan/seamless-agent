@@ -19,6 +19,7 @@ import {
     FromWebviewMessage,
     FileSearchResult,
     UserResponseResult,
+    CustomTabData,
 } from "./types";
 import { IExtensionCore } from '../core/types';
 
@@ -103,6 +104,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
+
+        // Send custom tabs info after a short delay to ensure webview is ready
+        setTimeout(() => {
+            this.updateCustomTabs();
+        }, 100);
 
         // Update badge count
         if (this._pendingRequests.size > 0) {
@@ -396,6 +402,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'updateSetting': this._handleUpdateSetting(message.key, message.value);
                 break;
             case 'openVSCodeSettings': this._handleOpenVSCodeSettings();
+                break;
+            case 'getCustomTabContent': this._handleGetCustomTabContent(message.tabId);
+                break;
+            case 'customTabMessage': this._handleCustomTabMessage(message.tabId, message.message);
                 break;
         }
     }
@@ -1265,6 +1275,83 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private _handleOpenVSCodeSettings(): void {
         vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.core.getContext()?.extension?.id}`);
+    }
+
+    /**
+     * Get custom tab content from addon and send to webview
+     */
+    private async _handleGetCustomTabContent(tabId: string): Promise<void> {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+            const tab = tabs.find(t => t.id === tabId);
+
+            if (!tab) {
+                console.error(`[Seamless Agent] Custom tab not found: ${tabId}`);
+                return;
+            }
+
+            // Call the tab's render method
+            const content = await tab.render();
+
+            // Call onActivate if defined
+            if (tab.onActivate) {
+                tab.onActivate();
+            }
+
+            // Send content to webview
+            this._view?.webview.postMessage({
+                type: 'showCustomTabContent',
+                tabId,
+                content,
+            });
+        } catch (err) {
+            console.error(`[Seamless Agent] Error getting custom tab content:`, err);
+        }
+    }
+
+    /**
+     * Handle messages from webview to custom tabs
+     */
+    private async _handleCustomTabMessage(tabId: string, message: unknown): Promise<void> {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+            const tab = tabs.find(t => t.id === tabId);
+
+            if (!tab || !tab.onMessage) {
+                return;
+            }
+
+            // Call the tab's message handler
+            await tab.onMessage(message);
+        } catch (err) {
+            console.error(`[Seamless Agent] Error handling custom tab message:`, err);
+        }
+    }
+
+    /**
+     * Send custom tabs info to webview
+     */
+    public updateCustomTabs(): void {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+
+            const tabsData: CustomTabData[] = tabs.map(tab => ({
+                id: tab.id,
+                label: tab.label,
+                icon: tab.icon as string,
+                priority: tab.priority,
+            }));
+
+            this._view?.webview.postMessage({
+                type: 'updateCustomTabs',
+                tabs: tabsData,
+            });
+        } catch (err) {
+            console.error(`[Seamless Agent] Error updating custom tabs:`, err);
+        }
     }
 
     private _getHtmlContent(webview: vscode.Webview): string {

@@ -128,7 +128,8 @@ import type {
     RequestItem,
     FileSearchResult,
     ToolCallInteraction,
-    StoredInteraction
+    StoredInteraction,
+    CustomTabData
 } from './types';
 
 // Webview initialization
@@ -176,7 +177,13 @@ import type {
     // History filter state
     let currentHistoryFilter: string = 'all';
 
-    type HomeTab = 'pending' | 'history' | 'settings';
+    // Custom tabs state
+    let customTabs: CustomTabData[] = [];
+    let activeCustomTab: string | null = null;
+    const customTabsContainer = document.getElementById('custom-tabs-container');
+    const customTabContentContainer = document.getElementById('custom-tab-content-container');
+
+    type HomeTab = 'pending' | 'history' | 'settings' | string;
 
     function setHomeToolbarActiveTab(tab: HomeTab): void {
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
@@ -289,6 +296,92 @@ import type {
                 (item as HTMLElement).style.display = show ? '' : 'none';
             });
         }
+    }
+
+    /**
+     * Render custom tab buttons in the toolbar
+     */
+    function renderCustomTabs(tabs: CustomTabData[]): void {
+        customTabs = tabs;
+        if (!customTabsContainer) return;
+
+        // Clear existing custom tab buttons
+        customTabsContainer.innerHTML = '';
+
+        // Create buttons for each custom tab
+        tabs.forEach(tab => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'home-toolbar-btn';
+            btn.setAttribute('data-tab', tab.id);
+            btn.setAttribute('data-label', tab.label);
+            btn.setAttribute('data-custom-tab', 'true');
+            btn.title = tab.label;
+            btn.setAttribute('aria-label', tab.label);
+            btn.setAttribute('aria-pressed', 'false');
+
+            const icon = document.createElement('span');
+            icon.className = `codicon codicon-${tab.icon}`;
+            btn.appendChild(icon);
+
+            btn.addEventListener('click', () => {
+                switchTab(tab.id);
+            });
+
+            customTabsContainer.appendChild(btn);
+        });
+
+        // Create content panes for each custom tab
+        if (customTabContentContainer) {
+            // Keep existing panes that might have content, remove ones no longer in tabs
+            const existingPanes = customTabContentContainer.querySelectorAll('.custom-tab-pane');
+            const tabIds = new Set(tabs.map(t => t.id));
+
+            existingPanes.forEach(pane => {
+                const paneId = pane.getAttribute('data-tab-id');
+                if (paneId && !tabIds.has(paneId)) {
+                    pane.remove();
+                }
+            });
+
+            // Create panes for new tabs
+            tabs.forEach(tab => {
+                const existingPane = customTabContentContainer.querySelector(`[data-tab-id="${tab.id}"]`);
+                if (!existingPane) {
+                    const pane = document.createElement('div');
+                    pane.className = 'custom-tab-pane tab-pane hidden';
+                    pane.id = `content-custom-${tab.id}`;
+                    pane.setAttribute('data-tab-id', tab.id);
+
+                    const loading = document.createElement('div');
+                    loading.className = 'custom-tab-loading';
+                    loading.textContent = 'Loading...';
+                    pane.appendChild(loading);
+
+                    customTabContentContainer.appendChild(pane);
+                }
+            });
+        }
+    }
+
+    /**
+     * Show content for a custom tab
+     */
+    function showCustomTabContent(tabId: string, content: string): void {
+        if (!customTabContentContainer) return;
+
+        const pane = customTabContentContainer.querySelector(`[data-tab-id="${tabId}"]`) as HTMLElement;
+        if (!pane) return;
+
+        // Render the content
+        pane.innerHTML = content;
+    }
+
+    /**
+     * Check if a tab is a custom tab from addons
+     */
+    function isCustomTab(tabId: string): boolean {
+        return customTabs.some(t => t.id === tabId);
     }
 
     /**
@@ -581,22 +674,42 @@ import type {
     /**
      * Switch between tabs in the home view
      */
-    function switchTab(tab: 'pending' | 'history' | 'settings'): void {
+    function switchTab(tab: HomeTab): void {
         if (typeof tab !== 'string') return;
 
         // Get settings content element
         const contentSettings = document.getElementById('content-settings');
 
-        // Update content panes visibility
+        // Check if it's a custom tab
+        const isCustom = isCustomTab(tab);
+
+        // Update built-in content panes visibility
         contentPending?.classList.toggle('hidden', tab !== 'pending');
         contentHistory?.classList.toggle('hidden', tab !== 'history');
         contentSettings?.classList.toggle('hidden', tab !== 'settings');
 
-        setHomeToolbarActiveTab(tab as HomeTab);
+        // Handle custom tab content panes
+        if (customTabContentContainer) {
+            customTabContentContainer.querySelectorAll('.custom-tab-pane').forEach(pane => {
+                const paneId = pane.getAttribute('data-tab-id');
+                pane.classList.toggle('hidden', paneId !== tab);
+                pane.classList.toggle('active', paneId === tab);
+            });
+        }
+
+        setHomeToolbarActiveTab(tab);
 
         // If switching to settings, request settings data
         if (tab === 'settings') {
             vscode.postMessage({ type: 'getSettings' });
+        }
+
+        // If switching to a custom tab, request its content
+        if (isCustom) {
+            activeCustomTab = tab;
+            vscode.postMessage({ type: 'getCustomTabContent', tabId: tab });
+        } else {
+            activeCustomTab = null;
         }
 
         // Announce tab change to screen readers
@@ -606,7 +719,11 @@ import type {
             settings: window.__STRINGS__?.settings || 'Settings',
         };
 
-        announceToScreenReader(`${tabNames[tab]}tab selected`);
+        // For custom tabs, use the tab label
+        const customTab = customTabs.find(t => t.id === tab);
+        const tabName = customTab ? customTab.label : tabNames[tab] || tab;
+
+        announceToScreenReader(`${tabName} tab selected`);
     }
 
     /**
@@ -2244,6 +2361,14 @@ import type {
                 break;
             case 'showSettings':
                 renderSettings(message.settings || [], message.addons || []);
+                break;
+            case 'updateCustomTabs':
+                renderCustomTabs(message.tabs || []);
+                break;
+            case 'showCustomTabContent':
+                if (message.tabId && message.content !== undefined) {
+                    showCustomTabContent(message.tabId, message.content);
+                }
                 break;
             case 'clear': showHome();
                 hideAutocomplete();

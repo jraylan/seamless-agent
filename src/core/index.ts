@@ -7,6 +7,7 @@ import { OrchestrationAgent } from '../agent';
 import { ExtensionCoreOptions, IExtensionCore } from './types';
 import { SeamlessAgentAPI, createSeamlessAgentAPI } from '../api';
 import { AddonRegistry } from '../addons/registry';
+import { SeamlessAgentEvents } from '../api/types';
 
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
@@ -45,6 +46,13 @@ export class ExtensionCore implements IExtensionCore {
                 webviewOptions: { retainContextWhenHidden: true }
             })
         );
+
+        // Listen for UI refresh events from addons (e.g., when tabs are added/removed)
+        this.api.events.on(SeamlessAgentEvents.UI_REFRESH, (data: { type: string }) => {
+            if (data.type === 'tab_added' || data.type === 'tab_removed' || data.type === 'manual_refresh') {
+                this.provider.updateCustomTabs();
+            }
+        });
 
         // Register the ask_user tool with the webview provider
         // This also sets up the native tool functions in the API

@@ -126,13 +126,24 @@ export type ToWebviewMessage = | {
 
     | {
         type: 'switchTab';
-        tab: 'pending' | 'history' | 'settings'
+        tab: 'pending' | 'history' | 'settings' | string;
     }
 
     | {
         type: 'showSettings';
         settings: SettingsSectionData[];
         addons: AddonInfoData[];
+    }
+
+    | {
+        type: 'updateCustomTabs';
+        tabs: CustomTabData[];
+    }
+
+    | {
+        type: 'showCustomTabContent';
+        tabId: string;
+        content: string;
     }
 
     | {
@@ -241,6 +252,17 @@ export type FromWebviewMessage = | {
     | {
         type: 'openVSCodeSettings'
     }
+
+    | {
+        type: 'getCustomTabContent';
+        tabId: string;
+    }
+
+    | {
+        type: 'customTabMessage';
+        tabId: string;
+        message: unknown;
+    }
     ;
 
 
@@ -321,4 +343,14 @@ export interface AddonInfoData {
     isActive: boolean;
     toolCount: number;
     tabCount: number;
+}
+
+/**
+ * Custom tab data for webview (serializable version of ICustomTab)
+ */
+export interface CustomTabData {
+    id: string;
+    label: string;
+    icon: string;
+    priority?: number;
 }
