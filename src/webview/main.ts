@@ -1753,6 +1753,13 @@ import type {
 
     // Handle keyboard navigation in textarea (for autocomplete and submit)
     responseInput?.addEventListener('keydown', (event: KeyboardEvent) => {
+        // Allow VS Code shortcuts (e.g. option+f, cmd+k, ctrl+g) to pass through the input
+        const isVSCodeCommand = event.altKey || event.metaKey || (event.ctrlKey && !event.shiftKey);
+        if (isVSCodeCommand) {
+            // Prevent character insertion, but let the event bubble for VS Code to handle the shortcut
+            event.preventDefault();
+            return;
+        }
 
         // Autocomplete navigation
         if (autocompleteVisible) {
