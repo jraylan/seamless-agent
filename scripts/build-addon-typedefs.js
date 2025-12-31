@@ -76,7 +76,7 @@ function main() {
     const args = parseArgs(process.argv.slice(2));
 
     const outDir = path.resolve(repoRoot, args.get('--outDir') || 'dist-addon-api');
-    const pkgName = String(args.get('--name') || 'seamless-agent-addon-api');
+    const pkgName = String(args.get('--name') || '@seamless-agent/addon');
 
     const rootPkg = readJson(path.join(repoRoot, 'package.json'));
     const version = String(args.get('--version') || rootPkg.version);
