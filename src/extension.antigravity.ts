@@ -5,7 +5,7 @@ import { ExtensionCore } from './core';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Seamless Agent extension active');
-    const core = new ExtensionCore(context,);
+    const core = new ExtensionCore(context);
     context.subscriptions.push(core);
 }
 
