@@ -272,7 +272,7 @@ class StorageIntegrationImpl implements IStorageIntegration {
     private readonly globalState: vscode.Memento;
 
     constructor(context: vscode.ExtensionContext, addonId: string) {
-        this.namespace = `addon.${addonId}`;
+        this.namespace = `addon::${addonId}`;
         this.globalState = context.globalState;
     }
 
@@ -280,7 +280,7 @@ class StorageIntegrationImpl implements IStorageIntegration {
      * Get a stored value
      */
     get<T>(key: string, defaultValue?: T): T | undefined {
-        const fullKey = `${this.namespace}.${key}`;
+        const fullKey = `${this.namespace}::${key}`;
         return this.globalState.get<T>(fullKey, defaultValue as T);
     }
 
@@ -288,7 +288,7 @@ class StorageIntegrationImpl implements IStorageIntegration {
      * Set a stored value
      */
     async set<T>(key: string, value: T): Promise<void> {
-        const fullKey = `${this.namespace}.${key}`;
+        const fullKey = `${this.namespace}::${key}`;
         await this.globalState.update(fullKey, value);
     }
 
@@ -296,7 +296,7 @@ class StorageIntegrationImpl implements IStorageIntegration {
      * Delete a stored value
      */
     async delete(key: string): Promise<void> {
-        const fullKey = `${this.namespace}.${key}`;
+        const fullKey = `${this.namespace}::${key}`;
         await this.globalState.update(fullKey, undefined);
     }
 
@@ -305,7 +305,7 @@ class StorageIntegrationImpl implements IStorageIntegration {
      */
     keys(): string[] {
         const allKeys = this.globalState.keys();
-        const prefix = `${this.namespace}.`;
+        const prefix = `${this.namespace}::`;
         return allKeys
             .filter(key => key.startsWith(prefix))
             .map(key => key.substring(prefix.length));

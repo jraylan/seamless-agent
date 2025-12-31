@@ -1264,7 +1264,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Handle opening VS Code settings filtered to Seamless Agent
      */
     private _handleOpenVSCodeSettings(): void {
-        vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.core.getContext().extension.id}`);
+        vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.core.getContext()?.extension?.id}`);
     }
 
     private _getHtmlContent(webview: vscode.Webview): string {

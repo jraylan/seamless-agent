@@ -128,7 +128,6 @@ import type {
     RequestItem,
     FileSearchResult,
     ToolCallInteraction,
-    RequiredPlanRevisions,
     StoredInteraction
 } from './types';
 
@@ -259,8 +258,8 @@ import type {
     }
 
     /**
- * Apply filter to history items
- */
+     * Apply filter to history items
+     */
     function applyHistoryFilter(filter: string): void {
         currentHistoryFilter = filter;
 
@@ -293,8 +292,8 @@ import type {
     }
 
     /**
- * Initialize history filter buttons
- */
+     * Initialize history filter buttons
+     */
     function initHistoryFilters(): void {
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -305,9 +304,9 @@ import type {
     }
 
     /**
- * Bind a single delegated handler for history list interactions.
- * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
- */
+     * Bind a single delegated handler for history list interactions.
+     * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
+     */
     function initHistoryListDelegation(): void {
         if (!historyList) return;
 
@@ -363,9 +362,9 @@ import type {
     }
 
     /**
- * Announce a message to screen readers via the live region
- * @param message The message to announce
- */
+     * Announce a message to screen readers via the live region
+     * @param message The message to announce
+     */
     function announceToScreenReader(message: string): void {
         if (srAnnounce) {
             // Clear and set text to trigger announcement
@@ -374,9 +373,7 @@ import type {
             // Use setTimeout to ensure the DOM change is detected
             setTimeout(() => {
                 srAnnounce.textContent = message;
-            }
-
-                , 50);
+            }, 50);
         }
     }
 
@@ -412,10 +409,34 @@ import type {
         }
     }
 
+    /**
+     * Helper function to create TextNode
+     *
+     * @param {string} text
+     * @return {*}  {Text}
+     */
     function tn(text: string): Text {
         return document.createTextNode(text);
     }
 
+    /**
+     * Helper function to create HTMLElement
+     *
+     * @template K
+     * @param {K} tag
+     * @param {{
+     *             className?: string;
+     *             text?: string;
+     *             html?: string;
+     *             title?: string;
+     *             attrs?: Record<string, string>;
+     *             on?: Partial<{
+     *                 [K in keyof HTMLElementEventMap]?: (ev: HTMLElementEventMap[K]) => any;
+     *             }>
+     *         }} [options]
+     * @param {...ElementChild[]} children
+     * @return {*}  {HTMLElementTagNameMap[K]}
+     */
     function el<K extends keyof HTMLElementTagNameMap>(
         tag: K,
         options?: {
@@ -452,13 +473,19 @@ import type {
         return node;
     }
 
+    /**
+     * Helper function to create icon
+     *
+     * @param {string} name
+     * @return {*}  {HTMLSpanElement}
+     */
     function codicon(name: string): HTMLSpanElement {
         return el('span', { className: `codicon codicon-${name}` });
     }
 
     /**
-    * Show the list of pending requests
-    */
+     * Show the list of pending requests
+     */
     function showList(requests: RequestItem[]): void {
         if (requests.length === 0) {
 
@@ -515,8 +542,8 @@ import type {
     }
 
     /**
-* Show the question form and hide other views
-*/
+     * Show the question form and hide other views
+     */
     function showQuestion(question: string, title: string, requestId: string): void {
         currentRequestId = requestId;
 
@@ -552,12 +579,14 @@ import type {
     }
 
     /**
- * Switch between tabs in the home view
- */
+     * Switch between tabs in the home view
+     */
     function switchTab(tab: 'pending' | 'history' | 'settings'): void {
+        if (typeof tab !== 'string') return;
+
         // Get settings content element
         const contentSettings = document.getElementById('content-settings');
-        
+
         // Update content panes visibility
         contentPending?.classList.toggle('hidden', tab !== 'pending');
         contentHistory?.classList.toggle('hidden', tab !== 'history');
@@ -575,17 +604,15 @@ import type {
             pending: window.__STRINGS__?.pendingItems || 'Pending Items',
             history: window.__STRINGS__?.chatHistory || 'Chat History',
             settings: window.__STRINGS__?.settings || 'Settings',
-        }
-
-            ;
+        };
 
         announceToScreenReader(`${tabNames[tab]}tab selected`);
     }
 
     /**
- * Update the unified pending placeholder visibility
- * Shows placeholder only when both requests and reviews are empty
- */
+     * Update the unified pending placeholder visibility
+     * Shows placeholder only when both requests and reviews are empty
+     */
     function updatePendingPlaceholder(): void {
         const hasRequests = ! !(pendingRequestsList && pendingRequestsList.children.length > 0);
         const hasReviews = ! !(pendingReviewsList && pendingReviewsList.children.length > 0);
@@ -596,8 +623,8 @@ import type {
     }
 
     /**
- * Show home view (pending requests + recent interactions)
- */
+     * Show home view (pending requests + recent interactions)
+     */
     function showHome(): void {
         currentRequestId = null;
         currentInteractionId = null;
@@ -630,9 +657,9 @@ import type {
     }
 
     /**
- * Extract a meaningful title from the LLM's input question
- * Uses the first sentence (up to ~80 chars) as the title
- */
+     * Extract a meaningful title from the LLM's input question
+     * Uses the first sentence (up to ~80 chars) as the title
+     */
     function extractTitleFromQuestion(question: string): string {
         if (!question) return 'Tool Call';
 
@@ -980,7 +1007,7 @@ import type {
     function renderSettingsSection(section: SettingsSectionData): HTMLElement {
         const sectionEl = el('div', { className: 'settings-section' });
 
-        const header = el('div', { 
+        const header = el('div', {
             className: 'settings-section-header',
             attrs: { 'data-section': section.id }
         });
@@ -990,9 +1017,9 @@ import type {
         const content = el('div', { className: 'settings-section-content' });
 
         if (section.description) {
-            content.appendChild(el('p', { 
-                className: 'settings-description', 
-                text: section.description 
+            content.appendChild(el('p', {
+                className: 'settings-description',
+                text: section.description
             }));
         }
 
@@ -1018,13 +1045,13 @@ import type {
                 checkbox.id = `setting-${setting.key}`;
                 checkbox.checked = Boolean(setting.value);
                 checkbox.addEventListener('change', () => {
-                    vscode.postMessage({ 
-                        type: 'updateSetting', 
-                        key: setting.key, 
-                        value: checkbox.checked 
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: checkbox.checked
                     });
                 });
-                const checkboxLabel = el('label', { 
+                const checkboxLabel = el('label', {
                     className: 'setting-label',
                     text: setting.label,
                     attrs: { for: `setting-${setting.key}` }
@@ -1034,9 +1061,9 @@ import type {
                 break;
 
             case 'select':
-                item.appendChild(el('label', { 
+                item.appendChild(el('label', {
                     className: 'setting-label',
-                    text: setting.label 
+                    text: setting.label
                 }));
                 const select = document.createElement('select');
                 select.className = 'setting-select';
@@ -1051,10 +1078,10 @@ import type {
                     select.appendChild(option);
                 }
                 select.addEventListener('change', () => {
-                    vscode.postMessage({ 
-                        type: 'updateSetting', 
-                        key: setting.key, 
-                        value: select.value 
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: select.value
                     });
                 });
                 item.appendChild(select);
@@ -1062,9 +1089,9 @@ import type {
 
             case 'string':
             case 'number':
-                item.appendChild(el('label', { 
+                item.appendChild(el('label', {
                     className: 'setting-label',
-                    text: setting.label 
+                    text: setting.label
                 }));
                 const input = document.createElement('input');
                 input.type = setting.type === 'number' ? 'number' : 'text';
@@ -1072,22 +1099,22 @@ import type {
                 input.id = `setting-${setting.key}`;
                 input.value = String(setting.value ?? '');
                 input.addEventListener('change', () => {
-                    const value = setting.type === 'number' 
-                        ? parseFloat(input.value) 
+                    const value = setting.type === 'number'
+                        ? parseFloat(input.value)
                         : input.value;
-                    vscode.postMessage({ 
-                        type: 'updateSetting', 
-                        key: setting.key, 
-                        value 
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value
                     });
                 });
                 item.appendChild(input);
                 break;
 
             case 'text':
-                item.appendChild(el('label', { 
+                item.appendChild(el('label', {
                     className: 'setting-label',
-                    text: setting.label 
+                    text: setting.label
                 }));
                 const textarea = document.createElement('textarea');
                 textarea.className = 'setting-input';
@@ -1095,10 +1122,10 @@ import type {
                 textarea.rows = 3;
                 textarea.value = String(setting.value ?? '');
                 textarea.addEventListener('change', () => {
-                    vscode.postMessage({ 
-                        type: 'updateSetting', 
-                        key: setting.key, 
-                        value: textarea.value 
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: textarea.value
                     });
                 });
                 item.appendChild(textarea);
@@ -1106,9 +1133,9 @@ import type {
         }
 
         if (setting.description) {
-            item.appendChild(el('p', { 
-                className: 'setting-description', 
-                text: setting.description 
+            item.appendChild(el('p', {
+                className: 'setting-description',
+                text: setting.description
             }));
         }
 
@@ -1120,23 +1147,24 @@ import type {
      */
     function renderAddonCard(addon: AddonInfoData): HTMLElement {
         const card = el('div', { className: 'addon-card' });
-
         const header = el('div', { className: 'addon-card-header' });
+
         header.appendChild(el('span', { className: 'addon-card-name', text: addon.name }));
-        header.appendChild(el('span', { 
-            className: 'addon-card-version', 
-            text: `v${addon.version}` 
+        header.appendChild(el('span', {
+            className: 'addon-card-version',
+            text: `v${addon.version}`
         }));
-        header.appendChild(el('span', { 
+        header.appendChild(el('span', {
             className: `addon-status ${addon.isActive ? 'active' : 'inactive'}`,
             text: addon.isActive ? 'Active' : 'Inactive'
         }));
+
         card.appendChild(header);
 
         if (addon.description) {
-            card.appendChild(el('p', { 
-                className: 'addon-card-description', 
-                text: addon.description 
+            card.appendChild(el('p', {
+                className: 'addon-card-description',
+                text: addon.description
             }));
         }
 
@@ -1169,7 +1197,9 @@ import type {
      */
     function initSettingsSections(): void {
         const settingsContainer = document.getElementById('content-settings');
-        if (!settingsContainer) {return;}
+        if (!settingsContainer) {
+            return;
+        }
 
         // Use event delegation to handle clicks on section headers
         // This way we don't need to re-attach listeners when content is re-rendered
@@ -1294,15 +1324,15 @@ import type {
     }
 
     /**
-    * Update attachments display - renders chips above textarea
-    */
+     * Update attachments display - renders chips above textarea
+     */
     function updateAttachmentsDisplay(): void {
         updateChipsDisplay();
     }
 
     /**
-    * Update chips display above textarea
-    */
+     * Update chips display above textarea
+     */
     function updateChipsDisplay(): void {
         if (!chipsContainer) return;
 
@@ -1313,7 +1343,6 @@ import type {
 
         else {
             chipsContainer.classList.remove('hidden');
-
 
             const preview = document.querySelector('.image-hover-preview') as HTMLElement;
             const previewImg = preview?.querySelector('img') as HTMLImageElement;
@@ -1397,8 +1426,8 @@ import type {
     }
 
     /**
-    * Remove an attachment by ID
-    */
+     * Remove an attachment by ID
+     */
     function removeAttachment(attachmentId: string): void {
         if (currentRequestId) {
             vscode.postMessage({
@@ -1414,8 +1443,8 @@ import type {
     }
 
     /**
-    * Handle submit button click
-    */
+     * Handle submit button click
+     */
     function handleSubmit(): void {
         const response = responseInput?.value.trim() || '';
 
@@ -1433,8 +1462,8 @@ import type {
     }
 
     /**
-    * Handle cancel button click
-    */
+     * Handle cancel button click
+     */
     function handleCancel(): void {
         if (currentRequestId) {
             vscode.postMessage({
@@ -1493,8 +1522,8 @@ import type {
     }
 
     /**
-    * Get Codicon icon name for a file based on its extension
-    */
+     * Get Codicon icon name for a file based on its extension
+     */
     function getFileIcon(filename: string): string {
         const ext = filename.split('.').pop()?.toLowerCase() || '';
 
@@ -2082,19 +2111,22 @@ import type {
         // Autocomplete navigation
         if (autocompleteVisible) {
             switch (event.key) {
-                case 'ArrowDown': event.preventDefault();
+                case 'ArrowDown':
+                    event.preventDefault();
                     if (selectedAutocompleteIndex < autocompleteResults.length - 1) {
                         selectedAutocompleteIndex++;
                         updateAutocompleteSelection();
                     }
                     return;
-                case 'ArrowUp': event.preventDefault();
+                case 'ArrowUp':
+                    event.preventDefault();
                     if (selectedAutocompleteIndex > 0) {
                         selectedAutocompleteIndex--;
                         updateAutocompleteSelection();
                     }
                     return;
-                case 'Enter': case 'Tab':
+                case 'Enter':
+                case 'Tab':
                     if (selectedAutocompleteIndex >= 0) {
                         event.preventDefault();
                         selectAutocompleteItem(selectedAutocompleteIndex);
@@ -2128,11 +2160,14 @@ import type {
         const message = event.data;
 
         switch (message.type) {
-            case 'showQuestion': showQuestion(message.question, message.title, message.requestId);
+            case 'showQuestion':
+                showQuestion(message.question, message.title, message.requestId);
                 break;
-            case 'showList': showList(message.requests);
+            case 'showList':
+                showList(message.requests);
                 break;
-            case 'showHome': recentInteractions = message.recentInteractions || [];
+            case 'showHome':
+                recentInteractions = message.recentInteractions || [];
                 showHome();
 
                 // Update pending requests if provided
@@ -2155,55 +2190,59 @@ import type {
                 }
 
                 break;
-            case 'showInteractionDetail': showInteractionDetail(message.interaction);
+            case 'showInteractionDetail':
+                showInteractionDetail(message.interaction);
                 break;
 
-            case 'updateAttachments': if (message.requestId === currentRequestId) {
+            case 'updateAttachments':
+                if (message.requestId === currentRequestId) {
 
-                // Preserve flags from existing attachments when updating
-                const existingFlags = new Map(currentAttachments.map(a => [a.id, {
-                    isImage: a.isImage, isTextReference: a.isTextReference
-                }]));
+                    // Preserve flags from existing attachments when updating
+                    const existingFlags = new Map(currentAttachments.map(a => [a.id, {
+                        isImage: a.isImage, isTextReference: a.isTextReference
+                    }]));
 
-                currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
-                    const existing = existingFlags.get(att.id);
-                    return {
-                        ...att,
-                        isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
-                        isTextReference: att.isTextReference ?? existing?.isTextReference ?? false,
-                    };
-                });
-                updateAttachmentsDisplay();
-            }
-
-                break;
-
-            case 'fileSearchResults': if (autocompleteQuery !== undefined) {
-                showAutocomplete(message.files || []);
-            }
-                break;
-
-            case 'imageSaved': if (message.requestId === currentRequestId && message.attachment) {
-                // Add to local attachments if not already there
-                const exists = currentAttachments.some(a => a.id === message.attachment.id);
-
-                if (!exists) {
-                    currentAttachments.push({
-                        ...message.attachment,
-                        isImage: true,
+                    currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
+                        const existing = existingFlags.get(att.id);
+                        return {
+                            ...att,
+                            isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
+                            isTextReference: att.isTextReference ?? existing?.isTextReference ?? false,
+                        };
                     });
-                    updateChipsDisplay();
+                    updateAttachmentsDisplay();
                 }
-            }
 
                 break;
 
-            case 'switchTab': if (message.tab) {
-                switchTab(message.tab);
-            }
+            case 'fileSearchResults':
+                if (autocompleteQuery !== undefined) {
+                    showAutocomplete(message.files || []);
+                }
+                break;
+
+            case 'imageSaved':
+                if (message.requestId === currentRequestId && message.attachment) {
+                    // Add to local attachments if not already there
+                    const exists = currentAttachments.some(a => a.id === message.attachment.id);
+
+                    if (!exists) {
+                        currentAttachments.push({
+                            ...message.attachment,
+                            isImage: true,
+                        });
+                        updateChipsDisplay();
+                    }
+                }
 
                 break;
-            case 'showSettings': 
+
+            case 'switchTab':
+                if (message.tab) {
+                    switchTab(message.tab);
+                }
+                break;
+            case 'showSettings':
                 renderSettings(message.settings || [], message.addons || []);
                 break;
             case 'clear': showHome();
