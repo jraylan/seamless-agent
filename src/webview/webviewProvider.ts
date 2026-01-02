@@ -389,6 +389,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 break;
             case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
                 break;
+            case 'cancelPendingRequest': {
+                // Try to cancel as a regular request
+                const canceled = this.cancelRequest(message.requestId);
+                // If not a request, might be a plan review - delete it
+                if (!canceled) {
+                    this._chatHistoryStorage.deleteInteraction(message.requestId);
+                    this._showHome();
+                }
+                break;
+            }
         }
     }
 

@@ -1333,7 +1333,8 @@ button:disabled {
     white-space: nowrap;
 }
 
-.history-item-delete {
+.history-item-delete,
+.pending-item-delete {
     background: transparent;
     border: none;
     color: var(--vscode-descriptionForeground);
@@ -1342,13 +1343,19 @@ button:disabled {
     border-radius: 4px;
     opacity: 0;
     transition: opacity 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-.history-item:hover .history-item-delete {
+.history-item:hover .history-item-delete,
+.request-item:hover .pending-item-delete {
     opacity: 0.7;
 }
 
-.history-item-delete:hover {
+.history-item-delete:hover,
+.pending-item-delete:hover {
     opacity: 1 !important;
     color: var(--vscode-errorForeground);
     background-color: var(--vscode-toolbar-hoverBackground);

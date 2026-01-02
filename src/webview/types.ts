@@ -221,6 +221,11 @@ export type FromWebviewMessage = | {
         type: 'deleteInteraction';
         interactionId: string
     }
+
+    | {
+        type: 'cancelPendingRequest';
+        requestId: string
+    }
     ;
 
 
