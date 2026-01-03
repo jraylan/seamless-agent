@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "stripInternal": true,
+    "noEmitOnError": true,
+    "baseUrl": ".",
+    "paths": {
+      "@vscode/codicons/dist/codiconsLibrary": [
+        "typings/addon-typedefs/codiconsLibrary.d.ts"
+      ]
+    },
+    "outDir": "dist-addon-api"
+  },
+  "include": [
+    "src/addon-typedefs/index.ts",
+    "typings/addon-typedefs/codiconsLibrary.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "dist-addon-api"]
+}

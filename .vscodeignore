@@ -17,6 +17,14 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 
+# Addon typedefs package output
+dist-addon-api/**
+
+# Typedef build inputs
+typings/**
+tsconfig.addon-typedefs.json
+build-addon-typedefs.js
+
 # All node_modules (bundled with esbuild)
 node_modules/**
 

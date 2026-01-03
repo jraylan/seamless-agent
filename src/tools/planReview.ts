@@ -4,6 +4,7 @@ import type { PlanReviewOptions } from '../webview/types';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { getChatHistoryStorage } from '../storage/chatHistoryStorage';
 import { PlanReviewInput, PlanReviewToolResult, WalkthroughReviewInput } from './schemas';
+import { IExtensionCore } from '../core/types';
 
 export type PlanReviewApprovalInput = Pick<PlanReviewInput, 'plan' | 'title' | 'chatId'>;
 
@@ -14,7 +15,7 @@ export type PlanReviewApprovalInput = Pick<PlanReviewInput, 'plan' | 'title' | '
  */
 export async function planReview(
     params: PlanReviewInput,
-    context: vscode.ExtensionContext,
+    core: IExtensionCore,
     provider: AgentInteractionProvider,
     token: vscode.CancellationToken
 ): Promise<PlanReviewToolResult> {
@@ -67,7 +68,7 @@ export async function planReview(
         };
 
         // Show the plan review panel
-        const result = await PlanReviewPanel.showWithOptions(context.extensionUri, options);
+        const result = await PlanReviewPanel.showWithOptions(core.getContext().extensionUri, options);
 
 
         const interactionState = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
@@ -117,7 +118,7 @@ export async function planReview(
  */
 export async function planReviewApproval(
     params: PlanReviewApprovalInput,
-    context: vscode.ExtensionContext,
+    core: IExtensionCore,
     provider: AgentInteractionProvider,
     token: vscode.CancellationToken
 ): Promise<PlanReviewToolResult> {
@@ -128,7 +129,7 @@ export async function planReviewApproval(
             mode: 'review',
             chatId: params.chatId
         },
-        context,
+        core,
         provider,
         token
     );
@@ -139,7 +140,7 @@ export async function planReviewApproval(
  */
 export async function walkthroughReview(
     params: WalkthroughReviewInput,
-    context: vscode.ExtensionContext,
+    core: IExtensionCore,
     provider: AgentInteractionProvider,
     token: vscode.CancellationToken
 ): Promise<PlanReviewToolResult> {
@@ -150,7 +151,7 @@ export async function walkthroughReview(
             mode: 'walkthrough',
             chatId: params.chatId
         },
-        context,
+        core,
         provider,
         token
     );

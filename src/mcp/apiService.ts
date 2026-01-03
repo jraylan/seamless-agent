@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { askUser, planReview } from '../tools';
 import { PlanReviewInput, parsePlanReviewInput } from '../tools/schemas';
+import { IExtensionCore } from '../core/types';
 
 export { planReviewApproval, walkthroughReview } from '../tools/planReview';
 
@@ -22,19 +23,19 @@ export class ApiServiceManager {
     private authToken: string | undefined;
 
     constructor(
-        private context: vscode.ExtensionContext,
+        private core: IExtensionCore,
         private provider: AgentInteractionProvider
     ) { }
 
     async start() {
         try {
             this.port = await this.findAvailablePort();
-            const storedToken = this.context.globalState.get<string>('seamlessAgent.apiAuthToken');
+            const storedToken = this.core.getContext().globalState.get<string>('seamlessAgent.apiAuthToken');
             if (storedToken && typeof storedToken === 'string' && storedToken.length >= 20) {
                 this.authToken = storedToken;
             } else {
                 this.authToken = crypto.randomBytes(32).toString('base64url');
-                await this.context.globalState.update('seamlessAgent.apiAuthToken', this.authToken);
+                await this.core.getContext().globalState.update('seamlessAgent.apiAuthToken', this.authToken);
             }
             console.log(`Starting API service on port ${this.port}`);
 
@@ -224,7 +225,7 @@ export class ApiServiceManager {
         try {
             const result = await planReview(
                 params,
-                this.context,
+                this.core,
                 this.provider,
                 tokenSource.token
             );
@@ -355,7 +356,7 @@ export class ApiServiceManager {
         const mcpConfigPath = path.join(os.homedir(), '.gemini', 'antigravity', 'mcp_config.json');
 
         // Get the path to the bundled CLI script in dist/
-        const cliScriptPath = path.join(this.context.extensionPath, 'dist', 'seamless-agent-mcp.js');
+        const cliScriptPath = path.join(this.core.getContext().extensionPath, 'dist', 'seamless-agent-mcp.js');
 
         try {
             // Ensure directory exists

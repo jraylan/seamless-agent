@@ -74,7 +74,7 @@ try {
     // If 'ovsx' CLI is strictly required for packaging, we would use it, but usually vsce produces the standard VSIX.
     // The user command name 'package:ovsx' implies targeting the OVSX registry/ecosystem.
     // We'll add a flag to the output filename to distinguish them.
-    const version = require('./package.json').version;
+    const version = require('../package.json').version;
     const outFile = target === 'ovsx' ? `seamless-agent-${version}-antigravity.vsix` : `seamless-agent-${version}.vsix`;
 
     execSync(`npx vsce package --out ${outFile}`, { stdio: 'inherit' });

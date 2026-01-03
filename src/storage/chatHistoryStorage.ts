@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { RequiredPlanRevisions, StoredInteraction } from '../webview/types';
 import { getStorageContext } from '../config/storage';
+import { IExtensionCore } from '../core/types';
 
 /**
  * Storage keys for global state
@@ -15,11 +16,9 @@ const STORAGE_KEYS = {
  * Simplified: each interaction is individual, no chat grouping
  */
 export class ChatHistoryStorage {
-    private context: vscode.ExtensionContext;
     private config: vscode.WorkspaceConfiguration;
 
-    constructor(context: vscode.ExtensionContext) {
-        this.context = context;
+    constructor(private core: IExtensionCore) {
         this.config = vscode.workspace.getConfiguration('seamless-agent');
     }
 
@@ -30,9 +29,9 @@ export class ChatHistoryStorage {
 
     get storage(): vscode.Memento {
         if (getStorageContext() === 'workspace') {
-            return this.context.workspaceState;
+            return this.core.getContext().workspaceState;
         }
-        return this.context.globalState;
+        return this.core.getContext().globalState;
     }
 
     /**
@@ -263,8 +262,8 @@ let storageInstance: ChatHistoryStorage | undefined;
 /**
  * Initialize the storage with extension context
  */
-export function initializeChatHistoryStorage(context: vscode.ExtensionContext): ChatHistoryStorage {
-    storageInstance = new ChatHistoryStorage(context);
+export function initializeChatHistoryStorage(core: IExtensionCore): ChatHistoryStorage {
+    storageInstance = new ChatHistoryStorage(core);
     return storageInstance;
 }
 
