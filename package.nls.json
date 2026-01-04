@@ -84,6 +84,7 @@
   "status.cancelled": "Cancelled",
   "confirm.clearHistory": "Are you sure you want to clear all history?",
   "confirm.deleteItem": "Remove this item from history?",
+  "confirm.cancelPending": "Are you sure you want to cancel the request \"{0}\"?",
   "button.confirm": "Clear",
   "button.delete": "Delete",
   "detail.question": "Question",
@@ -97,5 +98,6 @@
   "command.showHistory.title": "Show History",
   "command.clearHistory.title": "Clear History",
   "status.closed": "Closed",
-  "status.active": "Active"
+  "status.active": "Active",
+  "errors.noSuchInteraction": "Interaction not found."
 }

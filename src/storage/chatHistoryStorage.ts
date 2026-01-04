@@ -52,6 +52,17 @@ export class ChatHistoryStorage {
     }
 
     /**
+     * Get a pending interaction by ID
+     * Only returns if the interaction is still pending
+     **/
+    getPendingInteraction(interactionId: string): StoredInteraction | undefined {
+        const interaction = this.getInteraction(interactionId);
+        if (interaction?.status === 'pending') {
+            return interaction;
+        }
+    }
+
+    /**
      * Save a new ask_user interaction
      */
     saveAskUserInteraction(data: {

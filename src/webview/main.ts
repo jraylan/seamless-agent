@@ -128,6 +128,7 @@ import type {
     RequiredPlanRevisions,
     StoredInteraction
 } from './types';
+import { truncate } from './utils';
 
 // Webview initialization
 (function () {
@@ -1249,11 +1250,6 @@ import type {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
-    }
-
-    function truncate(str: string, maxLen: number): string {
-        if (str.length <= maxLen) return str;
-        return str.substring(0, maxLen) + '...';
     }
 
     function formatTime(timestamp: number): string {

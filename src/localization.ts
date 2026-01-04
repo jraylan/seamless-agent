@@ -123,7 +123,9 @@ export const strings = {
     // Confirmation dialogs
     get confirmClearHistory() { return localize('confirm.clearHistory'); },
     get confirmDeleteItem() { return localize('confirm.deleteItem'); },
+    get confirmCancelPending() { return localize('confirm.cancelPending'); },
     get confirm() { return localize('button.confirm'); },
+    get delete() { return localize('button.delete'); },
     // Interaction detail
     get question() { return localize('detail.question'); },
     get response() { return localize('detail.response'); },
@@ -144,4 +146,7 @@ export const strings = {
     get attachmentFolderDepth2() { return localize('attachment.folderDepth.depth2'); },
     get attachmentFolderDepthRecursive() { return localize('attachment.folderDepth.recursive'); },
     get pastedImage() { return localize('attachment.pastedImage'); },
+
+    // Errors
+    get noSuchInteraction() { return localize('error.noSuchInteraction'); },
 };

@@ -84,6 +84,7 @@
   "status.cancelled": "Cancelado",
   "confirm.clearHistory": "Tem a certeza que deseja limpar todo o histórico?",
   "confirm.deleteItem": "Remover este item do histórico?",
+  "confirm.cancelPending": "Tem a certeza que deseja cancelar o pedido \"{0}\"?",
   "button.confirm": "Limpar",
   "button.delete": "Eliminar",
   "detail.question": "Pergunta",
@@ -97,5 +98,6 @@
   "command.showHistory.title": "Ver Histórico",
   "command.clearHistory.title": "Limpar Histórico",
   "status.closed": "Fechado",
-  "status.active": "Ativo"
+  "status.active": "Ativo",
+  "errors.noSuchInteraction": "Interação não encontrada."
 }

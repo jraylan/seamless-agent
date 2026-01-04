@@ -20,6 +20,7 @@ import {
     FileSearchResult,
     UserResponseResult,
 } from "./types";
+import { truncate } from './utils';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -390,16 +391,49 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
                 break;
             case 'cancelPendingRequest': {
-                // Try to cancel as a regular request
-                const canceled = this.cancelRequest(message.requestId);
-                // If not a request, might be a plan review - delete it
-                if (!canceled) {
-                    this._chatHistoryStorage.deleteInteraction(message.requestId);
-                    this._showHome();
-                }
+                this.cancelPendingRequest(message.requestId);
                 break;
             }
         }
+    }
+
+
+    private getPendingInteraction(requestId: string) {
+        return this._pendingRequests.get(requestId)?.item || this._chatHistoryStorage.getPendingInteraction(requestId);
+    }
+
+    private cancelPendingRequest(requestId: string) {
+        const interaction = this.getPendingInteraction(requestId);
+        if (!interaction) {
+            vscode.window.showWarningMessage(strings.noSuchInteraction);
+            return;
+        }
+
+        const title = truncate(interaction.title ?? interaction.question ?? requestId, 80);
+
+        vscode.window.showWarningMessage(
+            strings.confirmCancelPending.replace('{0}', title),
+            { modal: true },
+            strings.delete
+        ).then(async (result) => {
+            try {
+                if (result !== strings.delete) {
+                    return;
+                }
+
+                const canceled = this.cancelRequest(requestId);
+                if (!canceled) {
+                    await this.cancelReview(requestId);
+                }
+            } finally {
+                this._showHome();
+            }
+        });
+    }
+
+    private async cancelReview(panelId: string): Promise<boolean> {
+        const { PlanReviewPanel } = await import('./planReviewPanel');
+        return PlanReviewPanel.closeIfOpen(panelId);
     }
 
     /**
