@@ -67,7 +67,7 @@ export class OrchestrationAgent {
             }
         } catch (err) {
             if (err instanceof vscode.LanguageModelError) {
-                stream.markdown(`Error: ${String(err)}`);
+                stream.markdown(`Error: ${err.message}`);
             } else {
                 throw err;
             }
