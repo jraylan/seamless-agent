@@ -80,7 +80,27 @@ declare global {
         renderMarkdown: typeof renderMarkdown;
 
         __STRINGS__: {
+            cspSource: string;
+            nonce: string;
+            styleUri: string;
+            highlightStyleUri: string;
+            codiconsUri: string;
+            scriptUri: string;
+            consoleTitle: string;
+            back: string;
+            noPendingRequests: string;
+            noPendingItems: string;
+            pendingItems: string;
+            pendingRequests: string;
+            yourResponse: string;
+            inputPlaceholder: string;
+            attachments: string;
             noAttachments: string;
+            addAttachment: string;
+            pastedImage: string;
+            submit: string;
+            close: string;
+            cancel: string;
             remove: string;
             justNow: string;
             minutesAgo: string;
@@ -89,12 +109,20 @@ declare global {
             selectFile: string;
             noFilesFound: string;
             dropImageHere: string;
-            noPendingRequests: string;
-            noPendingReviews: string;
-            noChats: string;
+            // Session histors
+            recentSessions: string;
             noRecentSessions: string;
+            clearHistory: string;
+            sessionInput: string;
+            sessionOutput: string;
             input: string;
             output: string;
+            addFolder: string;
+            // Chat histors
+            pendingReviews: string;
+            noPendingReviews: string;
+            chatHistory: string;
+            noChats: string;
             openInPanel: string;
             deleteChat: string;
             approved: string;
@@ -114,9 +142,11 @@ declare global {
             // Settings tab
             settings: string;
             noAddonsRegistered: string;
-        }
-
-        ;
+            // History filtes
+            historyFilterAll: string;
+            historyFilterAskUser: string;
+            historyFilterPlanReview: string;
+        };
     }
 }
 
@@ -131,6 +161,7 @@ import type {
     StoredInteraction,
     CustomTabData
 } from './types';
+import { truncate } from './utils';
 
 // Webview initialization
 (function () {
@@ -397,6 +428,66 @@ import type {
     }
 
     /**
+     * Initialize delegated event handlers for pending items (requests + reviews)
+     * This handles delete button clicks without losing handlers during re-renders
+     */
+    function initPendingItemsDelegation(): void {
+        // Handle pending requests list
+        if (pendingRequestsList) {
+            // Use capture phase to intercept delete clicks BEFORE inline listeners
+            pendingRequestsList.addEventListener('click', (e: Event) => {
+                const target = e.target as HTMLElement;
+
+                // Delete button takes precedence
+                const deleteBtn = target.closest('.pending-item-delete') as HTMLElement | null;
+
+                if (deleteBtn) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const id = deleteBtn.getAttribute('data-id');
+                    if (!id) return;
+
+                    vscode.postMessage({
+                        type: 'cancelPendingRequest',
+                        requestId: id
+                    });
+
+                    return;
+                }
+
+                // Allow normal request selection to happen (handled by inline listeners)
+            }, true); // Use capture phase
+        }
+
+        // Handle pending reviews list
+        if (pendingReviewsList) {
+            // Use capture phase to intercept delete clicks BEFORE inline listeners
+            pendingReviewsList.addEventListener('click', (e: Event) => {
+                const target = e.target as HTMLElement;
+
+                // Delete button takes precedence
+                const deleteBtn = target.closest('.pending-item-delete') as HTMLElement | null;
+
+                if (deleteBtn) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const id = deleteBtn.getAttribute('data-id');
+                    if (!id) return;
+
+                    vscode.postMessage({
+                        type: 'cancelPendingRequest',
+                        requestId: id
+                    });
+
+                    return;
+                }
+
+                // Allow normal review selection to happen (handled by inline listeners)
+            }, true); // Use capture phase
+        }
+    }
+
+    /**
      * Bind a single delegated handler for history list interactions.
      * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
      */
@@ -610,7 +701,14 @@ import type {
 
                 const titleEl = el('div', { className: 'request-item-title', text: req.title });
                 const previewEl = el('div', { className: 'request-item-preview', text: truncate(req.question, 100) });
-                const metaEl = el('div', { className: 'request-item-meta', text: formatTime(req.createdAt) });
+                const metaEl = el('div', { className: 'request-item-meta' });
+                const timeEl = el('span', { text: formatTime(req.createdAt) });
+                const deleteBtn = el('button', {
+                    className: 'pending-item-delete',
+                    title: window.__STRINGS__.close || 'Close',
+                    attrs: { type: 'button', 'data-id': req.id }
+                }, codicon('circle-slash'));
+                appendChildren(metaEl, deleteBtn, ' ', timeEl);
 
                 appendChildren(item, titleEl, previewEl, metaEl);
 
@@ -930,7 +1028,12 @@ import type {
             const status = review.status || 'pending';
             const statusBadge = el('span', { className: `status-badge status-${status}`, text: getStatusLabel(review.status) });
             const time = el('span', { text: formatTime(review.timestamp) });
-            appendChildren(meta, statusBadge, ' ', time);
+            const deleteBtn = el('button', {
+                className: 'pending-item-delete',
+                title: window.__STRINGS__.close || 'Close',
+                attrs: { type: 'button', 'data-id': review.id }
+            }, codicon('circle-slash'));
+            appendChildren(meta, statusBadge, ' ', deleteBtn, ' ', time);
 
             appendChildren(item, title, preview, meta);
 
@@ -1622,11 +1725,6 @@ import type {
         return div.innerHTML;
     }
 
-    function truncate(str: string, maxLen: number): string {
-        if (str.length <= maxLen) return str;
-        return str.substring(0, maxLen) + '...';
-    }
-
     function formatTime(timestamp: number): string {
         const diff = Date.now() - timestamp;
         const minutes = Math.floor(diff / 60000);
@@ -1715,9 +1813,7 @@ import type {
             'gz': 'file-zip',
             'rar': 'file-zip',
             '7z': 'file-zip',
-        }
-
-            ;
+        };
         return iconMap[ext] || 'file';
     }
 
@@ -2381,6 +2477,9 @@ import type {
 
     // Initialize in-webview toolbar (top buttons)
     initHomeToolbar();
+
+    // Initialize delegated handlers for pending items
+    initPendingItemsDelegation();
 
     // Initialize delegated handler for history list clicks/keys
     initHistoryListDelegation();

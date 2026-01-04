@@ -5,6 +5,7 @@
   "button.respond": "Respond",
   "button.submit": "Submit",
   "button.cancel": "Cancel",
+  "button.close": "Close",
   "button.back": "Back",
   "button.addAttachment": "Add Attachment",
   "button.addFolder": "Add Folder",
@@ -84,6 +85,7 @@
   "status.cancelled": "Cancelled",
   "confirm.clearHistory": "Are you sure you want to clear all history?",
   "confirm.deleteItem": "Remove this item from history?",
+  "confirm.cancelPending": "Are you sure you want to close the request \"{0}\"?",
   "button.confirm": "Clear",
   "button.delete": "Delete",
   "detail.question": "Question",
@@ -106,4 +108,5 @@
   "settings.openInVSCodeSettings": "Open in VS Code Settings",
   "settings.addonVersion": "Version",
   "settings.addonAuthor": "Author"
+  "errors.noSuchInteraction": "Interaction not found."
 }

@@ -5,6 +5,7 @@
   "button.respond": "Responder",
   "button.submit": "Submeter",
   "button.cancel": "Cancelar",
+  "button.close": "Fechar",
   "button.back": "Retroceder",
   "button.addAttachment": "Adicionar Anexo",
   "button.remove": "Remover",
@@ -84,6 +85,7 @@
   "status.cancelled": "Cancelado",
   "confirm.clearHistory": "Tem a certeza que deseja limpar todo o histórico?",
   "confirm.deleteItem": "Remover este item do histórico?",
+  "confirm.cancelPending": "Tem a certeza que deseja fechar o pedido \"{0}\"?",
   "button.confirm": "Limpar",
   "button.delete": "Eliminar",
   "detail.question": "Pergunta",
@@ -106,4 +108,5 @@
   "settings.openInVSCodeSettings": "Abrir nas Definições do VS Code",
   "settings.addonVersion": "Versão",
   "settings.addonAuthor": "Autor"
+  "errors.noSuchInteraction": "Interação não encontrada."
 }

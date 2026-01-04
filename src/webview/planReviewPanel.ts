@@ -164,19 +164,22 @@ export class PlanReviewPanel {
      * This marks the panel as closed by the agent, which will resolve the promise
      * Also resolves the global pending resolver if the panel is not open
      */
-    public static closeIfOpen(panelId: string): void {
+    public static closeIfOpen(panelId: string): boolean {
         const panel = PlanReviewPanel._panels.get(panelId);
         if (panel) {
             panel._closedByAgent = true;
             panel._panel.dispose();
+            return true
         } else {
             // Panel is not open, but we may still have a pending resolver
             const pendingResolver = PlanReviewPanel._pendingResolvers.get(panelId);
             if (pendingResolver) {
                 pendingResolver({ approved: false, requiredRevisions: [], action: 'closed' });
                 PlanReviewPanel._pendingResolvers.delete(panelId);
+                return true
             }
         }
+        return false
     }
 
     /**

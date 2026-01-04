@@ -56,6 +56,7 @@ const md = new MarkdownIt({
 
 // Types
 import type { RequiredPlanRevisions, PlanReviewMode } from './types';
+import { truncate } from './utils';
 
 // Strings interface specific to planReview webview
 interface PlanReviewStrings {
@@ -247,12 +248,7 @@ declare global {
             return `${hashes} ${text}`;
         }
 
-        // For other elements, truncate if too long
-        if (text.length > 100) {
-            return text.substring(0, 100) + '...';
-        }
-
-        return text || `[${tagName}]`;
+        return truncate(text || `[${tagName}]`, 100);
     }
 
     /**

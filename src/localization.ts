@@ -55,6 +55,7 @@ export const strings = {
     get submit() { return localize('button.submit'); },
     get cancel() { return localize('button.cancel'); },
     get back() { return localize('button.back'); },
+    get close() { return localize('button.close'); },
     get addAttachment() { return localize('button.addAttachment'); },
     get remove() { return localize('button.remove'); },
     get inputPlaceholder() { return localize('input.placeholder'); },
@@ -123,7 +124,9 @@ export const strings = {
     // Confirmation dialogs
     get confirmClearHistory() { return localize('confirm.clearHistory'); },
     get confirmDeleteItem() { return localize('confirm.deleteItem'); },
+    get confirmCancelPending() { return localize('confirm.cancelPending'); },
     get confirm() { return localize('button.confirm'); },
+    get delete() { return localize('button.delete'); },
     // Interaction detail
     get question() { return localize('detail.question'); },
     get response() { return localize('detail.response'); },
@@ -154,4 +157,7 @@ export const strings = {
     get openInVSCodeSettings() { return localize('settings.openInVSCodeSettings'); },
     get addonVersion() { return localize('settings.addonVersion'); },
     get addonAuthor() { return localize('settings.addonAuthor'); },
+
+    // Errors
+    get noSuchInteraction() { return localize('error.noSuchInteraction'); },
 };
