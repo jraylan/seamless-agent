@@ -55,13 +55,3 @@ jobs:
         id: attestation
         with:
           subject-path: "${{ github.workspace }}/*.vsix"
-
-      - name: Add provenance to release
-        uses: softprops/action-gh-release@v1
-        with:
-          append_body: true
-          body: |
-            ---
-            [Provenance attestations](${{ steps.attestation.outputs.attestation-url }})
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

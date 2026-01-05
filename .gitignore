@@ -9,3 +9,4 @@ dist/**
 .seamless-agent/
 dist-addon-api/**
 TODO
+.hintrc
