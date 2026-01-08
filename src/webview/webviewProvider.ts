@@ -19,7 +19,9 @@ import {
     FromWebviewMessage,
     FileSearchResult,
     UserResponseResult,
+    CustomTabData,
 } from "./types";
+import { IExtensionCore } from '../core/types';
 import { truncate } from './utils';
 
 
@@ -46,7 +48,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
 
-    constructor(private readonly _context: vscode.ExtensionContext) {
+
+    constructor(private core: IExtensionCore) {
         // Use the singleton instance that was initialized in extension.ts
         this._chatHistoryStorage = getChatHistoryStorage();
         //this.loadSessionsFromDisk()
@@ -60,7 +63,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     private get _extensionUri(): vscode.Uri {
-        return this._context.extensionUri;
+        return this.core.getContext().extensionUri;
     }
 
     /**
@@ -102,6 +105,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
+
+        // Send custom tabs info after a short delay to ensure webview is ready
+        setTimeout(() => {
+            this.updateCustomTabs();
+        }, 100);
 
         // Update badge count
         if (this._pendingRequests.size > 0) {
@@ -299,9 +307,13 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Public method to switch tabs in the webview (called from commands)
+     * Public method to switch tabs in the webview (called from commands or API)
+     * @param tab - Tab ID: 'pending', 'history', 'settings', or a custom tab ID
      */
-    public switchTab(tab: 'pending' | 'history'): void {
+    public switchTab(tab: string): void {
+        // Focus the webview panel first
+        this._view?.show(true);
+
         const message: ToWebviewMessage = {
             type: 'switchTab',
             tab
@@ -383,6 +395,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openPlanReviewPanel': this._handleOpenPlanReviewPanel(message.interactionId);
                 break;
             case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
+                break;
+            case 'getSettings': this._handleGetSettings();
+                break;
+            case 'updateSetting': this._handleUpdateSetting(message.key, message.value);
+                break;
+            case 'openVSCodeSettings': this._handleOpenVSCodeSettings();
+                break;
+            case 'getCustomTabContent': this._handleGetCustomTabContent(message.tabId);
+                break;
+            case 'customTabMessage': this._handleCustomTabMessage(message.tabId, message.message);
                 break;
             case 'cancelPendingRequest': {
                 this.cancelPendingRequest(message.requestId);
@@ -857,7 +879,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             const ext = extMap[effectiveMimeType] || '.png';
 
             // Use VS Code storage for temp images
-            const storageUri = this._context.storageUri;
+            const storageUri = this.core.getContext().storageUri;
 
             if (!storageUri) {
                 throw new Error('Storage URI not available');
@@ -1035,7 +1057,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public cleanupAllTempFiles(): void {
         try {
-            const storageUri = this._context.storageUri;
+            const storageUri = this.core.getContext().storageUri;
             if (!storageUri) return;
 
             const tempDir = path.join(storageUri.fsPath, 'temp-images');
@@ -1198,6 +1220,181 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * Handle getting settings data for the Settings tab
+     */
+    private _handleGetSettings(): void {
+        // Import types
+        type SettingsSectionDataType = import('./types').SettingsSectionData;
+        type AddonInfoDataType = import('./types').AddonInfoData;
+
+        const settings: SettingsSectionDataType[] = [];
+        const addons: AddonInfoDataType[] = [];
+
+        try {
+            const api = this.core.getAPI();
+            const registry = api.registry;
+
+            // Get settings sections from addons
+            const addonSections = api.ui.getSettingsSections();
+            for (const section of addonSections) {
+                settings.push({
+                    id: section.id,
+                    title: section.title,
+                    description: section.description,
+                    settings: section.settings.map(s => ({
+                        key: s.key,
+                        label: s.label,
+                        description: s.description,
+                        type: s.type,
+                        value: s.value,
+                        defaultValue: s.defaultValue,
+                        options: s.options,
+                    })),
+                    priority: section.priority,
+                });
+            }
+
+            // Get addon info
+            const registrations = registry.getAll();
+            for (const reg of registrations) {
+                const addon = reg.addon;
+                // Count tabs from registry + tabs registered via API (by prefix/pattern matching)
+                const apiTabCount = (api.ui as { getTabCountByAddon?: (id: string) => number }).getTabCountByAddon?.(addon.id) ?? 0;
+                const totalTabCount = reg.tabCount + apiTabCount;
+                addons.push({
+                    id: addon.id,
+                    name: addon.name,
+                    version: addon.version,
+                    description: addon.description,
+                    author: addon.author,
+                    repositoryUrl: addon.repositoryUrl,
+                    isActive: reg.isActive,
+                    toolCount: reg.toolCount,
+                    tabCount: totalTabCount,
+                });
+            }
+        } catch (err) {
+            console.error('[Seamless Agent] Error getting addon settings:', err);
+        }
+
+        // Send settings to webview
+        const message: ToWebviewMessage = {
+            type: 'showSettings',
+            settings,
+            addons,
+        };
+        this._view?.webview.postMessage(message);
+    }
+
+    /**
+     * Handle updating a setting value
+     */
+    private async _handleUpdateSetting(key: string, value: unknown): Promise<void> {
+        try {
+            // Check if it's a VS Code setting (seamless-agent.*)
+            if (key.startsWith('seamless-agent.')) {
+                const settingKey = key.replace('seamless-agent.', '');
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                await config.update(settingKey, value, vscode.ConfigurationTarget.Global);
+            } else {
+                // It's an addon setting - store in extension storage
+                const api = this.core.getAPI();
+                await api.storage.set(key, value);
+            }
+
+            // Refresh settings view
+            this._handleGetSettings();
+        } catch (err) {
+            console.error('[Seamless Agent] Error updating setting:', err);
+            vscode.window.showErrorMessage(`Failed to update setting: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Handle opening VS Code settings filtered to Seamless Agent
+     */
+    private _handleOpenVSCodeSettings(): void {
+        vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.core.getContext()?.extension?.id}`);
+    }
+
+    /**
+     * Get custom tab content from addon and send to webview
+     */
+    private async _handleGetCustomTabContent(tabId: string): Promise<void> {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+            const tab = tabs.find(t => t.id === tabId);
+
+            if (!tab) {
+                console.error(`[Seamless Agent] Custom tab not found: ${tabId}`);
+                return;
+            }
+
+            // Call the tab's render method
+            const content = await tab.render();
+
+            // Call onActivate if defined
+            if (tab.onActivate) {
+                tab.onActivate();
+            }
+
+            // Send content to webview
+            this._view?.webview.postMessage({
+                type: 'showCustomTabContent',
+                tabId,
+                content,
+            });
+        } catch (err) {
+            console.error(`[Seamless Agent] Error getting custom tab content:`, err);
+        }
+    }
+
+    /**
+     * Handle messages from webview to custom tabs
+     */
+    private async _handleCustomTabMessage(tabId: string, message: unknown): Promise<void> {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+            const tab = tabs.find(t => t.id === tabId);
+
+            if (!tab || !tab.onMessage) {
+                return;
+            }
+
+            // Call the tab's message handler
+            await tab.onMessage(message);
+        } catch (err) {
+            console.error(`[Seamless Agent] Error handling custom tab message:`, err);
+        }
+    }
+
+    /**
+     * Send custom tabs info to webview
+     */
+    public updateCustomTabs(): void {
+        try {
+            const api = this.core.getAPI();
+            const tabs = api.ui.getTabs();
+
+            const tabsData: CustomTabData[] = tabs.map(tab => ({
+                id: tab.id,
+                label: tab.label,
+                icon: tab.icon as string,
+                priority: tab.priority,
+            }));
+
+            this._view?.webview.postMessage({
+                type: 'updateCustomTabs',
+                tabs: tabsData,
+            });
+        } catch (err) {
+            console.error(`[Seamless Agent] Error updating custom tabs:`, err);
+        }
+    }
+
     private _getHtmlContent(webview: vscode.Webview): string {
         // Get URIs for resources
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
@@ -1270,6 +1467,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{historyFilterAll}}': strings.historyFilterAll,
             '{{historyFilterAskUser}}': strings.historyFilterAskUser,
             '{{historyFilterPlanReview}}': strings.historyFilterPlanReview,
+            // Settings strings
+            '{{settings}}': strings.settings,
+            '{{settingsDescription}}': strings.settingsDescription,
+            '{{loadingSettings}}': strings.loadingSettings,
+            '{{registeredAddons}}': strings.registeredAddons,
+            '{{noAddonsRegistered}}': strings.noAddonsRegistered,
+            '{{openInVSCodeSettings}}': strings.openInVSCodeSettings,
+            '{{addonVersion}}': strings.addonVersion,
+            '{{addonAuthor}}': strings.addonAuthor,
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

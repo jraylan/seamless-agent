@@ -119,7 +119,24 @@ export type ToWebviewMessage = | {
     }
     | {
         type: 'switchTab';
-        tab: 'pending' | 'history'
+        tab: 'pending' | 'history' | 'settings' | string;
+    }
+
+    | {
+        type: 'showSettings';
+        settings: SettingsSectionData[];
+        addons: AddonInfoData[];
+    }
+
+    | {
+        type: 'updateCustomTabs';
+        tabs: CustomTabData[];
+    }
+
+    | {
+        type: 'showCustomTabContent';
+        tabId: string;
+        content: string;
     }
     | {
         type: 'clear'
@@ -196,6 +213,26 @@ export type FromWebviewMessage = | {
         interactionId: string
     }
     | {
+        type: 'getSettings'
+    }
+    | {
+        type: 'updateSetting';
+        key: string;
+        value: unknown
+    }
+    | {
+        type: 'openVSCodeSettings'
+    }
+    | {
+        type: 'getCustomTabContent';
+        tabId: string;
+    }
+    | {
+        type: 'customTabMessage';
+        tabId: string;
+        message: unknown;
+    }
+    | {
         type: 'cancelPendingRequest';
         requestId: string
     };
@@ -247,4 +284,45 @@ export interface UserResponseResult {
     responded: boolean;
     response: string;
     attachments: AttachmentInfo[];
+}
+
+// Settings data types for webview
+export interface SettingItemData {
+    key: string;
+    label: string;
+    description?: string;
+    type: 'boolean' | 'string' | 'number' | 'select' | 'multiselect' | 'text';
+    value: unknown;
+    defaultValue?: unknown;
+    options?: Array<{ value: string; label: string }>;
+}
+
+export interface SettingsSectionData {
+    id: string;
+    title: string;
+    description?: string;
+    settings: SettingItemData[];
+    priority?: number;
+}
+
+export interface AddonInfoData {
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    author?: string;
+    repositoryUrl?: string;
+    isActive: boolean;
+    toolCount: number;
+    tabCount: number;
+}
+
+/**
+ * Custom tab data for webview (serializable version of ICustomTab)
+ */
+export interface CustomTabData {
+    id: string;
+    label: string;
+    icon: string;
+    priority?: number;
 }

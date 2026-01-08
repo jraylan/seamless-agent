@@ -133,6 +133,15 @@ declare global {
             question: string;
             response: string;
             noResponse: string;
+            attachments: string;
+            // Home toolbar labels
+            pendingItems: string;
+            chatHistory: string;
+            clearHistory: string;
+            pastedImage: string;
+            // Settings tab
+            settings: string;
+            noAddonsRegistered: string;
             // History filtes
             historyFilterAll: string;
             historyFilterAskUser: string;
@@ -149,8 +158,8 @@ import type {
     RequestItem,
     FileSearchResult,
     ToolCallInteraction,
-    RequiredPlanRevisions,
-    StoredInteraction
+    StoredInteraction,
+    CustomTabData
 } from './types';
 import { truncate } from './utils';
 
@@ -199,7 +208,13 @@ import { truncate } from './utils';
     // History filter state
     let currentHistoryFilter: string = 'all';
 
-    type HomeTab = 'pending' | 'history';
+    // Custom tabs state
+    let customTabs: CustomTabData[] = [];
+    let activeCustomTab: string | null = null;
+    const customTabsContainer = document.getElementById('custom-tabs-container');
+    const customTabContentContainer = document.getElementById('custom-tab-content-container');
+
+    type HomeTab = 'pending' | 'history' | 'settings' | string;
 
     function setHomeToolbarActiveTab(tab: HomeTab): void {
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
@@ -272,11 +287,17 @@ import { truncate } from './utils';
                 type: 'clearHistory'
             });
         });
+
+        // Settings link to open VS Code settings
+        const settingsLinkBtn = document.querySelector('.settings-link-btn[data-action="openVSCodeSettings"]') as HTMLElement | null;
+        settingsLinkBtn?.addEventListener('click', () => {
+            vscode.postMessage({ type: 'openVSCodeSettings' });
+        });
     }
 
     /**
- * Apply filter to history items
- */
+     * Apply filter to history items
+     */
     function applyHistoryFilter(filter: string): void {
         currentHistoryFilter = filter;
 
@@ -309,8 +330,94 @@ import { truncate } from './utils';
     }
 
     /**
- * Initialize history filter buttons
- */
+     * Render custom tab buttons in the toolbar
+     */
+    function renderCustomTabs(tabs: CustomTabData[]): void {
+        customTabs = tabs;
+        if (!customTabsContainer) return;
+
+        // Clear existing custom tab buttons
+        customTabsContainer.innerHTML = '';
+
+        // Create buttons for each custom tab
+        tabs.forEach(tab => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'home-toolbar-btn';
+            btn.setAttribute('data-tab', tab.id);
+            btn.setAttribute('data-label', tab.label);
+            btn.setAttribute('data-custom-tab', 'true');
+            btn.title = tab.label;
+            btn.setAttribute('aria-label', tab.label);
+            btn.setAttribute('aria-pressed', 'false');
+
+            const icon = document.createElement('span');
+            icon.className = `codicon codicon-${tab.icon}`;
+            btn.appendChild(icon);
+
+            btn.addEventListener('click', () => {
+                switchTab(tab.id);
+            });
+
+            customTabsContainer.appendChild(btn);
+        });
+
+        // Create content panes for each custom tab
+        if (customTabContentContainer) {
+            // Keep existing panes that might have content, remove ones no longer in tabs
+            const existingPanes = customTabContentContainer.querySelectorAll('.custom-tab-pane');
+            const tabIds = new Set(tabs.map(t => t.id));
+
+            existingPanes.forEach(pane => {
+                const paneId = pane.getAttribute('data-tab-id');
+                if (paneId && !tabIds.has(paneId)) {
+                    pane.remove();
+                }
+            });
+
+            // Create panes for new tabs
+            tabs.forEach(tab => {
+                const existingPane = customTabContentContainer.querySelector(`[data-tab-id="${tab.id}"]`);
+                if (!existingPane) {
+                    const pane = document.createElement('div');
+                    pane.className = 'custom-tab-pane tab-pane hidden';
+                    pane.id = `content-custom-${tab.id}`;
+                    pane.setAttribute('data-tab-id', tab.id);
+
+                    const loading = document.createElement('div');
+                    loading.className = 'custom-tab-loading';
+                    loading.textContent = 'Loading...';
+                    pane.appendChild(loading);
+
+                    customTabContentContainer.appendChild(pane);
+                }
+            });
+        }
+    }
+
+    /**
+     * Show content for a custom tab
+     */
+    function showCustomTabContent(tabId: string, content: string): void {
+        if (!customTabContentContainer) return;
+
+        const pane = customTabContentContainer.querySelector(`[data-tab-id="${tabId}"]`) as HTMLElement;
+        if (!pane) return;
+
+        // Render the content
+        pane.innerHTML = content;
+    }
+
+    /**
+     * Check if a tab is a custom tab from addons
+     */
+    function isCustomTab(tabId: string): boolean {
+        return customTabs.some(t => t.id === tabId);
+    }
+
+    /**
+     * Initialize history filter buttons
+     */
     function initHistoryFilters(): void {
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -381,9 +488,9 @@ import { truncate } from './utils';
     }
 
     /**
- * Bind a single delegated handler for history list interactions.
- * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
- */
+     * Bind a single delegated handler for history list interactions.
+     * This avoids losing per-item handlers when the list is re-rendered via innerHTML.
+     */
     function initHistoryListDelegation(): void {
         if (!historyList) return;
 
@@ -439,9 +546,9 @@ import { truncate } from './utils';
     }
 
     /**
- * Announce a message to screen readers via the live region
- * @param message The message to announce
- */
+     * Announce a message to screen readers via the live region
+     * @param message The message to announce
+     */
     function announceToScreenReader(message: string): void {
         if (srAnnounce) {
             // Clear and set text to trigger announcement
@@ -450,9 +557,7 @@ import { truncate } from './utils';
             // Use setTimeout to ensure the DOM change is detected
             setTimeout(() => {
                 srAnnounce.textContent = message;
-            }
-
-                , 50);
+            }, 50);
         }
     }
 
@@ -488,10 +593,34 @@ import { truncate } from './utils';
         }
     }
 
+    /**
+     * Helper function to create TextNode
+     *
+     * @param {string} text
+     * @return {*}  {Text}
+     */
     function tn(text: string): Text {
         return document.createTextNode(text);
     }
 
+    /**
+     * Helper function to create HTMLElement
+     *
+     * @template K
+     * @param {K} tag
+     * @param {{
+     *             className?: string;
+     *             text?: string;
+     *             html?: string;
+     *             title?: string;
+     *             attrs?: Record<string, string>;
+     *             on?: Partial<{
+     *                 [K in keyof HTMLElementEventMap]?: (ev: HTMLElementEventMap[K]) => any;
+     *             }>
+     *         }} [options]
+     * @param {...ElementChild[]} children
+     * @return {*}  {HTMLElementTagNameMap[K]}
+     */
     function el<K extends keyof HTMLElementTagNameMap>(
         tag: K,
         options?: {
@@ -528,13 +657,19 @@ import { truncate } from './utils';
         return node;
     }
 
+    /**
+     * Helper function to create icon
+     *
+     * @param {string} name
+     * @return {*}  {HTMLSpanElement}
+     */
     function codicon(name: string): HTMLSpanElement {
         return el('span', { className: `codicon codicon-${name}` });
     }
 
     /**
-    * Show the list of pending requests
-    */
+     * Show the list of pending requests
+     */
     function showList(requests: RequestItem[]): void {
         if (requests.length === 0) {
 
@@ -598,8 +733,8 @@ import { truncate } from './utils';
     }
 
     /**
-* Show the question form and hide other views
-*/
+     * Show the question form and hide other views
+     */
     function showQuestion(question: string, title: string, requestId: string): void {
         currentRequestId = requestId;
 
@@ -635,28 +770,64 @@ import { truncate } from './utils';
     }
 
     /**
- * Switch between tabs in the home view
- */
-    function switchTab(tab: 'pending' | 'history'): void {
-        // Update content panes visibility
+     * Switch between tabs in the home view
+     */
+    function switchTab(tab: HomeTab): void {
+        if (typeof tab !== 'string') return;
+
+        // Get settings content element
+        const contentSettings = document.getElementById('content-settings');
+
+        // Check if it's a custom tab
+        const isCustom = isCustomTab(tab);
+
+        // Update built-in content panes visibility
         contentPending?.classList.toggle('hidden', tab !== 'pending');
         contentHistory?.classList.toggle('hidden', tab !== 'history');
+        contentSettings?.classList.toggle('hidden', tab !== 'settings');
+
+        // Handle custom tab content panes
+        if (customTabContentContainer) {
+            customTabContentContainer.querySelectorAll('.custom-tab-pane').forEach(pane => {
+                const paneId = pane.getAttribute('data-tab-id');
+                pane.classList.toggle('hidden', paneId !== tab);
+                pane.classList.toggle('active', paneId === tab);
+            });
+        }
 
         setHomeToolbarActiveTab(tab);
+
+        // If switching to settings, request settings data
+        if (tab === 'settings') {
+            vscode.postMessage({ type: 'getSettings' });
+        }
+
+        // If switching to a custom tab, request its content
+        if (isCustom) {
+            activeCustomTab = tab;
+            vscode.postMessage({ type: 'getCustomTabContent', tabId: tab });
+        } else {
+            activeCustomTab = null;
+        }
 
         // Announce tab change to screen readers
         const tabNames: Record<string, string> = {
             pending: window.__STRINGS__?.pendingItems || 'Pending Items',
             history: window.__STRINGS__?.chatHistory || 'Chat History',
+            settings: window.__STRINGS__?.settings || 'Settings',
         };
 
-        announceToScreenReader(`${tabNames[tab]}tab selected`);
+        // For custom tabs, use the tab label
+        const customTab = customTabs.find(t => t.id === tab);
+        const tabName = customTab ? customTab.label : tabNames[tab] || tab;
+
+        announceToScreenReader(`${tabName} tab selected`);
     }
 
     /**
- * Update the unified pending placeholder visibility
- * Shows placeholder only when both requests and reviews are empty
- */
+     * Update the unified pending placeholder visibility
+     * Shows placeholder only when both requests and reviews are empty
+     */
     function updatePendingPlaceholder(): void {
         const hasRequests = ! !(pendingRequestsList && pendingRequestsList.children.length > 0);
         const hasReviews = ! !(pendingReviewsList && pendingReviewsList.children.length > 0);
@@ -667,8 +838,8 @@ import { truncate } from './utils';
     }
 
     /**
- * Show home view (pending requests + recent interactions)
- */
+     * Show home view (pending requests + recent interactions)
+     */
     function showHome(): void {
         currentRequestId = null;
         currentInteractionId = null;
@@ -701,9 +872,9 @@ import { truncate } from './utils';
     }
 
     /**
- * Extract a meaningful title from the LLM's input question
- * Uses the first sentence (up to ~80 chars) as the title
- */
+     * Extract a meaningful title from the LLM's input question
+     * Uses the first sentence (up to ~80 chars) as the title
+     */
     function extractTitleFromQuestion(question: string): string {
         if (!question) return 'Tool Call';
 
@@ -981,6 +1152,287 @@ import { truncate } from './utils';
         updateHomeToolbarBadgesFromDom();
     }
 
+    /**
+     * Settings data types (matching types.ts)
+     */
+    interface SettingItemData {
+        key: string;
+        label: string;
+        description?: string;
+        type: 'boolean' | 'string' | 'number' | 'select' | 'multiselect' | 'text';
+        value: unknown;
+        defaultValue?: unknown;
+        options?: Array<{ value: string; label: string }>;
+    }
+
+    interface SettingsSectionData {
+        id: string;
+        title: string;
+        description?: string;
+        settings: SettingItemData[];
+        priority?: number;
+    }
+
+    interface AddonInfoData {
+        id: string;
+        name: string;
+        version: string;
+        description?: string;
+        author?: string;
+        repositoryUrl?: string;
+        isActive: boolean;
+        toolCount: number;
+        tabCount: number;
+    }
+
+    /**
+     * Render settings in the Settings tab
+     * Note: Native Seamless Agent settings are now accessed via VS Code Settings
+     * through the link button in the webview
+     */
+    function renderSettings(sections: SettingsSectionData[], addons: AddonInfoData[]): void {
+        const addonSettingsSections = document.getElementById('addon-settings-sections');
+        const addonsListContent = document.getElementById('addons-list-content');
+
+        // Render addon settings sections (native settings are accessed via VS Code link)
+        if (addonSettingsSections) {
+            clearChildren(addonSettingsSections);
+            // All sections are addon sections now (native settings removed from API response)
+            for (const section of sections) {
+                addonSettingsSections.appendChild(renderSettingsSection(section));
+            }
+        }
+
+        // Render registered addons list
+        if (addonsListContent) {
+            clearChildren(addonsListContent);
+            if (addons.length === 0) {
+                addonsListContent.appendChild(el('p', {
+                    className: 'placeholder',
+                    text: window.__STRINGS__?.noAddonsRegistered || 'No addons registered'
+                }));
+            } else {
+                for (const addon of addons) {
+                    addonsListContent.appendChild(renderAddonCard(addon));
+                }
+            }
+        }
+
+        // Note: collapse/expand is handled by event delegation initialized at startup
+    }
+
+    /**
+     * Render a settings section
+     */
+    function renderSettingsSection(section: SettingsSectionData): HTMLElement {
+        const sectionEl = el('div', { className: 'settings-section' });
+
+        const header = el('div', {
+            className: 'settings-section-header',
+            attrs: { 'data-section': section.id }
+        });
+        appendChildren(header, codicon('chevron-down'), ' ');
+        header.appendChild(el('h4', { text: section.title }));
+
+        const content = el('div', { className: 'settings-section-content' });
+
+        if (section.description) {
+            content.appendChild(el('p', {
+                className: 'settings-description',
+                text: section.description
+            }));
+        }
+
+        for (const setting of section.settings) {
+            content.appendChild(renderSettingItem(setting));
+        }
+
+        appendChildren(sectionEl, header, content);
+        return sectionEl;
+    }
+
+    /**
+     * Render a single setting item
+     */
+    function renderSettingItem(setting: SettingItemData): HTMLElement {
+        const item = el('div', { className: 'setting-item' });
+
+        switch (setting.type) {
+            case 'boolean':
+                const checkboxRow = el('div', { className: 'setting-item-row setting-checkbox' });
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `setting-${setting.key}`;
+                checkbox.checked = Boolean(setting.value);
+                checkbox.addEventListener('change', () => {
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: checkbox.checked
+                    });
+                });
+                const checkboxLabel = el('label', {
+                    className: 'setting-label',
+                    text: setting.label,
+                    attrs: { for: `setting-${setting.key}` }
+                });
+                appendChildren(checkboxRow, checkbox, checkboxLabel);
+                item.appendChild(checkboxRow);
+                break;
+
+            case 'select':
+                item.appendChild(el('label', {
+                    className: 'setting-label',
+                    text: setting.label
+                }));
+                const select = document.createElement('select');
+                select.className = 'setting-select';
+                select.id = `setting-${setting.key}`;
+                for (const opt of setting.options || []) {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    if (opt.value === setting.value) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                }
+                select.addEventListener('change', () => {
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: select.value
+                    });
+                });
+                item.appendChild(select);
+                break;
+
+            case 'string':
+            case 'number':
+                item.appendChild(el('label', {
+                    className: 'setting-label',
+                    text: setting.label
+                }));
+                const input = document.createElement('input');
+                input.type = setting.type === 'number' ? 'number' : 'text';
+                input.className = 'setting-input';
+                input.id = `setting-${setting.key}`;
+                input.value = String(setting.value ?? '');
+                input.addEventListener('change', () => {
+                    const value = setting.type === 'number'
+                        ? parseFloat(input.value)
+                        : input.value;
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value
+                    });
+                });
+                item.appendChild(input);
+                break;
+
+            case 'text':
+                item.appendChild(el('label', {
+                    className: 'setting-label',
+                    text: setting.label
+                }));
+                const textarea = document.createElement('textarea');
+                textarea.className = 'setting-input';
+                textarea.id = `setting-${setting.key}`;
+                textarea.rows = 3;
+                textarea.value = String(setting.value ?? '');
+                textarea.addEventListener('change', () => {
+                    vscode.postMessage({
+                        type: 'updateSetting',
+                        key: setting.key,
+                        value: textarea.value
+                    });
+                });
+                item.appendChild(textarea);
+                break;
+        }
+
+        if (setting.description) {
+            item.appendChild(el('p', {
+                className: 'setting-description',
+                text: setting.description
+            }));
+        }
+
+        return item;
+    }
+
+    /**
+     * Render an addon info card
+     */
+    function renderAddonCard(addon: AddonInfoData): HTMLElement {
+        const card = el('div', { className: 'addon-card' });
+        const header = el('div', { className: 'addon-card-header' });
+
+        header.appendChild(el('span', { className: 'addon-card-name', text: addon.name }));
+        header.appendChild(el('span', {
+            className: 'addon-card-version',
+            text: `v${addon.version}`
+        }));
+        header.appendChild(el('span', {
+            className: `addon-status ${addon.isActive ? 'active' : 'inactive'}`,
+            text: addon.isActive ? 'Active' : 'Inactive'
+        }));
+
+        card.appendChild(header);
+
+        if (addon.description) {
+            card.appendChild(el('p', {
+                className: 'addon-card-description',
+                text: addon.description
+            }));
+        }
+
+        const meta = el('div', { className: 'addon-card-meta' });
+        if (addon.author) {
+            const authorSpan = el('span');
+            appendChildren(authorSpan, codicon('account'), ' ', addon.author);
+            meta.appendChild(authorSpan);
+        }
+        if (addon.toolCount > 0) {
+            const toolsSpan = el('span');
+            appendChildren(toolsSpan, codicon('tools'), ` ${addon.toolCount} tools`);
+            meta.appendChild(toolsSpan);
+        }
+        if (addon.tabCount > 0) {
+            const tabsSpan = el('span');
+            appendChildren(tabsSpan, codicon('layout'), ` ${addon.tabCount} tabs`);
+            meta.appendChild(tabsSpan);
+        }
+        if (meta.children.length > 0) {
+            card.appendChild(meta);
+        }
+
+        return card;
+    }
+
+    /**
+     * Initialize settings sections collapse/expand behavior using event delegation.
+     * This should only be called once during initialization.
+     */
+    function initSettingsSections(): void {
+        const settingsContainer = document.getElementById('content-settings');
+        if (!settingsContainer) {
+            return;
+        }
+
+        // Use event delegation to handle clicks on section headers
+        // This way we don't need to re-attach listeners when content is re-rendered
+        settingsContainer.addEventListener('click', (event) => {
+            const target = event.target as HTMLElement;
+            const header = target.closest('.settings-section-header');
+            if (header) {
+                const section = header.closest('.settings-section');
+                section?.classList.toggle('collapsed');
+            }
+        });
+    }
+
 
     /**
      * Show interaction detail view (for ask_user)
@@ -1092,15 +1544,15 @@ import { truncate } from './utils';
     }
 
     /**
-    * Update attachments display - renders chips above textarea
-    */
+     * Update attachments display - renders chips above textarea
+     */
     function updateAttachmentsDisplay(): void {
         updateChipsDisplay();
     }
 
     /**
-    * Update chips display above textarea
-    */
+     * Update chips display above textarea
+     */
     function updateChipsDisplay(): void {
         if (!chipsContainer) return;
 
@@ -1111,7 +1563,6 @@ import { truncate } from './utils';
 
         else {
             chipsContainer.classList.remove('hidden');
-
 
             const preview = document.querySelector('.image-hover-preview') as HTMLElement;
             const previewImg = preview?.querySelector('img') as HTMLImageElement;
@@ -1195,8 +1646,8 @@ import { truncate } from './utils';
     }
 
     /**
-    * Remove an attachment by ID
-    */
+     * Remove an attachment by ID
+     */
     function removeAttachment(attachmentId: string): void {
         if (currentRequestId) {
             vscode.postMessage({
@@ -1212,8 +1663,8 @@ import { truncate } from './utils';
     }
 
     /**
-    * Handle submit button click
-    */
+     * Handle submit button click
+     */
     function handleSubmit(): void {
         const response = responseInput?.value.trim() || '';
 
@@ -1231,8 +1682,8 @@ import { truncate } from './utils';
     }
 
     /**
-    * Handle cancel button click
-    */
+     * Handle cancel button click
+     */
     function handleCancel(): void {
         if (currentRequestId) {
             vscode.postMessage({
@@ -1286,8 +1737,8 @@ import { truncate } from './utils';
     }
 
     /**
-    * Get Codicon icon name for a file based on its extension
-    */
+     * Get Codicon icon name for a file based on its extension
+     */
     function getFileIcon(filename: string): string {
         const ext = filename.split('.').pop()?.toLowerCase() || '';
 
@@ -1437,6 +1888,7 @@ import { truncate } from './utils';
                 const index = parseInt((item as HTMLElement).getAttribute('data-index') || '0', 10);
                 selectAutocompleteItem(index);
             });
+
             item.addEventListener('mouseenter', () => {
                 const index = parseInt((item as HTMLElement).getAttribute('data-index') || '0', 10);
                 selectedAutocompleteIndex = index;
@@ -1817,6 +2269,9 @@ import { truncate } from './utils';
     cancelBtn?.addEventListener('click', handleCancel);
     backBtn?.addEventListener('click', handleBack);
 
+    // Initialize settings sections collapse/expand (event delegation)
+    initSettingsSections();
+
     // Attach button click handler - opens file picker
     attachBtn?.addEventListener('click', () => {
         if (currentRequestId) {
@@ -1881,19 +2336,22 @@ import { truncate } from './utils';
         // Autocomplete navigation
         if (autocompleteVisible) {
             switch (event.key) {
-                case 'ArrowDown': event.preventDefault();
+                case 'ArrowDown':
+                    event.preventDefault();
                     if (selectedAutocompleteIndex < autocompleteResults.length - 1) {
                         selectedAutocompleteIndex++;
                         updateAutocompleteSelection();
                     }
                     return;
-                case 'ArrowUp': event.preventDefault();
+                case 'ArrowUp':
+                    event.preventDefault();
                     if (selectedAutocompleteIndex > 0) {
                         selectedAutocompleteIndex--;
                         updateAutocompleteSelection();
                     }
                     return;
-                case 'Enter': case 'Tab':
+                case 'Enter':
+                case 'Tab':
                     if (selectedAutocompleteIndex >= 0) {
                         event.preventDefault();
                         selectAutocompleteItem(selectedAutocompleteIndex);
@@ -1927,11 +2385,14 @@ import { truncate } from './utils';
         const message = event.data;
 
         switch (message.type) {
-            case 'showQuestion': showQuestion(message.question, message.title, message.requestId);
+            case 'showQuestion':
+                showQuestion(message.question, message.title, message.requestId);
                 break;
-            case 'showList': showList(message.requests);
+            case 'showList':
+                showList(message.requests);
                 break;
-            case 'showHome': recentInteractions = message.recentInteractions || [];
+            case 'showHome':
+                recentInteractions = message.recentInteractions || [];
                 showHome();
 
                 // Update pending requests if provided
@@ -1954,53 +2415,68 @@ import { truncate } from './utils';
                 }
 
                 break;
-            case 'showInteractionDetail': showInteractionDetail(message.interaction);
+            case 'showInteractionDetail':
+                showInteractionDetail(message.interaction);
                 break;
 
-            case 'updateAttachments': if (message.requestId === currentRequestId) {
+            case 'updateAttachments':
+                if (message.requestId === currentRequestId) {
 
-                // Preserve flags from existing attachments when updating
-                const existingFlags = new Map(currentAttachments.map(a => [a.id, {
-                    isImage: a.isImage, isTextReference: a.isTextReference
-                }]));
+                    // Preserve flags from existing attachments when updating
+                    const existingFlags = new Map(currentAttachments.map(a => [a.id, {
+                        isImage: a.isImage, isTextReference: a.isTextReference
+                    }]));
 
-                currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
-                    const existing = existingFlags.get(att.id);
-                    return {
-                        ...att,
-                        isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
-                        isTextReference: att.isTextReference ?? existing?.isTextReference ?? false,
-                    };
-                });
-                updateAttachmentsDisplay();
-            }
-
-                break;
-
-            case 'fileSearchResults': if (autocompleteQuery !== undefined) {
-                showAutocomplete(message.files || []);
-            }
-                break;
-
-            case 'imageSaved': if (message.requestId === currentRequestId && message.attachment) {
-                // Add to local attachments if not already there
-                const exists = currentAttachments.some(a => a.id === message.attachment.id);
-
-                if (!exists) {
-                    currentAttachments.push({
-                        ...message.attachment,
-                        isImage: true,
+                    currentAttachments = (message.attachments || []).map((att: AttachmentInfo) => {
+                        const existing = existingFlags.get(att.id);
+                        return {
+                            ...att,
+                            isImage: att.isImage || existing?.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name),
+                            isTextReference: att.isTextReference ?? existing?.isTextReference ?? false,
+                        };
                     });
-                    updateChipsDisplay();
+                    updateAttachmentsDisplay();
                 }
-            }
 
                 break;
 
-            case 'switchTab': if (message.tab) {
-                switchTab(message.tab);
-            }
+            case 'fileSearchResults':
+                if (autocompleteQuery !== undefined) {
+                    showAutocomplete(message.files || []);
+                }
+                break;
 
+            case 'imageSaved':
+                if (message.requestId === currentRequestId && message.attachment) {
+                    // Add to local attachments if not already there
+                    const exists = currentAttachments.some(a => a.id === message.attachment.id);
+
+                    if (!exists) {
+                        currentAttachments.push({
+                            ...message.attachment,
+                            isImage: true,
+                        });
+                        updateChipsDisplay();
+                    }
+                }
+
+                break;
+
+            case 'switchTab':
+                if (message.tab) {
+                    switchTab(message.tab);
+                }
+                break;
+            case 'showSettings':
+                renderSettings(message.settings || [], message.addons || []);
+                break;
+            case 'updateCustomTabs':
+                renderCustomTabs(message.tabs || []);
+                break;
+            case 'showCustomTabContent':
+                if (message.tabId && message.content !== undefined) {
+                    showCustomTabContent(message.tabId, message.content);
+                }
                 break;
             case 'clear': showHome();
                 hideAutocomplete();

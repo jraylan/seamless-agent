@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { strings } from '../localization';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { UserResponseResult } from '../webview/types';
-import { getChatHistoryStorage } from '../storage/chatHistoryStorage';
 import { AskUserInput, AskUserToolResult } from './schemas';
 
 /**

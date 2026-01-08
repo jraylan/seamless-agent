@@ -65,6 +65,19 @@
               data-badge-for="history"
             ></span>
           </button>
+          <!-- Container for custom tabs from addons (inserted dynamically) -->
+          <div id="custom-tabs-container" class="custom-tabs-container"></div>
+          <button
+            type="button"
+            class="home-toolbar-btn"
+            data-tab="settings"
+            data-label="{{settings}}"
+            title="{{settings}}"
+            aria-label="{{settings}}"
+            aria-pressed="false"
+          >
+            <span class="codicon codicon-gear"></span>
+          </button>
           <button
             type="button"
             class="home-toolbar-btn"
@@ -122,6 +135,46 @@
               <p class="placeholder">{{noChats}}</p>
             </div>
           </div>
+
+          <!-- Settings Tab -->
+          <div id="content-settings" class="tab-pane hidden">
+            <div class="settings-container">
+              <div class="settings-header">
+                <h3>{{settings}}</h3>
+                <p class="settings-description">{{settingsDescription}}</p>
+              </div>
+
+              <!-- Native Settings Link -->
+              <div id="native-settings-section" class="settings-link-section">
+                <button
+                  type="button"
+                  class="settings-link-btn"
+                  data-action="openVSCodeSettings"
+                >
+                  <span class="codicon codicon-gear"></span>
+                  <span class="settings-link-text">Seamless Agent</span>
+                  <span class="codicon codicon-link-external"></span>
+                </button>
+              </div>
+
+              <!-- Addon Settings Sections (dynamically added) -->
+              <div id="addon-settings-sections"></div>
+
+              <!-- Registered Addons Info -->
+              <div id="addons-info-section" class="settings-section">
+                <div class="settings-section-header" data-section="addons">
+                  <span class="codicon codicon-chevron-down"></span>
+                  <h4>{{registeredAddons}}</h4>
+                </div>
+                <div class="settings-section-content" id="addons-list-content">
+                  <p class="placeholder">{{noAddonsRegistered}}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Container for custom tab content from addons (inserted dynamically) -->
+          <div id="custom-tab-content-container"></div>
 
           <!-- Legacy recent interactions list for backwards compatibility -->
           <div id="recent-interactions-list" class="hidden"></div>
@@ -278,6 +331,20 @@
         question: "{{question}}",
         response: "{{response}}",
         noResponse: "{{noResponse}}",
+        attachments: "{{attachments}}",
+        // Home toolbar labels
+        pendingItems: "{{pendingItems}}",
+        chatHistory: "{{chatHistory}}",
+        clearHistory: "{{clearHistory}}",
+        pastedImage: "{{pastedImage}}",
+        // Settings labels
+        settings: "{{settings}}",
+        settingsDescription: "{{settingsDescription}}",
+        loadingSettings: "{{loadingSettings}}",
+        registeredAddons: "{{registeredAddons}}",
+        noAddonsRegistered: "{{noAddonsRegistered}}",
+        addonVersion: "{{addonVersion}}",
+        addonAuthor: "{{addonAuthor}}",
         // History filtes
         historyFilterAll: "{{historyFilterAll}}",
         historyFilterAskUser: "{{historyFilterAskUser}}",
