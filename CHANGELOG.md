@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.18...seamless-agent-v0.1.19) (2026-01-08)
+
+
+### Bug Fixes
+
+* allow clipboard and cursor navigation in response input ([c1325ca](https://github.com/jraylan/seamless-agent/commit/c1325caba779a554b02d7b1078fb1643cfb4fca4))
+
 ## [0.1.18](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.17...seamless-agent-v0.1.18) (2026-01-04)
 
 
