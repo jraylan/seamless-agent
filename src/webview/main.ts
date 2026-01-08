@@ -1858,10 +1858,22 @@ import { truncate } from './utils';
 
     // Handle keyboard navigation in textarea (for autocomplete and submit)
     responseInput?.addEventListener('keydown', (event: KeyboardEvent) => {
-        // Allow VS Code shortcuts (e.g. option+f, cmd+k, ctrl+g) to pass through the input
-        const isVSCodeCommand = event.altKey || event.metaKey || (event.ctrlKey && !event.shiftKey);
-        if (isVSCodeCommand) {
-            // Prevent character insertion, but let the event bubble for VS Code to handle the shortcut
+        // If a modifier key is pressed, decide whether to allow the default behavior in the input
+        // (e.g., clipboard shortcuts and cursor movement) or to block character insertion and let
+        // VS Code handle the shortcut.
+        const modifierPressed = (event.altKey || event.metaKey || event.ctrlKey);
+        if (modifierPressed) {
+            const key = event.key;
+            const isClipboardCmd = (event.ctrlKey || event.metaKey) && ['c', 'x', 'v', 'a'].includes(key.toLowerCase());
+            const isArrowKey = key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown';
+
+            // Allow clipboard shortcuts (Ctrl/Cmd+C/X/V/A) and Ctrl/Cmd + Arrow navigation to work normally.
+            if (isClipboardCmd || isArrowKey) {
+                return;
+            }
+
+            // For other modifier shortcuts, prevent character insertion but let the event bubble
+            // so VS Code can respond to the shortcut.
             event.preventDefault();
             return;
         }
