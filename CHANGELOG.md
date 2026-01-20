@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.20](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.19...seamless-agent-v0.1.20) (2026-01-20)
+
+
+### Features
+
+* add batch deletion for history items ([#48](https://github.com/jraylan/seamless-agent/issues/48)) ([9158079](https://github.com/jraylan/seamless-agent/commit/9158079b1776ac4332244c77ffe4e02e5fef082d))
+* add configurable time display to history items ([c611387](https://github.com/jraylan/seamless-agent/commit/c611387d307c4cfa7ac86c6cefbaa8eaf7413eaf)), closes [#49](https://github.com/jraylan/seamless-agent/issues/49)
+* **ui:** move clear history into history tab ([803c0e3](https://github.com/jraylan/seamless-agent/commit/803c0e3e2fb37389564e578c53505bff76d66e46)), closes [#47](https://github.com/jraylan/seamless-agent/issues/47)
+* **ui:** simplify ask_user history detail ([71bcff3](https://github.com/jraylan/seamless-agent/commit/71bcff3ab9a7f749b2e8e82cbb5673948dbdb556)), closes [#51](https://github.com/jraylan/seamless-agent/issues/51)
+
+
+### Bug Fixes
+
+* **ask_user:** preserve pending response text ([ea8d638](https://github.com/jraylan/seamless-agent/commit/ea8d638fda11ac50fd365db03c880d78c91f6b5e)), closes [#37](https://github.com/jraylan/seamless-agent/issues/37)
+* resolve race condition causing empty Review Plan view ([#58](https://github.com/jraylan/seamless-agent/issues/58)) ([b72bfcc](https://github.com/jraylan/seamless-agent/commit/b72bfcc80a4ab3be1a8cd7885dc48fb75db017df))
+
 ## [0.1.19](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.18...seamless-agent-v0.1.19) (2026-01-08)
 
 
