@@ -122,6 +122,12 @@
           "default": "workspace",
           "title": "%config.storageContext.title%",
           "markdownDescription": "%config.storageContext.description%"
+        },
+        "seamless-agent.askUserAppendText": {
+          "type": "string",
+          "default": "",
+          "title": "%config.askUserAppendText.title%",
+          "markdownDescription": "%config.askUserAppendText.description%"
         }
       }
     },

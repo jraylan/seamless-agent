@@ -107,6 +107,8 @@
   "settings.noAddonsRegistered": "No addons registered",
   "settings.openInVSCodeSettings": "Open in VS Code Settings",
   "settings.addonVersion": "Version",
-  "settings.addonAuthor": "Author"
-  "errors.noSuchInteraction": "Interaction not found."
+  "settings.addonAuthor": "Author",
+  "errors.noSuchInteraction": "Interaction not found.",
+  "config.askUserAppendText.title": "Ask User Append Text",
+  "config.askUserAppendText.description": "Text to automatically append to every response when using the Ask User feature."
 }

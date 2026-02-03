@@ -63,6 +63,14 @@ async function askViaWebview(
     // Create a promise that rejects on cancellation
     return new Promise<UserResponseResult>((resolve) => {
 
+        let append = vscode.workspace.getConfiguration('seamless-agent').get<string | undefined>('askUserAppendText', undefined);
+
+        if (append) {
+            append = `\n\n${append}`;
+        } else {
+            append = '';
+        }
+
         // Listen for cancellation
         const cancellationListener = token.onCancellationRequested(() => {
             // Try to find and cancel this request in the provider
@@ -75,7 +83,11 @@ async function askViaWebview(
 
             cancellationListener.dispose();
 
-            resolve({ responded: false, response: strings.cancelled, attachments: [] });
+            resolve({
+                responded: false,
+                response: strings.cancelled,
+                attachments: []
+            });
         });
 
         // Start the actual request
@@ -90,7 +102,10 @@ async function askViaWebview(
                 return;
             }
 
-            resolve(result);
+            resolve({
+                ...result,
+                response: result.response + append
+            });
         });
     });
 }

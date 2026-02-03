@@ -90,14 +90,11 @@ declare global {
             back: string;
             noPendingRequests: string;
             noPendingItems: string;
-            pendingItems: string;
             pendingRequests: string;
             yourResponse: string;
             inputPlaceholder: string;
-            attachments: string;
             noAttachments: string;
             addAttachment: string;
-            pastedImage: string;
             submit: string;
             close: string;
             cancel: string;
@@ -109,19 +106,19 @@ declare global {
             selectFile: string;
             noFilesFound: string;
             dropImageHere: string;
-            // Session histors
+            pastedImage: string;
+            attachments: string;
+            // Session history
             recentSessions: string;
             noRecentSessions: string;
-            clearHistory: string;
             sessionInput: string;
             sessionOutput: string;
             input: string;
             output: string;
             addFolder: string;
-            // Chat histors
+            // Chat histories
             pendingReviews: string;
             noPendingReviews: string;
-            chatHistory: string;
             noChats: string;
             openInPanel: string;
             deleteChat: string;
@@ -133,15 +130,12 @@ declare global {
             question: string;
             response: string;
             noResponse: string;
-            attachments: string;
             // Home toolbar labels
-            pendingItems: string;
-            chatHistory: string;
-            clearHistory: string;
-            pastedImage: string;
             // Settings tab
             settings: string;
             noAddonsRegistered: string;
+            pendingItems: string;
+            chatHistory: string;
             // History filtes
             historyFilterAll: string;
             historyFilterAskUser: string;

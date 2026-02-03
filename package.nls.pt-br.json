@@ -107,6 +107,8 @@
   "settings.noAddonsRegistered": "Nenhum addon registrado",
   "settings.openInVSCodeSettings": "Abrir nas Configurações do VS Code",
   "settings.addonVersion": "Versão",
-  "settings.addonAuthor": "Autor"
-  "errors.noSuchInteraction": "Interação não encontrada."
+  "settings.addonAuthor": "Autor",
+  "errors.noSuchInteraction": "Interação não encontrada.",
+  "config.askUserAppendText.title": "Texto Adicional para Perguntar ao Usuário",
+  "config.askUserAppendText.description": "Texto para anexar automaticamente a cada resposta ao usar o recurso Perguntar ao Usuário."
 }
