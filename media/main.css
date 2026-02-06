@@ -288,7 +288,7 @@ body {
 /* Selection summary (shows selections from other steps) */
 .options-summary {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 4px;
     margin-bottom: 8px;
     padding: 6px 8px;
