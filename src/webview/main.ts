@@ -1097,15 +1097,17 @@ import { truncate } from './utils';
 
     /**
      * Build a response string from selected options.
+     * Iterates over normalizedGroups to maintain explicit ordering.
      * Returns empty string if nothing is selected.
      */
     function buildSelectedOptionsResponse(): string {
         const parts: string[] = [];
-        for (const [groupTitle, selected] of selectedOptionsMap.entries()) {
-            if (selected.size === 0) continue;
+        for (const group of normalizedGroups) {
+            const selected = selectedOptionsMap.get(group.title);
+            if (!selected || selected.size === 0) continue;
             const values = Array.from(selected).join(', ');
-            if (groupTitle) {
-                parts.push(`${groupTitle}: ${values}`);
+            if (group.title) {
+                parts.push(`${group.title}: ${values}`);
             } else {
                 parts.push(values);
             }
