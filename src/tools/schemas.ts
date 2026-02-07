@@ -6,6 +6,26 @@ import type { RequiredPlanRevisions, PlanReviewMode } from '../webview/types';
 // ================================
 
 /**
+ * Schema for a single option item (string or {label, description})
+ */
+const OptionItemSchema = z.union([
+    z.string(),
+    z.object({
+        label: z.string().describe('The display label for the option button'),
+        description: z.string().optional().describe('Optional description shown below the label')
+    })
+]);
+
+/**
+ * Schema for an option group with title and options
+ */
+const OptionGroupSchema = z.object({
+    title: z.string().describe('Group title displayed above the options, e.g. "Framework", "Language"'),
+    options: z.array(OptionItemSchema).min(1).describe('The options in this group'),
+    multiSelect: z.boolean().optional().describe('Allow multiple selections in this group. Defaults to false (single select).')
+});
+
+/**
  * Schema for ask_user tool input
  */
 export const AskUserInputSchema = z.object({
@@ -17,7 +37,12 @@ export const AskUserInputSchema = z.object({
         .describe('Optional custom title for the confirmation dialog. Defaults to "Confirmation Required".'),
     agentName: z.string()
         .optional()
-        .describe('Your agent name for display purposes. Use "Main Orchestrator" for main agent, "Generic Sub-Agent" for unnamed sub-agents, or your actual name from .github/agents/*.md.')
+        .describe('Your agent name for display purposes. Use "Main Orchestrator" for main agent, "Generic Sub-Agent" for unnamed sub-agents, or your actual name from .github/agents/*.md.'),
+    options: z.union([
+        z.array(OptionItemSchema),
+        z.array(OptionGroupSchema)
+    ]).optional()
+        .describe('Optional predefined answer options. Can be a flat array of strings/objects for simple choices (e.g. ["Yes", "No"]), or an array of option groups for multi-category selection (e.g. [{"title": "Framework", "options": ["Express", "Koa"], "multiSelect": false}]). User clicks to select, then submits.')
 });
 
 /**

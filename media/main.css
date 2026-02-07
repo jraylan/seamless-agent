@@ -230,6 +230,293 @@ body {
     font-style: italic;
 }
 
+/* Options container - clickable option buttons */
+.options-container {
+    flex-shrink: 0;
+    margin-top: 12px;
+    padding: 0;
+    border: none;
+    min-inline-size: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Monaco-style scrollbar for options container */
+.options-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.options-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.options-container::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.options-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.options-container::-webkit-scrollbar-thumb:active {
+    background-color: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+.options-container::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Step navigator (wizard-style multi-group) */
+.options-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 4px 0;
+}
+
+.step-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.step-nav-btn:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.step-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.step-nav-btn:disabled:hover {
+    background: transparent;
+}
+
+.step-indicator {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    text-align: center;
+    flex: 1;
+    letter-spacing: 0.02em;
+}
+
+/* Selection summary (shows selections from other steps) */
+.options-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background-color: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+    border-radius: 4px;
+    border-left: 3px solid var(--vscode-focusBorder);
+}
+
+.options-summary-item {
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background-color 0.1s ease;
+    /* Single line display with ellipsis */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.options-summary-item:hover {
+    background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.options-summary-item.current {
+    color: var(--vscode-foreground);
+    font-weight: 500;
+}
+
+.options-summary-label {
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+/* Option group wrapper */
+.option-group {
+    margin-bottom: 8px;
+}
+
+.option-group:last-child {
+    margin-bottom: 0;
+}
+
+.option-group-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 4px;
+    padding-left: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.85;
+}
+
+.options-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.option-btn {
+    display: flex;
+    flex-direction: row; /* Changed to row for single-line layout */
+    align-items: center; /* Center vertically */
+    gap: 8px; /* Space between label and description */
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    text-align: left;
+    box-sizing: border-box;
+    /* Single line height */
+    min-height: 32px;
+    max-height: 32px;
+    overflow: hidden;
+    position: relative;
+}
+
+.option-btn:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+    border-color: var(--vscode-contrastBorder, rgba(128, 128, 128, 0.3));
+}
+
+.option-btn:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 1px;
+}
+
+.option-btn.selected {
+    border-color: var(--vscode-button-background, #0078d4);
+    border-left: 3px solid var(--vscode-button-background, #0078d4);
+    background-color: color-mix(in srgb, var(--vscode-button-background, #0078d4) 20%, transparent);
+    color: var(--vscode-foreground);
+    padding-left: 8px; /* compensate for thicker left border */
+}
+
+.option-btn.selected .option-btn-label::before {
+    content: '✓ ';
+    color: var(--vscode-button-background, #0078d4);
+    font-weight: 700;
+}
+
+.option-btn.selected .option-btn-description {
+    color: var(--vscode-foreground);
+    opacity: 0.75;
+}
+
+/* Read-only option buttons (history view) */
+.option-btn.readonly {
+    cursor: default;
+    opacity: 0.8;
+}
+
+.option-btn.readonly:hover {
+    background-color: var(--vscode-button-secondaryBackground);
+    border-color: transparent;
+}
+
+.option-btn.readonly.selected {
+    opacity: 1;
+}
+
+.option-btn.readonly.selected:hover {
+    background-color: color-mix(in srgb, var(--vscode-button-background, #0078d4) 20%, transparent);
+    border-color: var(--vscode-button-background, #0078d4);
+}
+
+/* Tooltip for full description on hover */
+.option-btn-tooltip {
+    position: absolute;
+    visibility: hidden;
+    opacity: 0;
+    background-color: var(--vscode-editorHoverWidget-background);
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    color: var(--vscode-editorHoverWidget-foreground);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    line-height: 1.4;
+    max-width: 400px;
+    word-wrap: break-word;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    z-index: 1000;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+    white-space: pre-wrap;
+    /* Position tooltip above the button */
+    bottom: calc(100% + 4px);
+    left: 0;
+    right: 0;
+}
+
+.option-btn:hover .option-btn-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.option-btn-label {
+    font-weight: 500;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0; /* Label doesn't shrink when description exists */
+    max-width: 50%; /* Label takes max 50% width when description exists */
+}
+
+/* When label is the only child (no description), allow full width */
+.option-btn-label:only-child {
+    max-width: 100%;
+    flex: 1;
+}
+
+.option-btn-description {
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap; /* Single line */
+    flex: 1; /* Take remaining space */
+    min-width: 0; /* Allow shrinking */
+}
+
+.options-separator {
+    display: none; /* Hide separator to save space */
+}
+
 /* Response section - fixed at bottom */
 .response-section {
     flex-shrink: 0;
@@ -1388,8 +1675,8 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    max-height: 100%;
-    overflow: hidden;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .detail-section {
@@ -1410,6 +1697,9 @@ button:disabled {
     background-color: transparent;
     border: none;
     padding: 0;
+    overflow: visible;
+    max-height: none;
+    min-height: auto;
 }
 
 .detail-label {

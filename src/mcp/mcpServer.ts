@@ -40,7 +40,27 @@ export class McpServerManager {
                     inputSchema: z.object({
                         question: z.string().describe("The question or prompt to display to the user for confirmation"),
                         title: z.string().optional().describe("Optional custom title for the confirmation dialog"),
-                        agentName: z.string().optional().describe("Your agent name")
+                        agentName: z.string().optional().describe("Your agent name"),
+                        options: z.union([
+                            z.array(z.union([
+                                z.string(),
+                                z.object({
+                                    label: z.string(),
+                                    description: z.string().optional()
+                                })
+                            ])),
+                            z.array(z.object({
+                                title: z.string(),
+                                options: z.array(z.union([
+                                    z.string(),
+                                    z.object({
+                                        label: z.string(),
+                                        description: z.string().optional()
+                                    })
+                                ])),
+                                multiSelect: z.boolean().optional()
+                            }))
+                        ]).optional().describe("Optional predefined answer options")
                     })
                 },
                 async (args: any, { signal }: { signal?: AbortSignal }) => {
@@ -59,7 +79,8 @@ export class McpServerManager {
                         {
                             question: String(args.question),
                             title: args.title ? String(args.title) : undefined,
-                            agentName: args.agentName ? String(args.agentName) : undefined
+                            agentName: args.agentName ? String(args.agentName) : undefined,
+                            options: args.options ?? undefined
                         },
                         this.provider,
                         tokenSource.token
