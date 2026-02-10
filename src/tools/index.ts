@@ -36,10 +36,21 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
     // Register the tool defined in package.json
     const confirmationTool = vscode.lm.registerTool('ask_user', {
         async invoke(options: vscode.LanguageModelToolInvocationOptions<AskUserInput>, token: vscode.CancellationToken) {
+            let input = options.input;
+            if (input.options && typeof input.options === 'string') {
+                try {
+                    const parsed = JSON.parse(input.options as string);
+                    console.log('[LM Tools] Parsed options from JSON string (LLM serialization workaround):', parsed);
+                    input = { ...input, options: parsed };
+                } catch (e) {
+                    console.warn('[LM Tools] Failed to parse options as JSON string, validation may fail:', e);
+                }
+            }
+
             // Validate input with Zod
             let params: AskUserInput;
             try {
-                params = parseAskUserInput(options.input);
+                params = parseAskUserInput(input);
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Invalid input';
                 return new vscode.LanguageModelToolResult([

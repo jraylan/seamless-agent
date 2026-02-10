@@ -95,6 +95,7 @@
   "detail.question": "Question",
   "detail.response": "Response",
   "detail.noResponse": "No response",
+  "detail.options": "Options",
   "history.filter.all": "All",
   "history.filter.askUser": "Ask User",
   "history.filter.planReview": "Plan Review",
@@ -111,5 +112,8 @@
   "batch.deselectAll": "Deselect All",
   "batch.deleteSelected": "Delete Selected",
   "batch.selectedCount": "{0} selected",
-  "confirm.deleteSelected": "Are you sure you want to delete {0} selected items?"
+  "confirm.deleteSelected": "Are you sure you want to delete {0} selected items?",
+  "console.orTypeYourOwn": "Or type your own response below",
+  "response.selectedOptions": "Selected options:",
+  "response.additionalResponse": "Additional response:"
 }

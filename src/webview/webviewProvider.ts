@@ -19,6 +19,7 @@ import {
     FromWebviewMessage,
     FileSearchResult,
     UserResponseResult,
+    AskUserOptions,
 } from "./types";
 import { truncate } from './utils';
 
@@ -113,7 +114,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Wait for a user response to a question.
      * Supports multiple concurrent requests.
      */
-    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string): Promise<UserResponseResult> {
+    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions): Promise<UserResponseResult> {
 
         // If the view isn't available, try to open it
         if (!this._view) {
@@ -152,6 +153,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 createdAt: Date.now(),
                 attachments: [],
                 agentName,
+                options,
             };
 
             this._pendingRequests.set(req, { item, resolve });
@@ -245,7 +247,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             type: 'showQuestion',
             question: item.question,
             title: item.title,
-            requestId: item.id
+            requestId: item.id,
+            options: item.options
         };
         this._view?.webview.postMessage(message);
     }
@@ -328,7 +331,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 responded: true,
                 response: message.response,
                 attachments: message.attachments || []
-            });
+            }, message.selectedOptions);
                 break;
 
             case 'cancel': this._resolveRequest(message.requestId, {
@@ -941,7 +944,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     /**
      * Resolve a specific request and clean up
      */
-    private _resolveRequest(requestId: string, result: UserResponseResult): void {
+    private _resolveRequest(requestId: string, result: UserResponseResult, selectedOptions?: Record<string, string[]>): void {
         const pending = this._pendingRequests.get(requestId);
 
         if (pending) {
@@ -962,7 +965,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     title: pending.item.title,
                     agentName: pending.item.agentName,
                     response: result.responded ? result.response : strings.cancelled,
-                    attachments: (result.attachments || []).map(a => a.uri)
+                    attachments: (result.attachments || []).map(a => a.uri),
+                    options: pending.item.options,
+                    selectedOptionLabels: selectedOptions,
                 });
             } catch (e) {
                 console.error('[Seamless Agent] Failed to save ask_user interaction to ChatHistoryStorage:', e);
@@ -1296,6 +1301,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{question}}': strings.question,
             '{{response}}': strings.response,
             '{{noResponse}}': strings.noResponse,
+            '{{options}}': strings.options,
             // History filter tooltips
             '{{historyFilterAll}}': strings.historyFilterAll,
             '{{historyFilterAskUser}}': strings.historyFilterAskUser,
@@ -1308,6 +1314,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{batchDeleteSelected}}': strings.batchDeleteSelected,
             '{{batchSelectedCount}}': strings.batchSelectedCount,
             '{{historyTimeDisplay}}': historyTimeDisplay,
+            '{{orTypeYourOwn}}': strings.orTypeYourOwn,
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

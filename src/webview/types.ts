@@ -15,6 +15,8 @@ export interface StoredInteraction {
     response?: string;
     attachments?: string[];
     agentName?: string;
+    options?: AskUserOptions;
+    selectedOptionLabels?: Record<string, string[]>;
 
     // For plan_review
     plan?: string;
@@ -39,6 +41,22 @@ export interface AttachmentInfo {
     thumbnail?: string; // Base64 data URL for image preview
 }
 
+// Option item for ask_user buttons
+export interface OptionItem {
+    label: string;
+    description?: string;
+}
+
+// Option group for multi-category selection
+export interface OptionGroup {
+    title: string;
+    options: (string | OptionItem)[];
+    multiSelect?: boolean;
+}
+
+// Union type for options: flat array or grouped array
+export type AskUserOptions = (string | OptionItem)[] | OptionGroup[];
+
 // Request item for the list
 export interface RequestItem {
     id: string;
@@ -47,6 +65,7 @@ export interface RequestItem {
     createdAt: number;
     agentName: string | undefined;
     attachments: AttachmentInfo[];
+    options?: AskUserOptions;
 }
 
 /**
@@ -86,7 +105,8 @@ export type ToWebviewMessage = | {
     type: 'showQuestion';
     question: string;
     title: string;
-    requestId: string
+    requestId: string;
+    options?: AskUserOptions;
 }
     | {
         type: 'showList';
@@ -129,7 +149,8 @@ export type FromWebviewMessage = | {
     type: 'submit';
     response: string;
     requestId: string;
-    attachments: AttachmentInfo[]
+    attachments: AttachmentInfo[];
+    selectedOptions?: Record<string, string[]>;
 }
     | {
         type: 'cancel';

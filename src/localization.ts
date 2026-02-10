@@ -131,6 +131,7 @@ export const strings = {
     get question() { return localize('detail.question'); },
     get response() { return localize('detail.response'); },
     get noResponse() { return localize('detail.noResponse'); },
+    get options() { return localize('detail.options'); },
 
     // History filters
     get historyFilterAll() { return localize('history.filter.all'); },
@@ -156,6 +157,13 @@ export const strings = {
     get batchDeleteSelected() { return localize('batch.deleteSelected'); },
     get batchSelectedCount() { return localize('batch.selectedCount'); },
     get confirmDeleteSelected() { return localize('confirm.deleteSelected'); },
+
+    // Options
+    get orTypeYourOwn() { return localize('console.orTypeYourOwn'); },
+
+    // Response labels
+    get selectedOptionsLabel() { return localize('response.selectedOptions'); },
+    get additionalResponseLabel() { return localize('response.additionalResponse'); },
 
     // Errors
     get noSuchInteraction() { return localize('error.noSuchInteraction'); },

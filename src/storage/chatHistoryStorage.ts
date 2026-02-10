@@ -71,6 +71,8 @@ export class ChatHistoryStorage {
         agentName?: string;
         response?: string;
         attachments?: string[];
+        options?: import('../webview/types').AskUserOptions;
+        selectedOptionLabels?: Record<string, string[]>;
     }): string {
         const interactionId = this.generateId('ask');
         const interaction: StoredInteraction = {
@@ -82,6 +84,8 @@ export class ChatHistoryStorage {
             agentName: data.agentName,
             response: data.response,
             attachments: data.attachments,
+            options: data.options,
+            selectedOptionLabels: data.selectedOptionLabels,
         };
 
         this.saveInteraction(interaction);

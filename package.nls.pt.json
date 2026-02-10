@@ -95,6 +95,7 @@
   "detail.question": "Pergunta",
   "detail.response": "Resposta",
   "detail.noResponse": "Sem resposta",
+  "detail.options": "Opções",
   "history.filter.all": "Tudo",
   "history.filter.askUser": "Perguntar ao utilizador",
   "history.filter.planReview": "Revisão de Plano",
@@ -111,5 +112,8 @@
   "batch.deselectAll": "Desmarcar Tudo",
   "batch.deleteSelected": "Eliminar Selecionados",
   "batch.selectedCount": "{0} selecionados",
-  "confirm.deleteSelected": "Tem a certeza que deseja eliminar {0} itens selecionados?"
+  "confirm.deleteSelected": "Tem a certeza que deseja eliminar {0} itens selecionados?",
+  "console.orTypeYourOwn": "Ou escreva a sua própria resposta abaixo",
+  "response.selectedOptions": "Opções selecionadas:",
+  "response.additionalResponse": "Resposta adicional:"
 }
