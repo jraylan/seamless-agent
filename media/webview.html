@@ -168,6 +168,14 @@
           <div class="question-content" id="question-content"></div>
         </div>
 
+        <!-- Options buttons (shown when options are provided) -->
+        <fieldset id="options-container" class="options-container hidden" aria-label="Answer options">
+          <!-- Stepper DOM is dynamically created by createOptionsStepper() -->
+          <div class="options-separator">
+            <span class="options-separator-text">{{orTypeYourOwn}}</span>
+          </div>
+        </fieldset>
+
         <div class="response-section">
           <label class="response-label" for="response-input"
             >{{yourResponse}}</label
@@ -305,6 +313,9 @@
         historyFilterAll: "{{historyFilterAll}}",
         historyFilterAskUser: "{{historyFilterAskUser}}",
         historyFilterPlanReview: "{{historyFilterPlanReview}}",
+        // Options
+        orTypeYourOwn: "{{orTypeYourOwn}}",
+        options: "{{options}}",
       };
       window.__CONFIG__ = {
         historyTimeDisplay: "{{historyTimeDisplay}}",

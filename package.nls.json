@@ -95,6 +95,7 @@
   "detail.question": "Question",
   "detail.response": "Response",
   "detail.noResponse": "No response",
+  "detail.options": "Options",
   "history.filter.all": "All",
   "history.filter.askUser": "Ask User",
   "history.filter.planReview": "Plan Review",
@@ -112,7 +113,6 @@
   "batch.deleteSelected": "Delete Selected",
   "batch.selectedCount": "{0} selected",
   "confirm.deleteSelected": "Are you sure you want to delete {0} selected items?",
-
   "renderer.userResponse": "User Response",
   "renderer.defaultAgentName": "Agent",
   "renderer.userDismissed": "User dismissed this prompt",
@@ -128,5 +128,8 @@
   "renderer.status": "Status:",
   "renderer.changesRequested": "Changes Requested",
   "renderer.viewPlan": "View Plan",
-  "renderer.revisionsRequired": "Revisions Required:"
+  "renderer.revisionsRequired": "Revisions Required:",
+  "console.orTypeYourOwn": "Or type your own response below",
+  "response.selectedOptions": "Selected options:",
+  "response.additionalResponse": "Additional response:"
 }

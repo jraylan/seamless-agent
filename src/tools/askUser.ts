@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { strings } from '../localization';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { UserResponseResult } from '../webview/types';
+import { UserResponseResult, AskUserOptions } from '../webview/types';
 import { getChatHistoryStorage } from '../storage/chatHistoryStorage';
 import { AskUserInput, AskUserToolResult } from './schemas';
 
@@ -18,6 +18,7 @@ export async function askUser(
     const baseTitle = params.title || strings.confirmationRequired;
 
     const title = `${agentName}: ${baseTitle}`;
+    const options = params.options;
 
     // Generate request ID to track this specific request
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -30,7 +31,7 @@ export async function askUser(
 
     try {
         // Execute Logic - Try webview first, fall back to VS Code dialogs
-        const result = await askViaWebview(provider, question, title, agentName, requestId, token);
+        const result = await askViaWebview(provider, question, title, agentName, requestId, token, options);
 
         return {
             responded: result.responded,
@@ -53,7 +54,8 @@ async function askViaWebview(
     title: string,
     agentName: string,
     requestId: string,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
+    options?: AskUserOptions
 ): Promise<UserResponseResult> {
 
     // Check if already cancelled
@@ -92,7 +94,7 @@ async function askViaWebview(
         });
 
         // Start the actual request
-        provider.waitForUserResponse(question, title, agentName, requestId).then(result => {
+        provider.waitForUserResponse(question, title, agentName, requestId, options).then(result => {
             cancellationListener.dispose();
 
             // If webview wasn't available, fall back to the old dialog approach

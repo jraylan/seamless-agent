@@ -88,6 +88,7 @@
   "detail.question": "Pergunta",
   "detail.response": "Resposta",
   "detail.noResponse": "Sem resposta",
+  "detail.options": "Opções",
   "history.filter.all": "Tudo",
   "history.filter.askUser": "Perguntar ao usuário",
   "history.filter.planReview": "Revisão de Plano",
@@ -128,5 +129,8 @@
   "renderer.status": "Status:",
   "renderer.changesRequested": "Alterações Solicitadas",
   "renderer.viewPlan": "Ver Plano",
-  "renderer.revisionsRequired": "Revisões Necessárias:"
+  "renderer.revisionsRequired": "Revisões Necessárias:",
+  "console.orTypeYourOwn": "Ou digite sua própria resposta abaixo",
+  "response.selectedOptions": "Opções selecionadas:",
+  "response.additionalResponse": "Resposta adicional:"
 }
