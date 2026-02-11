@@ -230,6 +230,7 @@ import { truncate } from './utils';
     // Batch selection state
     let batchSelectMode = false;
     let selectedInteractionIds: Set<string> = new Set();
+    let lastClickedItemId: string | null = null; // For shift+click range selection
 
     // History filter state
     let currentHistoryFilter: string = 'all';
@@ -349,6 +350,7 @@ import { truncate } from './utils';
         } else {
             batchActionsBar?.classList.add('hidden');
             selectedInteractionIds.clear();
+            lastClickedItemId = null; // Reset last clicked item
             historyList?.querySelectorAll('.history-item').forEach(item => {
                 item.classList.remove('batch-mode', 'selected');
             });
@@ -368,6 +370,64 @@ import { truncate } from './utils';
             selectedInteractionIds.add(id);
             element.classList.add('selected');
         }
+        lastClickedItemId = id;
+        updateBatchSelectionUI();
+    }
+
+    /**
+     * Select a single item, clearing all others
+     */
+    function selectSingleItem(id: string, element: HTMLElement): void {
+        // Clear all selections
+        selectedInteractionIds.clear();
+        historyList?.querySelectorAll('.history-item.selected').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // Select only this item
+        selectedInteractionIds.add(id);
+        element.classList.add('selected');
+        lastClickedItemId = id;
+        updateBatchSelectionUI();
+    }
+
+    /**
+     * Select a range of items from last clicked to current
+     */
+    function selectRangeItems(toId: string, toElement: HTMLElement): void {
+        if (!lastClickedItemId) {
+            // No previous selection, just select this one
+            selectSingleItem(toId, toElement);
+            return;
+        }
+
+        const visibleItems = Array.from(
+            historyList?.querySelectorAll('.history-item:not([style*="display: none"])') || []
+        );
+
+        const fromIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === lastClickedItemId);
+        const toIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === toId);
+
+        if (fromIndex === -1 || toIndex === -1) {
+            selectSingleItem(toId, toElement);
+            return;
+        }
+
+        // Determine range direction
+        const start = Math.min(fromIndex, toIndex);
+        const end = Math.max(fromIndex, toIndex);
+
+        // Select all items in range
+        for (let i = start; i <= end; i++) {
+            const item = visibleItems[i] as HTMLElement;
+            const itemId = item.getAttribute('data-id');
+            if (itemId) {
+                selectedInteractionIds.add(itemId);
+                item.classList.add('selected');
+            }
+        }
+
+        lastClickedItemId = toId;
         updateBatchSelectionUI();
     }
 
@@ -592,9 +652,25 @@ import { truncate } from './utils';
             const type = item.getAttribute('data-type');
             if (!id) return;
 
-            // In batch mode, clicking the item toggles selection
+            // In batch mode, clicking the item selects it with modifier key support
             if (batchSelectMode) {
-                toggleItemSelection(id, item);
+                const clickEvent = e as MouseEvent;
+
+                // Prevent default text selection when shift-clicking
+                if (clickEvent.shiftKey) {
+                    clickEvent.preventDefault();
+                }
+
+                if (clickEvent.shiftKey) {
+                    // Shift+Click: Range selection
+                    selectRangeItems(id, item);
+                } else if (clickEvent.ctrlKey || clickEvent.metaKey) {
+                    // Ctrl+Click (or Cmd+Click on Mac): Toggle selection
+                    toggleItemSelection(id, item);
+                } else {
+                    // Normal click: Select only this item
+                    selectSingleItem(id, item);
+                }
                 return;
             }
 

@@ -1686,6 +1686,19 @@ button:disabled {
     display: none;
 }
 
+/* In batch mode, prevent text selection to avoid interference with shift-click */
+.history-item.batch-mode {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Remove focus outline in batch mode to prevent orange border on shift-click */
+.history-item.batch-mode:focus {
+    outline: none;
+}
+
 .history-item-delete:hover,
 .pending-item-delete:hover {
     color: var(--vscode-errorForeground);
