@@ -401,9 +401,16 @@ import { truncate } from './utils';
             return;
         }
 
-        const visibleItems = Array.from(
-            historyList?.querySelectorAll('.history-item:not([style*="display: none"])') || []
-        );
+        // Get all history items and filter to only visible ones
+        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const visibleItems = allItems.filter(item => {
+            const htmlItem = item as HTMLElement;
+            // Check if element is visible using offsetParent (null if hidden)
+            // and also check computed display style
+            return htmlItem.offsetParent !== null ||
+                   (htmlItem.style.display !== 'none' &&
+                    window.getComputedStyle(htmlItem).display !== 'none');
+        });
 
         const fromIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === lastClickedItemId);
         const toIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === toId);
@@ -435,8 +442,16 @@ import { truncate } from './utils';
      * Select or deselect all visible items
      */
     function toggleSelectAll(): void {
-        const visibleItems = historyList?.querySelectorAll('.history-item:not([style*="display: none"])') || [];
-        const allSelected = Array.from(visibleItems).every(item => {
+        // Get all history items and filter to only visible ones
+        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const visibleItems = allItems.filter(item => {
+            const htmlItem = item as HTMLElement;
+            return htmlItem.offsetParent !== null ||
+                   (htmlItem.style.display !== 'none' &&
+                    window.getComputedStyle(htmlItem).display !== 'none');
+        });
+
+        const allSelected = visibleItems.every(item => {
             const id = item.getAttribute('data-id');
             return id && selectedInteractionIds.has(id);
         });
