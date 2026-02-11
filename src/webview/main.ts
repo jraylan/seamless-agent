@@ -497,12 +497,11 @@ import { truncate } from './utils';
         if (selectedInteractionIds.size === 0) return;
 
         // Send to extension host - confirmation is handled there via VS Code modal
+        // Don't exit batch mode yet - wait for confirmation result
         vscode.postMessage({
             type: 'deleteMultipleInteractions',
             interactionIds: Array.from(selectedInteractionIds)
         });
-
-        toggleBatchSelectMode(false);
     }
 
     /**
@@ -2775,6 +2774,14 @@ import { truncate } from './utils';
                 switchTab(message.tab);
             }
 
+                break;
+            case 'batchDeleteCompleted':
+                // Exit batch mode after delete operation (whether confirmed or cancelled)
+                if (message.success) {
+                    // Items were deleted, exit batch mode
+                    toggleBatchSelectMode(false);
+                }
+                // If cancelled (success = false), stay in batch mode with current selection
                 break;
             case 'clear': showHome();
                 hideAutocomplete();
