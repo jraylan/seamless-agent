@@ -618,6 +618,7 @@ import { truncate } from './utils';
 
         historyList.addEventListener('click', (e: Event) => {
             const target = e.target as HTMLElement;
+            const clickEvent = e as MouseEvent;
 
             // Delete button takes precedence
             const deleteBtn = target.closest('.history-item-delete') as HTMLElement | null;
@@ -660,6 +661,18 @@ import { truncate } from './utils';
             }
 
             const item = target.closest('.history-item') as HTMLElement | null;
+
+            // If clicking on empty area in batch mode, clear all selections
+            if (!item && batchSelectMode) {
+                selectedInteractionIds.clear();
+                lastClickedItemId = null;
+                historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                    historyItem.classList.remove('selected');
+                });
+                updateBatchSelectionUI();
+                return;
+            }
+
             if (!item) return;
 
             const id = item.getAttribute('data-id');
@@ -668,8 +681,6 @@ import { truncate } from './utils';
 
             // In batch mode, clicking the item selects it with modifier key support
             if (batchSelectMode) {
-                const clickEvent = e as MouseEvent;
-
                 // Prevent default text selection when shift-clicking
                 if (clickEvent.shiftKey) {
                     clickEvent.preventDefault();
@@ -682,8 +693,8 @@ import { truncate } from './utils';
                     // Ctrl+Click (or Cmd+Click on Mac): Toggle selection
                     toggleItemSelection(id, item);
                 } else {
-                    // Normal click: Select only this item
-                    selectSingleItem(id, item);
+                    // Normal click in batch mode: Toggle selection
+                    toggleItemSelection(id, item);
                 }
                 return;
             }
@@ -712,6 +723,30 @@ import { truncate } from './utils';
 
             keyEvent.preventDefault();
             (item as HTMLElement).click();
+        });
+    }
+
+    // Add click listener to content-history container to handle clicks on empty areas below the list
+    if (contentHistory) {
+        contentHistory.addEventListener('click', (e: Event) => {
+            if (!batchSelectMode) return;
+
+            const target = e.target as HTMLElement;
+            const item = target.closest('.history-item') as HTMLElement | null;
+
+            // If clicking on empty area (not on a history item), clear all selections
+            if (!item) {
+                // Don't clear if clicking on filter buttons or batch action buttons
+                const isFilterOrBatchBtn = target.closest('.filter-bar, .batch-actions-bar');
+                if (!isFilterOrBatchBtn) {
+                    selectedInteractionIds.clear();
+                    lastClickedItemId = null;
+                    historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                        historyItem.classList.remove('selected');
+                    });
+                    updateBatchSelectionUI();
+                }
+            }
         });
     }
 
