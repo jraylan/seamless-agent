@@ -1,6 +1,7 @@
 // Agent Console Webview Script with markdown-it and highlight.js
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js/lib/core';
+import { InputHistoryManager } from './inputHistory';
 
 // Register only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -185,32 +186,6 @@ import { truncate } from './utils';
     // Active options stepper instance (for pending request form)
     let activeOptionsStepper: OptionsStepper | null = null;
 
-    // Input history state
-    const HISTORY_STORAGE_KEY = 'seamless-agent-input-history';
-    const MAX_HISTORY_SIZE = 50;
-    let inputHistory: string[] = [];
-    let historyIndex: number = -1;
-    let currentDraft: string = '';
-    // Track temporary edits to history items (index -> edited content)
-    const editedHistory = new Map<number, string>();
-
-    // Load input history from localStorage on startup
-    try {
-        const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
-        if (stored) {
-            inputHistory = JSON.parse(stored);
-            // Validate and limit size
-            if (Array.isArray(inputHistory)) {
-                inputHistory = inputHistory.slice(-MAX_HISTORY_SIZE);
-            } else {
-                inputHistory = [];
-            }
-        }
-    } catch (error) {
-        console.error('Failed to load input history:', error);
-        inputHistory = [];
-    }
-
     // Autocomplete state
     let autocompleteVisible = false;
     let autocompleteResults: FileSearchResult[] = [];
@@ -239,6 +214,18 @@ import { truncate } from './utils';
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+
+    // Initialize input history manager
+    const inputHistoryManager = new InputHistoryManager(
+        {
+            getTextarea: () => responseInput,
+            onTextChange: () => autoResizeTextarea()
+        },
+        {
+            storageKey: 'seamless-agent-input-history',
+            maxSize: 50
+        }
+    );
 
     // Tab content elements
     const contentPending = document.getElementById('content-pending');
@@ -824,7 +811,7 @@ import { truncate } from './utils';
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
             // Reset state when switching between different requests
-            resetRequestState({ autocomplete: true });
+            resetRequestState({ attachments: true, autocomplete: true });
         }
 
         currentRequestId = requestId;
@@ -1876,25 +1863,12 @@ import { truncate } from './utils';
     }
 
     /**
-     * Save input history to localStorage
-     */
-    function saveInputHistoryToStorage(): void {
-        try {
-            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(inputHistory));
-        } catch (error) {
-            console.error('Failed to save input history:', error);
-        }
-    }
-
-    /**
-     * Reset input history navigation state
+     * Reset request state: clears input history navigation, and optionally attachments and autocomplete
      * @param options.attachments - Whether to also clear attachments (default: false)
      * @param options.autocomplete - Whether to also hide autocomplete (default: false)
      */
     function resetRequestState(options?: { attachments?: boolean; autocomplete?: boolean }): void {
-        historyIndex = -1;
-        currentDraft = '';
-        editedHistory.clear();
+        inputHistoryManager.resetState();
 
         if (options?.attachments) {
             currentAttachments = [];
@@ -1902,19 +1876,6 @@ import { truncate } from './utils';
 
         if (options?.autocomplete) {
             hideAutocomplete();
-        }
-    }
-
-    /**
-     * Clear input history
-     */
-    function clearInputHistory(): void {
-        inputHistory = [];
-        resetRequestState();
-        try {
-            localStorage.removeItem(HISTORY_STORAGE_KEY);
-        } catch (error) {
-            console.error('Failed to clear input history:', error);
         }
     }
 
@@ -1942,19 +1903,7 @@ import { truncate } from './utils';
 
         // Save to input history (only if there's actual typed content)
         if (typedResponse) {
-            // Remove duplicate if exists
-            const existingIndex = inputHistory.indexOf(typedResponse);
-            if (existingIndex !== -1) {
-                inputHistory.splice(existingIndex, 1);
-            }
-            // Add to end of history
-            inputHistory.push(typedResponse);
-            // Limit history size
-            if (inputHistory.length > MAX_HISTORY_SIZE) {
-                inputHistory.shift();
-            }
-            // Persist to localStorage
-            saveInputHistoryToStorage();
+            inputHistoryManager.addToHistory(typedResponse);
         }
         // Reset history navigation state after submission
         resetRequestState();
@@ -1981,80 +1930,6 @@ import { truncate } from './utils';
 
         currentAttachments = [];
         // Don't show home - the extension will send showCurrentSession or showSessionDetail
-    }
-
-    /**
-     * Save current input value as edited history if it differs from stored value
-     */
-    function saveCurrentHistoryEdit(): void {
-        if (!responseInput || historyIndex < 0 || historyIndex >= inputHistory.length) return;
-
-        const currentOriginal = inputHistory[historyIndex];
-        const currentEdited = editedHistory.get(historyIndex) || currentOriginal;
-        if (responseInput.value !== currentEdited && responseInput.value !== currentOriginal) {
-            editedHistory.set(historyIndex, responseInput.value);
-        }
-    }
-
-    /**
-     * Load history value (edited or original) into the input
-     */
-    function loadHistoryValue(index: number): void {
-        if (!responseInput || index < 0 || index >= inputHistory.length) return;
-
-        const editedValue = editedHistory.get(index);
-        responseInput.value = editedValue !== undefined ? editedValue : inputHistory[index];
-    }
-
-    /**
-     * Navigate input history - move up (to older entries)
-     */
-    function navigateHistoryUp(): void {
-        if (!responseInput || inputHistory.length === 0) return;
-
-        // First time navigating: save current draft
-        if (historyIndex === -1) {
-            currentDraft = responseInput.value;
-            historyIndex = inputHistory.length;
-        } else {
-            // Save any edits to current history item before navigating away
-            saveCurrentHistoryEdit();
-        }
-
-        // Move to previous entry
-        if (historyIndex > 0) {
-            historyIndex--;
-            loadHistoryValue(historyIndex);
-            autoResizeTextarea();
-            // Place cursor at the start when navigating up
-            responseInput.setSelectionRange(0, 0);
-        }
-    }
-
-    /**
-     * Navigate input history - move down (to newer entries)
-     */
-    function navigateHistoryDown(): void {
-        if (!responseInput || inputHistory.length === 0 || historyIndex === -1) return;
-
-        // Save any edits to current history item before navigating away
-        saveCurrentHistoryEdit();
-
-        // Move to next entry
-        historyIndex++;
-
-        if (historyIndex >= inputHistory.length) {
-            // Reached the end: restore draft (or edited draft)
-            historyIndex = -1;
-            responseInput.value = currentDraft;
-        } else {
-            // Load edited or original value
-            loadHistoryValue(historyIndex);
-        }
-        autoResizeTextarea();
-        // Place cursor at the end when navigating down
-        const textLength = responseInput.value.length;
-        responseInput.setSelectionRange(textLength, textLength);
     }
 
     /**
@@ -2805,14 +2680,14 @@ import { truncate } from './utils';
             // Up arrow: navigate history only if empty OR (on first line AND at start)
             if (event.key === 'ArrowUp' && (isEmpty || (onFirstLine && atStart))) {
                 event.preventDefault();
-                navigateHistoryUp();
+                inputHistoryManager.navigateUp();
                 return;
             }
 
             // Down arrow: navigate history only if empty OR (on last line AND at end)
             if (event.key === 'ArrowDown' && (isEmpty || (onLastLine && atEnd))) {
                 event.preventDefault();
-                navigateHistoryDown();
+                inputHistoryManager.navigateDown();
                 return;
             }
         }
