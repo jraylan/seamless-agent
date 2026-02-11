@@ -185,6 +185,32 @@ import { truncate } from './utils';
     // Active options stepper instance (for pending request form)
     let activeOptionsStepper: OptionsStepper | null = null;
 
+    // Input history state
+    const HISTORY_STORAGE_KEY = 'seamless-agent-input-history';
+    const MAX_HISTORY_SIZE = 50;
+    let inputHistory: string[] = [];
+    let historyIndex: number = -1;
+    let currentDraft: string = '';
+    // Track temporary edits to history items (index -> edited content)
+    const editedHistory = new Map<number, string>();
+
+    // Load input history from localStorage on startup
+    try {
+        const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (stored) {
+            inputHistory = JSON.parse(stored);
+            // Validate and limit size
+            if (Array.isArray(inputHistory)) {
+                inputHistory = inputHistory.slice(-MAX_HISTORY_SIZE);
+            } else {
+                inputHistory = [];
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load input history:', error);
+        inputHistory = [];
+    }
+
     // Autocomplete state
     let autocompleteVisible = false;
     let autocompleteResults: FileSearchResult[] = [];
@@ -797,6 +823,8 @@ import { truncate } from './utils';
     function showQuestion(question: string, title: string, requestId: string, options?: any[]): void {
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
+            // Reset state when switching between different requests
+            resetRequestState({ autocomplete: true });
         }
 
         currentRequestId = requestId;
@@ -1262,6 +1290,9 @@ import { truncate } from './utils';
     function showHome(): void {
         currentRequestId = null;
         currentInteractionId = null;
+
+        // Reset all request-specific state to prevent cross-request contamination
+        resetRequestState({ attachments: true, autocomplete: true });
 
         // Hide other views
         requestForm?.classList.add('hidden');
@@ -1845,6 +1876,49 @@ import { truncate } from './utils';
     }
 
     /**
+     * Save input history to localStorage
+     */
+    function saveInputHistoryToStorage(): void {
+        try {
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(inputHistory));
+        } catch (error) {
+            console.error('Failed to save input history:', error);
+        }
+    }
+
+    /**
+     * Reset input history navigation state
+     * @param options.attachments - Whether to also clear attachments (default: false)
+     * @param options.autocomplete - Whether to also hide autocomplete (default: false)
+     */
+    function resetRequestState(options?: { attachments?: boolean; autocomplete?: boolean }): void {
+        historyIndex = -1;
+        currentDraft = '';
+        editedHistory.clear();
+
+        if (options?.attachments) {
+            currentAttachments = [];
+        }
+
+        if (options?.autocomplete) {
+            hideAutocomplete();
+        }
+    }
+
+    /**
+     * Clear input history
+     */
+    function clearInputHistory(): void {
+        inputHistory = [];
+        resetRequestState();
+        try {
+            localStorage.removeItem(HISTORY_STORAGE_KEY);
+        } catch (error) {
+            console.error('Failed to clear input history:', error);
+        }
+    }
+
+    /**
     * Handle submit button click
     */
     function handleSubmit(): void {
@@ -1865,6 +1939,25 @@ import { truncate } from './utils';
             // Only text: keep as-is
             response = typedResponse;
         }
+
+        // Save to input history (only if there's actual typed content)
+        if (typedResponse) {
+            // Remove duplicate if exists
+            const existingIndex = inputHistory.indexOf(typedResponse);
+            if (existingIndex !== -1) {
+                inputHistory.splice(existingIndex, 1);
+            }
+            // Add to end of history
+            inputHistory.push(typedResponse);
+            // Limit history size
+            if (inputHistory.length > MAX_HISTORY_SIZE) {
+                inputHistory.shift();
+            }
+            // Persist to localStorage
+            saveInputHistoryToStorage();
+        }
+        // Reset history navigation state after submission
+        resetRequestState();
 
         // Build selectedOptions map for storage
         const selectedOptions = activeOptionsStepper?.getSelections() || {};
@@ -1888,6 +1981,114 @@ import { truncate } from './utils';
 
         currentAttachments = [];
         // Don't show home - the extension will send showCurrentSession or showSessionDetail
+    }
+
+    /**
+     * Save current input value as edited history if it differs from stored value
+     */
+    function saveCurrentHistoryEdit(): void {
+        if (!responseInput || historyIndex < 0 || historyIndex >= inputHistory.length) return;
+
+        const currentOriginal = inputHistory[historyIndex];
+        const currentEdited = editedHistory.get(historyIndex) || currentOriginal;
+        if (responseInput.value !== currentEdited && responseInput.value !== currentOriginal) {
+            editedHistory.set(historyIndex, responseInput.value);
+        }
+    }
+
+    /**
+     * Load history value (edited or original) into the input
+     */
+    function loadHistoryValue(index: number): void {
+        if (!responseInput || index < 0 || index >= inputHistory.length) return;
+
+        const editedValue = editedHistory.get(index);
+        responseInput.value = editedValue !== undefined ? editedValue : inputHistory[index];
+    }
+
+    /**
+     * Navigate input history - move up (to older entries)
+     */
+    function navigateHistoryUp(): void {
+        if (!responseInput || inputHistory.length === 0) return;
+
+        // First time navigating: save current draft
+        if (historyIndex === -1) {
+            currentDraft = responseInput.value;
+            historyIndex = inputHistory.length;
+        } else {
+            // Save any edits to current history item before navigating away
+            saveCurrentHistoryEdit();
+        }
+
+        // Move to previous entry
+        if (historyIndex > 0) {
+            historyIndex--;
+            loadHistoryValue(historyIndex);
+            autoResizeTextarea();
+            // Place cursor at the start when navigating up
+            responseInput.setSelectionRange(0, 0);
+        }
+    }
+
+    /**
+     * Navigate input history - move down (to newer entries)
+     */
+    function navigateHistoryDown(): void {
+        if (!responseInput || inputHistory.length === 0 || historyIndex === -1) return;
+
+        // Save any edits to current history item before navigating away
+        saveCurrentHistoryEdit();
+
+        // Move to next entry
+        historyIndex++;
+
+        if (historyIndex >= inputHistory.length) {
+            // Reached the end: restore draft (or edited draft)
+            historyIndex = -1;
+            responseInput.value = currentDraft;
+        } else {
+            // Load edited or original value
+            loadHistoryValue(historyIndex);
+        }
+        autoResizeTextarea();
+        // Place cursor at the end when navigating down
+        const textLength = responseInput.value.length;
+        responseInput.setSelectionRange(textLength, textLength);
+    }
+
+    /**
+     * Check if cursor is at the start of the textarea
+     */
+    function isCursorAtStart(): boolean {
+        return responseInput?.selectionStart === 0;
+    }
+
+    /**
+     * Check if cursor is at the end of the textarea
+     */
+    function isCursorAtEnd(): boolean {
+        if (!responseInput) return false;
+        const textLength = responseInput.value.length;
+        return responseInput.selectionStart === textLength && responseInput.selectionEnd === textLength;
+    }
+
+    /**
+     * Check if cursor is on the first line of textarea
+     */
+    function isCursorOnFirstLine(): boolean {
+        if (!responseInput) return false;
+        const textBeforeCursor = responseInput.value.substring(0, responseInput.selectionStart);
+        return !textBeforeCursor.includes('\n');
+    }
+
+    /**
+     * Check if cursor is on the last line of textarea
+     */
+    function isCursorOnLastLine(): boolean {
+        if (!responseInput) return false;
+        const textAfterCursor = responseInput.value.substring(responseInput.selectionStart);
+        return !textAfterCursor.includes('\n');
     }
 
     /**
@@ -2586,6 +2787,33 @@ import { truncate } from './utils';
                     event.preventDefault();
                     hideAutocomplete();
                     return;
+            }
+        }
+
+        // Input history navigation (when autocomplete is not visible)
+        // Handle three cases:
+        // 1. Empty input - allow history navigation with up/down arrows
+        // 2. Non-empty input on first line at start - allow up arrow for history
+        // 3. Non-empty input on last line at end - allow down arrow for history
+        if (!autocompleteVisible && responseInput) {
+            const isEmpty = responseInput.value.length === 0;
+            const onFirstLine = isCursorOnFirstLine();
+            const onLastLine = isCursorOnLastLine();
+            const atStart = isCursorAtStart();
+            const atEnd = isCursorAtEnd();
+
+            // Up arrow: navigate history only if empty OR (on first line AND at start)
+            if (event.key === 'ArrowUp' && (isEmpty || (onFirstLine && atStart))) {
+                event.preventDefault();
+                navigateHistoryUp();
+                return;
+            }
+
+            // Down arrow: navigate history only if empty OR (on last line AND at end)
+            if (event.key === 'ArrowDown' && (isEmpty || (onLastLine && atEnd))) {
+                event.preventDefault();
+                navigateHistoryDown();
+                return;
             }
         }
 
