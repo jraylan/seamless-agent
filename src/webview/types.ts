@@ -66,6 +66,7 @@ export interface RequestItem {
     agentName: string | undefined;
     attachments: AttachmentInfo[];
     options?: AskUserOptions;
+    draftText?: string; // Draft response text (auto-saved)
 }
 
 /**
@@ -107,17 +108,26 @@ export type ToWebviewMessage = | {
     title: string;
     requestId: string;
     options?: AskUserOptions;
+    pendingCount?: number;
+    requestOrder?: number; // The order number (1-based) of this request
 }
     | {
         type: 'showList';
-        requests: RequestItem[]
+        requests: RequestItem[];
+        selectedRequestId?: string;
+    }
+    | {
+        type: 'updatePendingCount';
+        count: number;
+        requestOrder?: number;
     }
     | {
         type: 'showHome';
         pendingRequests: RequestItem[];
         pendingPlanReviews: StoredInteraction[];
         historyInteractions: StoredInteraction[];
-        recentInteractions: ToolCallInteraction[]
+        recentInteractions: ToolCallInteraction[];
+        selectedRequestId?: string;
     }
     | {
         type: 'updateAttachments';
@@ -223,6 +233,11 @@ export type FromWebviewMessage = | {
     | {
         type: 'cancelPendingRequest';
         requestId: string
+    }
+    | {
+        type: 'saveDraft';
+        requestId: string;
+        draftText: string
     };
 
 

@@ -87,9 +87,25 @@ body {
     margin: 0;
     color: var(--vscode-foreground);
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.request-header h2 .title-text {
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+}
+
+.request-header h2 .pending-badge {
+    flex-shrink: 0;
+    color: var(--vscode-textLink-foreground);
+    font-weight: 500;
+    font-size: 0.9em;
 }
 
 /* Back button */
@@ -722,6 +738,36 @@ button:disabled {
 .request-item-meta {
     font-size: 0.8em;
     color: var(--vscode-descriptionForeground);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Sequential number for request items - inline with title */
+.request-item-number-inline {
+    color: var(--vscode-textLink-foreground);
+    font-weight: 600;
+    margin-right: 4px;
+    font-size: 0.9em;
+}
+
+/* Selected state for request items */
+.request-item.selected {
+    border-color: var(--vscode-focusBorder);
+    background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.request-item.selected .request-item-title {
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+/* Last opened badge - subtle indicator for the currently viewed request */
+.last-opened-badge {
+    color: var(--vscode-textLink-foreground);
+    font-size: 0.8em;
+    font-weight: 500;
+    font-style: italic;
+    margin-left: auto;
 }
 
 /* Attachments - fixed at bottom before button group */

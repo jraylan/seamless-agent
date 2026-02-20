@@ -41,6 +41,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Currently selected request
     private _selectedRequestId: string | null = null;
 
+    // Last opened request (for sorting in list view) - persists until request is resolved
+    private _lastOpenedRequestId: string | null = null;
+
     // Interaction history
     private _recentInteractions: ToolCallInteraction[] = [];
 
@@ -146,29 +149,37 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         console.log(req)
 
         return new Promise<UserResponseResult>((resolve) => {
-            const item: RequestItem = {
-                id: req,
-                question,
-                title: title || strings.confirmationRequired,
-                createdAt: Date.now(),
-                attachments: [],
-                agentName,
-                options,
-            };
+        const item: RequestItem = {
+            id: req,
+            question,
+            title: title || strings.confirmationRequired,
+            createdAt: Date.now(),
+            attachments: [],
+            agentName,
+            options,
+            draftText: '',
+        };
 
             this._pendingRequests.set(req, { item, resolve });
 
             // Update badge count
             this._setBadge(this._pendingRequests.size);
 
-            // If this is the first/only request, show it directly
-            if (this._pendingRequests.size === 1) {
+            // Keep current view if a request is already being viewed
+            if (this._selectedRequestId) {
+                // Get the currently selected request and refresh it with updated pending count
+                const currentRequest = this._pendingRequests.get(this._selectedRequestId);
+                if (currentRequest) {
+                    this._showQuestion(currentRequest.item);
+                }
+            }
+            else if (this._pendingRequests.size === 1) {
+                // First request - show it directly
                 this._selectedRequestId = req;
                 this._showQuestion(item);
             }
-
             else {
-                // Show list view
+                // No request currently being viewed and there are multiple - show list
                 this._showList();
             }
 
@@ -195,6 +206,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             responded: false, response: reason, attachments: []
         });
         this._pendingRequests.delete(requestId);
+        
+        // Clear last opened if this was the last opened request
+        if (this._lastOpenedRequestId === requestId) {
+            this._lastOpenedRequestId = null;
+        }
+        
         this._setBadge(this._pendingRequests.size);
 
         // Update UI
@@ -225,6 +242,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
         this._pendingRequests.clear();
         this._setBadge(0);
+        this._lastOpenedRequestId = null;
 
         this._view?.webview.postMessage({
             type: 'clear'
@@ -243,12 +261,21 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Send a question to the webview for display
      */
     private _showQuestion(item: RequestItem): void {
+        // Calculate order: sort all pending by creation time to determine this request's order
+        const sortedRequests = Array.from(this._pendingRequests.values())
+            .map(p => p.item)
+            .sort((a, b) => a.createdAt - b.createdAt);
+        
+        const requestOrder = sortedRequests.findIndex(r => r.id === item.id) + 1;
+
         const message: ToWebviewMessage = {
             type: 'showQuestion',
             question: item.question,
             title: item.title,
             requestId: item.id,
-            options: item.options
+            options: item.options,
+            pendingCount: this._pendingRequests.size,
+            requestOrder
         };
         this._view?.webview.postMessage(message);
     }
@@ -260,7 +287,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const requests = Array.from(this._pendingRequests.values()).map(p => p.item);
 
         const message: ToWebviewMessage = {
-            type: 'showList', requests
+            type: 'showList', requests, selectedRequestId: this._lastOpenedRequestId || undefined
         };
         this._view?.webview.postMessage(message);
     }
@@ -285,7 +312,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             pendingRequests,
             pendingPlanReviews,
             historyInteractions,
-            recentInteractions: this._recentInteractions
+            recentInteractions: this._recentInteractions,
+            selectedRequestId: this._lastOpenedRequestId || undefined
         };
         this._view?.webview.postMessage(message);
 
@@ -341,6 +369,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             });
                 break;
             case 'selectRequest': this._selectedRequestId = message.requestId;
+                // Track last opened for sorting
+                this._lastOpenedRequestId = message.requestId;
                 const pending = this._pendingRequests.get(message.requestId);
 
                 if (pending) {
@@ -348,10 +378,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 }
 
                 break;
-            case 'backToList': this._selectedRequestId = null;
+            case 'backToList': 
+                // Don't clear _lastOpenedRequestId - keep for sorting
                 this._showList();
                 break;
-            case 'backToHome': this._selectedRequestId = null;
+            case 'backToHome': 
+                // Don't clear _lastOpenedRequestId - keep for sorting
                 this._showHome();
                 break;
             case 'clearHistory': {
@@ -393,6 +425,18 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 this.cancelPendingRequest(message.requestId);
                 break;
             }
+            case 'saveDraft': {
+                this._handleSaveDraft(message.requestId, message.draftText);
+                break;
+            }
+        }
+    }
+
+
+    private _handleSaveDraft(requestId: string, draftText: string): void {
+        const pending = this._pendingRequests.get(requestId);
+        if (pending) {
+            pending.item.draftText = draftText;
         }
     }
 
@@ -991,6 +1035,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             pending.resolve(cleanResult);
             this._pendingRequests.delete(requestId);
+
+            // Clear last opened if this was the last opened request
+            if (this._lastOpenedRequestId === requestId) {
+                this._lastOpenedRequestId = null;
+            }
 
             // Update badge
             this._setBadge(this._pendingRequests.size);
