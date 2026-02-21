@@ -1,6 +1,7 @@
 // Agent Console Webview Script with markdown-it and highlight.js
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js/lib/core';
+import { InputHistoryManager } from './inputHistory';
 
 // Register only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -213,6 +214,18 @@ import { truncate } from './utils';
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+
+    // Initialize input history manager
+    const inputHistoryManager = new InputHistoryManager(
+        {
+            getTextarea: () => responseInput,
+            onTextChange: () => autoResizeTextarea()
+        },
+        {
+            storageKey: 'seamless-agent-input-history',
+            maxSize: 50
+        }
+    );
 
     // Tab content elements
     const contentPending = document.getElementById('content-pending');
@@ -922,6 +935,8 @@ import { truncate } from './utils';
     function showQuestion(question: string, title: string, requestId: string, options?: any[]): void {
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
+            // Reset state when switching between different requests
+            resetRequestState({ attachments: true, autocomplete: true });
         }
 
         currentRequestId = requestId;
@@ -1390,6 +1405,9 @@ import { truncate } from './utils';
     function showHome(): void {
         currentRequestId = null;
         currentInteractionId = null;
+
+        // Reset all request-specific state to prevent cross-request contamination
+        resetRequestState({ attachments: true, autocomplete: true });
 
         // Hide other views
         requestForm?.classList.add('hidden');
@@ -1988,6 +2006,23 @@ import { truncate } from './utils';
     }
 
     /**
+     * Reset request state: clears input history navigation, and optionally attachments and autocomplete
+     * @param options.attachments - Whether to also clear attachments (default: false)
+     * @param options.autocomplete - Whether to also hide autocomplete (default: false)
+     */
+    function resetRequestState(options?: { attachments?: boolean; autocomplete?: boolean }): void {
+        inputHistoryManager.resetState();
+
+        if (options?.attachments) {
+            currentAttachments = [];
+        }
+
+        if (options?.autocomplete) {
+            hideAutocomplete();
+        }
+    }
+
+    /**
     * Handle submit button click
     */
     function handleSubmit(): void {
@@ -2008,6 +2043,13 @@ import { truncate } from './utils';
             // Only text: keep as-is
             response = typedResponse;
         }
+
+        // Save to input history (only if there's actual typed content)
+        if (typedResponse) {
+            inputHistoryManager.addToHistory(typedResponse);
+        }
+        // Reset history navigation state after submission
+        resetRequestState();
 
         // Build selectedOptions map for storage
         const selectedOptions = activeOptionsStepper?.getSelections() || {};
@@ -2031,6 +2073,40 @@ import { truncate } from './utils';
 
         currentAttachments = [];
         // Don't show home - the extension will send showCurrentSession or showSessionDetail
+    }
+
+    /**
+     * Check if cursor is at the start of the textarea
+     */
+    function isCursorAtStart(): boolean {
+        return responseInput?.selectionStart === 0;
+    }
+
+    /**
+     * Check if cursor is at the end of the textarea
+     */
+    function isCursorAtEnd(): boolean {
+        if (!responseInput) return false;
+        const textLength = responseInput.value.length;
+        return responseInput.selectionStart === textLength && responseInput.selectionEnd === textLength;
+    }
+
+    /**
+     * Check if cursor is on the first line of textarea
+     */
+    function isCursorOnFirstLine(): boolean {
+        if (!responseInput) return false;
+        const textBeforeCursor = responseInput.value.substring(0, responseInput.selectionStart);
+        return !textBeforeCursor.includes('\n');
+    }
+
+    /**
+     * Check if cursor is on the last line of textarea
+     */
+    function isCursorOnLastLine(): boolean {
+        if (!responseInput) return false;
+        const textAfterCursor = responseInput.value.substring(responseInput.selectionStart);
+        return !textAfterCursor.includes('\n');
     }
 
     /**
@@ -2806,6 +2882,33 @@ import { truncate } from './utils';
                     event.preventDefault();
                     hideAutocomplete();
                     return;
+            }
+        }
+
+        // Input history navigation (when autocomplete is not visible)
+        // Handle three cases:
+        // 1. Empty input - allow history navigation with up/down arrows
+        // 2. Non-empty input on first line at start - allow up arrow for history
+        // 3. Non-empty input on last line at end - allow down arrow for history
+        if (!autocompleteVisible && responseInput) {
+            const isEmpty = responseInput.value.length === 0;
+            const onFirstLine = isCursorOnFirstLine();
+            const onLastLine = isCursorOnLastLine();
+            const atStart = isCursorAtStart();
+            const atEnd = isCursorAtEnd();
+
+            // Up arrow: navigate history only if empty OR (on first line AND at start)
+            if (event.key === 'ArrowUp' && (isEmpty || (onFirstLine && atStart))) {
+                event.preventDefault();
+                inputHistoryManager.navigateUp();
+                return;
+            }
+
+            // Down arrow: navigate history only if empty OR (on last line AND at end)
+            if (event.key === 'ArrowDown' && (isEmpty || (onLastLine && atEnd))) {
+                event.preventDefault();
+                inputHistoryManager.navigateDown();
+                return;
             }
         }
 
