@@ -1,6 +1,7 @@
 // Agent Console Webview Script with markdown-it and highlight.js
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js/lib/core';
+import { InputHistoryManager } from './inputHistory';
 
 // Register only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -217,6 +218,18 @@ import { truncate } from './utils';
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
 
+    // Initialize input history manager
+    const inputHistoryManager = new InputHistoryManager(
+        {
+            getTextarea: () => responseInput,
+            onTextChange: () => autoResizeTextarea()
+        },
+        {
+            storageKey: 'seamless-agent-input-history',
+            maxSize: 50
+        }
+    );
+
     // Tab content elements
     const contentPending = document.getElementById('content-pending');
     const contentHistory = document.getElementById('content-history');
@@ -233,6 +246,7 @@ import { truncate } from './utils';
     // Batch selection state
     let batchSelectMode = false;
     let selectedInteractionIds: Set<string> = new Set();
+    let lastClickedItemId: string | null = null; // For shift+click range selection
 
     // History filter state
     let currentHistoryFilter: string = 'all';
@@ -352,6 +366,7 @@ import { truncate } from './utils';
         } else {
             batchActionsBar?.classList.add('hidden');
             selectedInteractionIds.clear();
+            lastClickedItemId = null; // Reset last clicked item
             historyList?.querySelectorAll('.history-item').forEach(item => {
                 item.classList.remove('batch-mode', 'selected');
             });
@@ -371,6 +386,71 @@ import { truncate } from './utils';
             selectedInteractionIds.add(id);
             element.classList.add('selected');
         }
+        lastClickedItemId = id;
+        updateBatchSelectionUI();
+    }
+
+    /**
+     * Select a single item, clearing all others
+     */
+    function selectSingleItem(id: string, element: HTMLElement): void {
+        // Clear all selections
+        selectedInteractionIds.clear();
+        historyList?.querySelectorAll('.history-item.selected').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // Select only this item
+        selectedInteractionIds.add(id);
+        element.classList.add('selected');
+        lastClickedItemId = id;
+        updateBatchSelectionUI();
+    }
+
+    /**
+     * Select a range of items from last clicked to current
+     */
+    function selectRangeItems(toId: string, toElement: HTMLElement): void {
+        if (!lastClickedItemId) {
+            // No previous selection, just select this one
+            selectSingleItem(toId, toElement);
+            return;
+        }
+
+        // Get all history items and filter to only visible ones
+        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const visibleItems = allItems.filter(item => {
+            const htmlItem = item as HTMLElement;
+            // Check if element is visible using offsetParent (null if hidden)
+            // and also check computed display style
+            return htmlItem.offsetParent !== null ||
+                   (htmlItem.style.display !== 'none' &&
+                    window.getComputedStyle(htmlItem).display !== 'none');
+        });
+
+        const fromIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === lastClickedItemId);
+        const toIndex = visibleItems.findIndex(item => item.getAttribute('data-id') === toId);
+
+        if (fromIndex === -1 || toIndex === -1) {
+            selectSingleItem(toId, toElement);
+            return;
+        }
+
+        // Determine range direction
+        const start = Math.min(fromIndex, toIndex);
+        const end = Math.max(fromIndex, toIndex);
+
+        // Select all items in range
+        for (let i = start; i <= end; i++) {
+            const item = visibleItems[i] as HTMLElement;
+            const itemId = item.getAttribute('data-id');
+            if (itemId) {
+                selectedInteractionIds.add(itemId);
+                item.classList.add('selected');
+            }
+        }
+
+        lastClickedItemId = toId;
         updateBatchSelectionUI();
     }
 
@@ -378,8 +458,16 @@ import { truncate } from './utils';
      * Select or deselect all visible items
      */
     function toggleSelectAll(): void {
-        const visibleItems = historyList?.querySelectorAll('.history-item:not([style*="display: none"])') || [];
-        const allSelected = Array.from(visibleItems).every(item => {
+        // Get all history items and filter to only visible ones
+        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const visibleItems = allItems.filter(item => {
+            const htmlItem = item as HTMLElement;
+            return htmlItem.offsetParent !== null ||
+                   (htmlItem.style.display !== 'none' &&
+                    window.getComputedStyle(htmlItem).display !== 'none');
+        });
+
+        const allSelected = visibleItems.every(item => {
             const id = item.getAttribute('data-id');
             return id && selectedInteractionIds.has(id);
         });
@@ -440,12 +528,11 @@ import { truncate } from './utils';
         if (selectedInteractionIds.size === 0) return;
 
         // Send to extension host - confirmation is handled there via VS Code modal
+        // Don't exit batch mode yet - wait for confirmation result
         vscode.postMessage({
             type: 'deleteMultipleInteractions',
             interactionIds: Array.from(selectedInteractionIds)
         });
-
-        toggleBatchSelectMode(false);
     }
 
     /**
@@ -547,6 +634,7 @@ import { truncate } from './utils';
 
         historyList.addEventListener('click', (e: Event) => {
             const target = e.target as HTMLElement;
+            const clickEvent = e as MouseEvent;
 
             // Delete button takes precedence
             const deleteBtn = target.closest('.history-item-delete') as HTMLElement | null;
@@ -589,15 +677,41 @@ import { truncate } from './utils';
             }
 
             const item = target.closest('.history-item') as HTMLElement | null;
+
+            // If clicking on empty area in batch mode, clear all selections
+            if (!item && batchSelectMode) {
+                selectedInteractionIds.clear();
+                lastClickedItemId = null;
+                historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                    historyItem.classList.remove('selected');
+                });
+                updateBatchSelectionUI();
+                return;
+            }
+
             if (!item) return;
 
             const id = item.getAttribute('data-id');
             const type = item.getAttribute('data-type');
             if (!id) return;
 
-            // In batch mode, clicking the item toggles selection
+            // In batch mode, clicking the item selects it with modifier key support
             if (batchSelectMode) {
-                toggleItemSelection(id, item);
+                // Prevent default text selection when shift-clicking
+                if (clickEvent.shiftKey) {
+                    clickEvent.preventDefault();
+                }
+
+                if (clickEvent.shiftKey) {
+                    // Shift+Click: Range selection
+                    selectRangeItems(id, item);
+                } else if (clickEvent.ctrlKey || clickEvent.metaKey) {
+                    // Ctrl+Click (or Cmd+Click on Mac): Toggle selection
+                    toggleItemSelection(id, item);
+                } else {
+                    // Normal click in batch mode: Toggle selection
+                    toggleItemSelection(id, item);
+                }
                 return;
             }
 
@@ -625,6 +739,30 @@ import { truncate } from './utils';
 
             keyEvent.preventDefault();
             (item as HTMLElement).click();
+        });
+    }
+
+    // Add click listener to content-history container to handle clicks on empty areas below the list
+    if (contentHistory) {
+        contentHistory.addEventListener('click', (e: Event) => {
+            if (!batchSelectMode) return;
+
+            const target = e.target as HTMLElement;
+            const item = target.closest('.history-item') as HTMLElement | null;
+
+            // If clicking on empty area (not on a history item), clear all selections
+            if (!item) {
+                // Don't clear if clicking on filter buttons or batch action buttons
+                const isFilterOrBatchBtn = target.closest('.filter-bar, .batch-actions-bar');
+                if (!isFilterOrBatchBtn) {
+                    selectedInteractionIds.clear();
+                    lastClickedItemId = null;
+                    historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                        historyItem.classList.remove('selected');
+                    });
+                    updateBatchSelectionUI();
+                }
+            }
         });
     }
 
@@ -834,6 +972,8 @@ import { truncate } from './utils';
     function showQuestion(question: string, title: string, requestId: string, options?: any[], pendingCount?: number, requestOrder?: number, attachments?: AttachmentInfo[]): void {
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
+            // Reset state when switching between different requests
+            resetRequestState({ attachments: true, autocomplete: true });
         }
 
         currentRequestId = requestId;
@@ -844,6 +984,8 @@ import { truncate } from './utils';
         } else {
             currentAttachments = [];
         }
+        // Reset user-set textarea height for new question
+        userSetTextareaHeight = null;
 
         // Reset previous stepper instance
         if (activeOptionsStepper) {
@@ -1351,6 +1493,9 @@ import { truncate } from './utils';
         currentRequestId = null;
         currentInteractionId = null;
 
+        // Reset all request-specific state to prevent cross-request contamination
+        resetRequestState({ attachments: true, autocomplete: true });
+
         // Hide other views
         requestForm?.classList.add('hidden');
         requestList?.classList.add('hidden');
@@ -1615,32 +1760,27 @@ import { truncate } from './utils';
         for (const entry of entries) {
             const isPlanReview = entry.type === 'plan_review';
             const icon = isPlanReview ? 'file-text' : 'comment';
+            const typeIcon = codicon(icon);
             const statusClass = entry.status || 'pending';
 
             const itemClasses = batchSelectMode ? 'history-item batch-mode' : 'history-item';
             const item = el('div', {
                 className: itemClasses,
-                attrs: { 'data-id': entry.id, 'data-type': entry.type, tabindex: '0' }
+                attrs: {
+                    'data-id': entry.id,
+                    'data-type': entry.type,
+                    'tabindex': '0'
+                }
             });
 
-            // View button (magnifier) - visible on hover or in batch mode
-            const viewBtn = el('button', {
-                className: 'history-item-view',
-                title: window.__STRINGS__?.openInPanel || 'View',
-                attrs: { type: 'button' }
-            }, codicon('search'));
-            item.appendChild(viewBtn);
-
+            // First line: title + time (+ status for plan reviews)
             const header = el('div', { className: 'history-item-header' });
-            const title = el('span', { className: 'history-item-title', text: entry.title });
-            const deleteBtn = el('button', {
-                className: 'history-item-delete',
-                title: 'Remove',
-                attrs: { type: 'button', 'data-id': entry.id }
-            }, codicon('trash'));
-            appendChildren(header, codicon(icon), ' ', title, deleteBtn);
 
-            const preview = el('div', { className: 'history-item-preview', text: entry.preview });
+            const titleWrapper = el('div', { className: 'history-item-title-wrapper' });
+            const title = el('div', { className: 'history-item-title', text: entry.title });
+            titleWrapper.appendChild(title);
+
+            // Meta: time + status badge (inline on first line)
             const meta = el('div', { className: 'history-item-meta' });
             const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
 
@@ -1649,14 +1789,34 @@ import { truncate } from './utils';
                     className: `status-badge status-${statusClass}`,
                     text: getStatusLabel(entry.status)
                 });
-                appendChildren(meta, statusBadge, ' ', time);
-            }
-
-            else {
                 appendChildren(meta, time);
+            } else {
+                meta.appendChild(time);
             }
 
-            appendChildren(item, header, preview, meta);
+            // Action buttons (shown on hover)
+            const deleteBtn = el('button', {
+                className: 'history-item-delete',
+                title: 'Delete',
+                attrs: { type: 'button', 'data-id': entry.id }
+            }, codicon('trash'));
+
+            const viewBtn = el('button', {
+                className: 'history-item-view',
+                title: 'View Detail',
+                attrs: { type: 'button' }
+            }, codicon('go-to-file'));
+
+            appendChildren(header, titleWrapper, meta, viewBtn, deleteBtn);
+
+            // Second line: preview text
+            const preview = el('div', { className: 'history-item-preview', text: entry.preview });
+
+            // Wrapper for content rows
+            const contentWrapper = el('div', { className: 'history-item-content' });
+            appendChildren(contentWrapper, header, preview);
+
+            appendChildren(item, typeIcon, contentWrapper);
             fragment.appendChild(item);
         }
 
@@ -1933,6 +2093,23 @@ import { truncate } from './utils';
     }
 
     /**
+     * Reset request state: clears input history navigation, and optionally attachments and autocomplete
+     * @param options.attachments - Whether to also clear attachments (default: false)
+     * @param options.autocomplete - Whether to also hide autocomplete (default: false)
+     */
+    function resetRequestState(options?: { attachments?: boolean; autocomplete?: boolean }): void {
+        inputHistoryManager.resetState();
+
+        if (options?.attachments) {
+            currentAttachments = [];
+        }
+
+        if (options?.autocomplete) {
+            hideAutocomplete();
+        }
+    }
+
+    /**
     * Handle submit button click
     */
     function handleSubmit(): void {
@@ -1953,6 +2130,13 @@ import { truncate } from './utils';
             // Only text: keep as-is
             response = typedResponse;
         }
+
+        // Save to input history (only if there's actual typed content)
+        if (typedResponse) {
+            inputHistoryManager.addToHistory(typedResponse);
+        }
+        // Reset history navigation state after submission
+        resetRequestState();
 
         // Build selectedOptions map for storage
         const selectedOptions = activeOptionsStepper?.getSelections() || {};
@@ -1976,6 +2160,40 @@ import { truncate } from './utils';
 
         currentAttachments = [];
         // Don't show home - the extension will send showCurrentSession or showSessionDetail
+    }
+
+    /**
+     * Check if cursor is at the start of the textarea
+     */
+    function isCursorAtStart(): boolean {
+        return responseInput?.selectionStart === 0;
+    }
+
+    /**
+     * Check if cursor is at the end of the textarea
+     */
+    function isCursorAtEnd(): boolean {
+        if (!responseInput) return false;
+        const textLength = responseInput.value.length;
+        return responseInput.selectionStart === textLength && responseInput.selectionEnd === textLength;
+    }
+
+    /**
+     * Check if cursor is on the first line of textarea
+     */
+    function isCursorOnFirstLine(): boolean {
+        if (!responseInput) return false;
+        const textBeforeCursor = responseInput.value.substring(0, responseInput.selectionStart);
+        return !textBeforeCursor.includes('\n');
+    }
+
+    /**
+     * Check if cursor is on the last line of textarea
+     */
+    function isCursorOnLastLine(): boolean {
+        if (!responseInput) return false;
+        const textAfterCursor = responseInput.value.substring(responseInput.selectionStart);
+        return !textAfterCursor.includes('\n');
     }
 
     /**
@@ -2324,6 +2542,9 @@ import { truncate } from './utils';
         }
     }
 
+    // User-set textarea height via drag handle (null = not set, use auto-resize)
+    let userSetTextareaHeight: number | null = null;
+
     /**
      * Auto-resize textarea to fit content up to max height
      */
@@ -2332,6 +2553,23 @@ import { truncate } from './utils';
 
         // Skip resize during IME composition to prevent scroll issues on Windows
         if (isComposing) return;
+
+        // If user has manually set a height via drag, respect it as the minimum
+        if (userSetTextareaHeight !== null) {
+            responseInput.style.height = 'auto';
+            responseInput.style.overflow = 'hidden';
+
+            const scrollHeight = responseInput.scrollHeight;
+            const effectiveHeight = Math.max(userSetTextareaHeight, scrollHeight);
+            const maxHeight = 2000; // Higher max when user is manually controlling
+
+            responseInput.style.height = `${Math.min(effectiveHeight, maxHeight)}px`;
+
+            if (effectiveHeight > maxHeight) {
+                responseInput.style.overflow = 'auto';
+            }
+            return;
+        }
 
         // Reset height to auto to get accurate scrollHeight
         responseInput.style.height = 'auto';
@@ -2352,6 +2590,63 @@ import { truncate } from './utils';
             responseInput.style.overflow = 'auto';
         }
     }
+
+    // ================================
+    // Resize Handle Logic
+    // ================================
+
+    const resizeHandle = document.getElementById('resize-handle');
+    let isResizing = false;
+    let resizeStartY = 0;
+    let resizeStartHeight = 0;
+
+    function startResize(e: MouseEvent): void {
+        if (!responseInput) return;
+        e.preventDefault();
+
+        isResizing = true;
+        resizeStartY = e.clientY;
+        resizeStartHeight = responseInput.offsetHeight;
+
+        resizeHandle?.classList.add('dragging');
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('mouseup', stopResize);
+    }
+
+    function onResizeMove(e: MouseEvent): void {
+        if (!isResizing || !responseInput) return;
+
+        // Dragging up (negative delta) increases height; dragging down decreases
+        const delta = resizeStartY - e.clientY;
+        const minHeight = 24;
+        const maxHeight = 2000;
+        const newHeight = Math.max(minHeight, Math.min(resizeStartHeight + delta, maxHeight));
+
+        userSetTextareaHeight = newHeight;
+        responseInput.style.height = `${newHeight}px`;
+        responseInput.style.overflow = newHeight >= maxHeight || responseInput.scrollHeight > newHeight ? 'auto' : 'hidden';
+    }
+
+    function stopResize(): void {
+        isResizing = false;
+        resizeHandle?.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        document.removeEventListener('mousemove', onResizeMove);
+        document.removeEventListener('mouseup', stopResize);
+    }
+
+    resizeHandle?.addEventListener('mousedown', startResize);
+
+    // Double-click to reset to auto-resize behavior
+    resizeHandle?.addEventListener('dblclick', () => {
+        userSetTextareaHeight = null;
+        autoResizeTextarea();
+    });
 
     /**
      * Handle textarea input for # trigger detection
@@ -2690,6 +2985,33 @@ import { truncate } from './utils';
             }
         }
 
+        // Input history navigation (when autocomplete is not visible)
+        // Handle three cases:
+        // 1. Empty input - allow history navigation with up/down arrows
+        // 2. Non-empty input on first line at start - allow up arrow for history
+        // 3. Non-empty input on last line at end - allow down arrow for history
+        if (!autocompleteVisible && responseInput) {
+            const isEmpty = responseInput.value.length === 0;
+            const onFirstLine = isCursorOnFirstLine();
+            const onLastLine = isCursorOnLastLine();
+            const atStart = isCursorAtStart();
+            const atEnd = isCursorAtEnd();
+
+            // Up arrow: navigate history only if empty OR (on first line AND at start)
+            if (event.key === 'ArrowUp' && (isEmpty || (onFirstLine && atStart))) {
+                event.preventDefault();
+                inputHistoryManager.navigateUp();
+                return;
+            }
+
+            // Down arrow: navigate history only if empty OR (on last line AND at end)
+            if (event.key === 'ArrowDown' && (isEmpty || (onLastLine && atEnd))) {
+                event.preventDefault();
+                inputHistoryManager.navigateDown();
+                return;
+            }
+        }
+
         // Regular Enter handling for submit
         if (event.key === 'Enter') {
             if (event.ctrlKey || event.shiftKey) {
@@ -2787,6 +3109,14 @@ import { truncate } from './utils';
                 switchTab(message.tab);
             }
 
+                break;
+            case 'batchDeleteCompleted':
+                // Exit batch mode after delete operation (whether confirmed or cancelled)
+                if (message.success) {
+                    // Items were deleted, exit batch mode
+                    toggleBatchSelectMode(false);
+                }
+                // If cancelled (success = false), stay in batch mode with current selection
                 break;
             case 'clear': showHome();
                 hideAutocomplete();

@@ -1238,6 +1238,18 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         if (confirmation) {
             this._chatHistoryStorage.deleteMultipleInteractions(interactionIds);
             this._showHome();
+
+            // Notify webview that deletion was confirmed and completed
+            this._view?.webview.postMessage({
+                type: 'batchDeleteCompleted',
+                success: true
+            } as ToWebviewMessage);
+        } else {
+            // Notify webview that deletion was cancelled
+            this._view?.webview.postMessage({
+                type: 'batchDeleteCompleted',
+                success: false
+            } as ToWebviewMessage);
         }
     }
 
