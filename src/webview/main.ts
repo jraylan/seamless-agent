@@ -3123,7 +3123,12 @@ import { truncate } from './utils';
                 }
                 // If cancelled (success = false), stay in batch mode with current selection
                 break;
-            case 'clear': showHome();
+            case 'clear': 
+                showHome();
+                // Clear pending requests list when session ends
+                if (pendingRequestsList) {
+                    clearChildren(pendingRequestsList);
+                }
                 hideAutocomplete();
                 break;
         }
