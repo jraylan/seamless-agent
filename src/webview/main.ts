@@ -1953,7 +1953,9 @@ import { truncate } from './utils';
                                 title: att.uri || att.name,
                             };
 
-                            if (isImage && hasThumbnailOrUri && hoverPreview) {
+                            let chip: HTMLElement;
+
+                            if (isImage && hasThumbnailOrUri && hoverPreview && hoverPreviewImg) {
                                 chipOptions.on = {
                                     mouseenter: () => {
                                         const src = att.thumbnail || att.uri;
@@ -1969,7 +1971,7 @@ import { truncate } from './utils';
                                 };
                             }
 
-                            const chip = el('span', chipOptions,
+                            chip = el('span', chipOptions,
                                 codicon(iconClass), ' ', displayName
                             );
                             return chip;
