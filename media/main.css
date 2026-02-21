@@ -1555,18 +1555,18 @@ button:disabled {
 }
 
 /* ================================
-   Status Badge Styles
+   Status Badge Styles - Compact
    ================================ */
 
 .status-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 0.7em;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .status-pending {
@@ -1617,44 +1617,80 @@ button:disabled {
     padding: 12px;
 }
 
-/* History List Items */
+/* History List Items - Compact with Type Icons */
 .history-item {
     display: flex;
-    flex-direction: column;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background-color: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 6px;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    margin-bottom: 0;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.1s ease;
     position: relative;
+    min-height: auto;
 }
 
 .history-item:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
+.history-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Remove bullet point - use type icon instead */
+.history-item::before {
+    display: none;
+}
+
+/* Type icon (visible) */
+.history-item > .codicon:first-child {
+    color: var(--vscode-descriptionForeground);
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
 .history-item-header {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 2px;
+    flex: 1;
+    min-width: 0;
 }
 
 .history-item-header .codicon {
-    color: var(--vscode-descriptionForeground);
-    font-size: 14px;
+    display: none; /* Hide duplicate icon in header */
+}
+
+.history-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+}
+
+.history-item-title-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
 }
 
 .history-item-title {
-    flex: 1;
-    font-weight: 500;
+    font-weight: 400;
     font-size: 0.9em;
     color: var(--vscode-foreground);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
 }
 
 .history-item-delete,
@@ -1663,47 +1699,84 @@ button:disabled {
     border: none;
     color: var(--vscode-descriptionForeground);
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
+    padding: 2px;
+    border-radius: 3px;
     opacity: 0;
-    transition: opacity 0.15s ease, color 0.15s ease;
-    display: flex;
+    transition: opacity 0.1s ease, color 0.1s ease, background-color 0.1s ease;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    width: 18px;
+    height: 18px;
 }
 
-.history-item:hover .history-item-delete,
+/* In normal mode, show delete button on hover */
+.history-item:not(.batch-mode):hover .history-item-delete,
 .request-item:hover .pending-item-delete {
-    opacity: 0.7;
+    opacity: 1;
+}
+
+/* In batch mode, hide delete button completely */
+.history-item.batch-mode .history-item-delete {
+    display: none;
+}
+
+/* In batch mode, prevent text selection to avoid interference with shift-click */
+.history-item.batch-mode {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Remove focus outline in batch mode to prevent orange border on shift-click */
+.history-item.batch-mode:focus {
+    outline: none;
 }
 
 .history-item-delete:hover,
 .pending-item-delete:hover {
-    opacity: 1 !important;
     color: var(--vscode-errorForeground);
-    background-color: var(--vscode-toolbar-hoverBackground);
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.history-item-delete .codicon,
+.pending-item-delete .codicon {
+    font-size: 11px;
+    margin-right: 2px;
 }
 
 .history-item-preview {
-    font-size: 0.85em;
+    font-size: 0.75em;
     color: var(--vscode-descriptionForeground);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-bottom: 4px;
+    line-height: 1.4;
+    opacity: 0.85;
+    padding-left: 0;
 }
 
 .history-item-meta {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.75em;
-    color: var(--vscode-descriptionForeground);
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .history-item-time {
-    margin-left: auto;
+    font-size: 0.75em;
+    color: var(--vscode-descriptionForeground);
+    flex-shrink: 0;
+    white-space: nowrap;
+    opacity: 0.75;
+}
+
+/* Status badge in meta - inline with time */
+.history-item-meta .status-badge {
+    display: inline-flex;
 }
 
 /* Interaction Detail View */
@@ -1969,37 +2042,47 @@ button:disabled {
 
 /* History item selection state */
 .history-item.selected {
-    outline: 2px solid var(--vscode-focusBorder);
-    outline-offset: -2px;
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
 }
 
-/* View button (magnifier) on history items */
+.history-item.selected .history-item-title,
+.history-item.selected .history-item-preview {
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+/* View button - compact icon button */
 .history-item-view {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     padding: 0;
     border: none;
-    border-radius: 4px;
-    background-color: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    display: none;
+    border-radius: 3px;
+    background-color: transparent;
+    color: var(--vscode-descriptionForeground);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 1;
+    transition: opacity 0.1s ease, background-color 0.1s ease;
+    flex-shrink: 0;
 }
 
+/* In batch mode, always show view button */
 .history-item.batch-mode .history-item-view {
-    display: flex;
     opacity: 1;
 }
 
+/* In normal mode, hide view button completely */
+.history-item:not(.batch-mode) .history-item-view {
+    display: none;
+}
+
 .history-item-view:hover {
-    background-color: var(--vscode-button-secondaryHoverBackground);
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.history-item-view .codicon {
+    font-size: 11px;
 }

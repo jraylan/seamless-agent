@@ -142,6 +142,10 @@ export type ToWebviewMessage = | {
         tab: 'pending' | 'history'
     }
     | {
+        type: 'batchDeleteCompleted';
+        success: boolean; // true if user confirmed and items were deleted, false if cancelled
+    }
+    | {
         type: 'clear'
     };
 
