@@ -110,6 +110,8 @@ declare global {
             selectFile: string;
             noFilesFound: string;
             dropImageHere: string;
+            lastOpened: string;
+            pendingCount: string;
             dragToResize: string;
             delete: string;
             // Session histors
@@ -196,6 +198,9 @@ import { truncate } from './utils';
     let autocompleteQuery = '';
     let autocompleteStartPos = -1;
     let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Draft auto-save debounce timer
+    let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
     // IME composition state - prevents scroll issues on Windows during IME input
     let isComposing = false;
@@ -493,7 +498,7 @@ import { truncate } from './utils';
      */
     function updateBatchSelectionUI(): void {
         const count = selectedInteractionIds.size;
-        const countText = window.__STRINGS__?.batchSelectedCount?.replace('{count}', count.toString()) || `${count} selected`;
+        const countText = window.__STRINGS__?.batchSelectedCount?.replace('{0}', count.toString()) || `${count} selected`;
 
         if (batchSelectedCount) {
             batchSelectedCount.textContent = countText;
@@ -863,7 +868,7 @@ import { truncate } from './utils';
     /**
     * Show the list of pending requests
     */
-    function showList(requests: RequestItem[]): void {
+    function showList(requests: RequestItem[], selectedRequestId?: string): void {
         const activeRequestIds = new Set(requests.map(req => req.id));
         for (const id of draftResponses.keys()) {
             if (!activeRequestIds.has(id)) {
@@ -889,17 +894,41 @@ import { truncate } from './utils';
         requestList?.classList.add('hidden');
         homeView?.classList.remove('hidden');
 
+        // Sort requests by creation time (oldest first) for numbering
+        const sortedByCreation = [...requests].sort((a, b) => a.createdAt - b.createdAt);
+
+        // Create a map of id -> creation order (for numbering)
+        const creationOrder = new Map<string, number>();
+        sortedByCreation.forEach((req, idx) => {
+            creationOrder.set(req.id, idx + 1);
+        });
+
+        // Sort by last opened (selected first), then by creation time
+        const sortedRequests = [...requests].sort((a, b) => {
+            const aSelected = a.id === selectedRequestId ? 0 : 1;
+            const bSelected = b.id === selectedRequestId ? 0 : 1;
+            if (aSelected !== bSelected) return aSelected - bSelected;
+            return a.createdAt - b.createdAt;
+        });
+
         // Render pending requests in home view
         if (pendingRequestsList) {
             clearChildren(pendingRequestsList);
 
-            for (const req of requests) {
+            for (const req of sortedRequests) {
+                const isSelected = req.id === selectedRequestId;
                 const item = el('div', {
-                    className: 'request-item',
+                    className: `request-item${isSelected ? ' selected' : ''}`,
                     attrs: { 'data-id': req.id, tabindex: '0' }
                 });
 
-                const titleEl = el('div', { className: 'request-item-title', text: req.title });
+                // Title with number on the left (based on creation order)
+                const titleEl = el('div', { className: 'request-item-title' });
+                const orderNum = creationOrder.get(req.id) || 1;
+                const numberBadge = el('span', { className: 'request-item-number-inline', text: `${orderNum}. ` });
+                const titleText = el('span', { text: req.title });
+                appendChildren(titleEl, numberBadge, titleText);
+
                 const previewEl = el('div', { className: 'request-item-preview', text: truncate(req.question, 100) });
                 const metaEl = el('div', { className: 'request-item-meta' });
                 const timeEl = el('span', { text: formatTime(req.createdAt) });
@@ -908,7 +937,17 @@ import { truncate } from './utils';
                     title: window.__STRINGS__.close || 'Close',
                     attrs: { type: 'button', 'data-id': req.id }
                 }, codicon('circle-slash'));
-                appendChildren(metaEl, deleteBtn, ' ', timeEl);
+
+                // Add "Last opened" label if this is the currently viewed request
+                if (req.id === selectedRequestId) {
+                    const lastOpenedBadge = el('span', {
+                        className: 'last-opened-badge',
+                        text: window.__STRINGS__.lastOpened || 'Last opened'
+                    });
+                    appendChildren(metaEl, deleteBtn, ' ', timeEl, ' ', lastOpenedBadge);
+                } else {
+                    appendChildren(metaEl, deleteBtn, ' ', timeEl);
+                }
 
                 appendChildren(item, titleEl, previewEl, metaEl);
 
@@ -933,9 +972,9 @@ import { truncate } from './utils';
     }
 
     /**
-* Show the question form and hide other views
-*/
-    function showQuestion(question: string, title: string, requestId: string, options?: any[]): void {
+ * Show the question form and hide other views
+ */
+    function showQuestion(question: string, title: string, requestId: string, options?: any[], pendingCount?: number, requestOrder?: number, attachments?: AttachmentInfo[]): void {
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
             // Reset state when switching between different requests
@@ -944,6 +983,12 @@ import { truncate } from './utils';
 
         currentRequestId = requestId;
 
+        // Update attachments for this specific request
+        if (attachments) {
+            currentAttachments = attachments;
+        } else {
+            currentAttachments = [];
+        }
         // Reset user-set textarea height for new question
         userSetTextareaHeight = null;
 
@@ -953,9 +998,29 @@ import { truncate } from './utils';
             activeOptionsStepper = null;
         }
 
-        // Set header title
+        // Set header title with order and pending count if provided
         if (headerTitle) {
-            headerTitle.textContent = title || 'Confirmation Required';
+            const baseTitle = title || 'Confirmation Required';
+
+            // Clear and rebuild header with proper structure for truncation
+            headerTitle.innerHTML = '';
+
+            // Format: "2. Title (3 pending)" or "Title" if only 1
+            if (pendingCount && pendingCount > 1) {
+                const orderPrefix = requestOrder ? `${requestOrder}. ` : '';
+                const pendingBadge = window.__STRINGS__?.pendingCount?.replace('{0}', pendingCount.toString()) || `(${pendingCount} pending)`;
+
+                const orderSpan = el('span', { className: 'pending-badge', text: orderPrefix });
+                const titleText = el('span', { className: 'title-text', text: baseTitle });
+                const pendingText = el('span', { className: 'pending-badge', text: pendingBadge });
+
+                headerTitle.appendChild(orderSpan);
+                headerTitle.appendChild(titleText);
+                headerTitle.appendChild(pendingText);
+            } else {
+                const titleText = el('span', { className: 'title-text', text: baseTitle });
+                headerTitle.appendChild(titleText);
+            }
         }
 
         if (questionContent) {
@@ -985,6 +1050,30 @@ import { truncate } from './utils';
 
         // Focus the textarea for immediate typing
         responseInput?.focus();
+    }
+
+    /**
+     * Update the pending count badge in the header
+     */
+    function updatePendingCountBadge(count: number, requestOrder?: number): void {
+        if (headerTitle && currentRequestId && count > 1) {
+            // Update the header with new pending count
+            const titleText = headerTitle.querySelector('.title-text');
+            const baseTitle = titleText ? titleText.textContent || '' : '';
+
+            headerTitle.innerHTML = '';
+
+            const orderPrefix = requestOrder ? `${requestOrder}. ` : '';
+            const pendingBadge = window.__STRINGS__?.pendingCount?.replace('{0}', count.toString()) || `(${count} pending)`;
+
+            const orderSpan = el('span', { className: 'pending-badge', text: orderPrefix });
+            const titleEl = el('span', { className: 'title-text', text: baseTitle });
+            const pendingText = el('span', { className: 'pending-badge', text: pendingBadge });
+
+            headerTitle.appendChild(orderSpan);
+            headerTitle.appendChild(titleEl);
+            headerTitle.appendChild(pendingText);
+        }
     }
 
     // ================================
@@ -2578,6 +2667,19 @@ import { truncate } from './utils';
 
         if (currentRequestId) {
             draftResponses.set(currentRequestId, value);
+
+            // Debounced save to backend
+            if (draftSaveTimer) {
+                clearTimeout(draftSaveTimer);
+            }
+
+            draftSaveTimer = setTimeout(() => {
+                vscode.postMessage({
+                    type: 'saveDraft',
+                    requestId: currentRequestId,
+                    draftText: value
+                });
+            }, 500); // Save after 500ms of inactivity
         }
 
         // Sync attachments with text - remove any attachments whose #filename is no longer in text
@@ -2936,16 +3038,18 @@ import { truncate } from './utils';
         const message = event.data;
 
         switch (message.type) {
-            case 'showQuestion': showQuestion(message.question, message.title, message.requestId, message.options);
+            case 'showQuestion': showQuestion(message.question, message.title, message.requestId, message.options, message.pendingCount, message.requestOrder, message.attachments);
                 break;
-            case 'showList': showList(message.requests);
+            case 'showList': showList(message.requests, message.selectedRequestId);
+                break;
+            case 'updatePendingCount': updatePendingCountBadge(message.count, message.requestOrder);
                 break;
             case 'showHome': recentInteractions = message.recentInteractions || [];
                 showHome();
 
                 // Update pending requests if provided
                 if (message.pendingRequests) {
-                    showList(message.pendingRequests);
+                    showList(message.pendingRequests, message.selectedRequestId);
                 }
 
                 // Update pending plan reviews if provided
