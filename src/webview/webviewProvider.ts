@@ -104,13 +104,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             void this._handleWebviewMessage(message);
         }, undefined, []);
 
-        // Always show home view first (which includes pending requests and recent sessions)
-        this._showHome();
-
-        // Update badge count
-        if (this._pendingRequests.size > 0) {
-            this._setBadge(this._pendingRequests.size);
-        }
+        // _showHome() will be called once the webview signals it is ready
+        // (see 'webview-ready' handler in _handleWebviewMessage)
     }
 
     /**
@@ -385,6 +380,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 break;
             case 'backToHome':
                 // Don't clear _lastOpenedRequestId - keep for sorting
+                this._showHome();
+                break;
+            case 'webview-ready':
+                // Webview JS has finished loading; send initial state now
                 this._showHome();
                 break;
             case 'clearHistory': {

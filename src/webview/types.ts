@@ -243,6 +243,9 @@ export type FromWebviewMessage = | {
         type: 'saveDraft';
         requestId: string;
         draftText: string
+    }
+    | {
+        type: 'webview-ready'
     };
 
 
