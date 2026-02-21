@@ -77,6 +77,7 @@ export const strings = {
     get selectFile() { return localize('autocomplete.selectFile'); },
     get noFilesFound() { return localize('autocomplete.noFilesFound'); },
     get dropImageHere() { return localize('dropzone.dropImageHere'); },
+    get dragToResize() { return localize('console.dragToResize'); },
     // Approve Plan
     get approvePlanAddCommentAction() { return localize('approvePlan.button.addComment'); },
     get approvePlanApprove() { return localize('approvePlan.button.approve'); },
@@ -121,6 +122,7 @@ export const strings = {
     get pending() { return localize('status.pending'); },
     get acknowledged() { return localize('status.acknowledged'); },
     get cancelled() { return localize('status.cancelled'); },
+    get viewDetail() { return localize('history.viewDetail'); },
     // Confirmation dialogs
     get confirmClearHistory() { return localize('confirm.clearHistory'); },
     get confirmDeleteItem() { return localize('confirm.deleteItem'); },

@@ -128,15 +128,31 @@
             </div>
             <!-- Batch Actions Bar (hidden by default) -->
             <div id="batch-actions-bar" class="batch-actions-bar hidden">
-              <span id="batch-selected-count" class="batch-selected-count"></span>
+              <span
+                id="batch-selected-count"
+                class="batch-selected-count"
+              ></span>
               <div class="batch-actions-buttons">
-                <button id="batch-select-all-btn" class="batch-action-btn" title="{{batchSelectAll}}">
+                <button
+                  id="batch-select-all-btn"
+                  class="batch-action-btn"
+                  title="{{batchSelectAll}}"
+                >
                   <span class="codicon codicon-check-all"></span>
                 </button>
-                <button id="batch-delete-btn" class="batch-action-btn danger" title="{{batchDeleteSelected}}" disabled>
+                <button
+                  id="batch-delete-btn"
+                  class="batch-action-btn danger"
+                  title="{{batchDeleteSelected}}"
+                  disabled
+                >
                   <span class="codicon codicon-trash"></span>
                 </button>
-                <button id="batch-cancel-btn" class="batch-action-btn" title="{{batchExitSelectMode}}">
+                <button
+                  id="batch-cancel-btn"
+                  class="batch-action-btn"
+                  title="{{batchExitSelectMode}}"
+                >
                   <span class="codicon codicon-close"></span>
                 </button>
               </div>
@@ -169,7 +185,11 @@
         </div>
 
         <!-- Options buttons (shown when options are provided) -->
-        <fieldset id="options-container" class="options-container hidden" aria-label="Answer options">
+        <fieldset
+          id="options-container"
+          class="options-container hidden"
+          aria-label="Answer options"
+        >
           <!-- Stepper DOM is dynamically created by createOptionsStepper() -->
           <div class="options-separator">
             <span class="options-separator-text">{{orTypeYourOwn}}</span>
@@ -194,7 +214,11 @@
           </div>
 
           <!-- Resize handle for textarea -->
-          <div class="resize-handle" id="resize-handle" title="Drag to resize">
+          <div
+            class="resize-handle"
+            id="resize-handle"
+            title="{{dragToResize}}"
+          >
             <div class="resize-handle-grip"></div>
           </div>
 
@@ -290,6 +314,8 @@
         selectFile: "{{selectFile}}",
         noFilesFound: "{{noFilesFound}}",
         dropImageHere: "{{dropImageHere}}",
+        dragToResize: "{{dragToResize}}",
+        delete: "{{delete}}",
         // Session histories
         recentSessions: "{{recentSessions}}",
         noRecentSessions: "{{noRecentSessions}}",
@@ -299,6 +325,7 @@
         input: "{{sessionInput}}",
         output: "{{sessionOutput}}",
         addFolder: "{{addFolder}}",
+        viewDetail: "{{viewDetail}}",
         // Chat histories
         pendingReviews: "{{pendingReviews}}",
         noPendingReviews: "{{noPendingReviews}}",

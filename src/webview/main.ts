@@ -110,6 +110,8 @@ declare global {
             selectFile: string;
             noFilesFound: string;
             dropImageHere: string;
+            dragToResize: string;
+            delete: string;
             // Session histors
             recentSessions: string;
             noRecentSessions: string;
@@ -119,6 +121,7 @@ declare global {
             input: string;
             output: string;
             addFolder: string;
+            viewDetail: string;
             // Chat histors
             pendingReviews: string;
             noPendingReviews: string;
@@ -421,7 +424,7 @@ import { truncate } from './utils';
             // Check if element is visible using offsetParent (null if hidden)
             // and also check computed display style
             return htmlItem.offsetParent !== null ||
-                   (htmlItem.style.display !== 'none' &&
+                (htmlItem.style.display !== 'none' &&
                     window.getComputedStyle(htmlItem).display !== 'none');
         });
 
@@ -460,7 +463,7 @@ import { truncate } from './utils';
         const visibleItems = allItems.filter(item => {
             const htmlItem = item as HTMLElement;
             return htmlItem.offsetParent !== null ||
-                   (htmlItem.style.display !== 'none' &&
+                (htmlItem.style.display !== 'none' &&
                     window.getComputedStyle(htmlItem).display !== 'none');
         });
 
@@ -1695,28 +1698,28 @@ import { truncate } from './utils';
 
             // Meta: time + status badge (inline on first line)
             const meta = el('div', { className: 'history-item-meta' });
-            const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
 
             if (isPlanReview) {
                 const statusBadge = el('span', {
                     className: `status-badge status-${statusClass}`,
                     text: getStatusLabel(entry.status)
                 });
-                appendChildren(meta, time);
+                appendChildren(meta, statusBadge);
             } else {
+                const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
                 meta.appendChild(time);
             }
 
             // Action buttons (shown on hover)
             const deleteBtn = el('button', {
                 className: 'history-item-delete',
-                title: 'Delete',
+                title: window.__STRINGS__.delete ?? 'Delete',
                 attrs: { type: 'button', 'data-id': entry.id }
             }, codicon('trash'));
 
             const viewBtn = el('button', {
                 className: 'history-item-view',
-                title: 'View Detail',
+                title: window.__STRINGS__.viewDetail ?? 'View Detail',
                 attrs: { type: 'button' }
             }, codicon('go-to-file'));
 
