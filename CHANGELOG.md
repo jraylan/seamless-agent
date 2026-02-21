@@ -5,9 +5,7 @@
 
 ### Features
 
-* add draggable resize handle for ask_user textarea ([8879a51](https://github.com/jraylan/seamless-agent/commit/8879a51184190d0cfcc8b15a96fd1164d9a22714))
 * add draggable resize handle for ask_user textarea ([4f5baa9](https://github.com/jraylan/seamless-agent/commit/4f5baa980457fec75e550194dcbf131b02f628ae))
-* implement compact list design for history view ([8371f22](https://github.com/jraylan/seamless-agent/commit/8371f22e86bbad32f111ad4ae93849617e4fae4a))
 * implement compact list design for history view ([1831c7b](https://github.com/jraylan/seamless-agent/commit/1831c7bb7334ea66ff9545074264d08b798b6e83))
 * implement Ctrl and Shift selection in batch mode ([bcb5c5f](https://github.com/jraylan/seamless-agent/commit/bcb5c5fe661197eace591ff408166da9c2894259))
 * improve batch selection UX with toggle selection and empty area clear ([114ef63](https://github.com/jraylan/seamless-agent/commit/114ef63a33748d04c3cd24e449239be02f1cabe4))
@@ -28,7 +26,6 @@
 
 ### Features
 
-* **ask-user:** add clickable option buttons for user responses ([300bf7b](https://github.com/jraylan/seamless-agent/commit/300bf7ba1ae4867bc6a0b85564d18bf984863fb9))
 * **ask-user:** add clickable option buttons for user responses ([94e1827](https://github.com/jraylan/seamless-agent/commit/94e182749708626546134f66ead40020ad4fbc6c))
 * **ask-user:** combine selected options and typed response in submit ([2e90e23](https://github.com/jraylan/seamless-agent/commit/2e90e232b000e086f6852115b40c59a006aa19c5))
 * **ask-user:** handle JSON string options ([3e4edb8](https://github.com/jraylan/seamless-agent/commit/3e4edb81c0f68b0c29d6cdb906853f3afc64902e))
