@@ -801,6 +801,9 @@ import { truncate } from './utils';
 
         currentRequestId = requestId;
 
+        // Reset user-set textarea height for new question
+        userSetTextareaHeight = null;
+
         // Reset previous stepper instance
         if (activeOptionsStepper) {
             activeOptionsStepper.destroy();
@@ -2236,6 +2239,9 @@ import { truncate } from './utils';
         }
     }
 
+    // User-set textarea height via drag handle (null = not set, use auto-resize)
+    let userSetTextareaHeight: number | null = null;
+
     /**
      * Auto-resize textarea to fit content up to max height
      */
@@ -2244,6 +2250,23 @@ import { truncate } from './utils';
 
         // Skip resize during IME composition to prevent scroll issues on Windows
         if (isComposing) return;
+
+        // If user has manually set a height via drag, respect it as the minimum
+        if (userSetTextareaHeight !== null) {
+            responseInput.style.height = 'auto';
+            responseInput.style.overflow = 'hidden';
+
+            const scrollHeight = responseInput.scrollHeight;
+            const effectiveHeight = Math.max(userSetTextareaHeight, scrollHeight);
+            const maxHeight = 2000; // Higher max when user is manually controlling
+
+            responseInput.style.height = `${Math.min(effectiveHeight, maxHeight)}px`;
+
+            if (effectiveHeight > maxHeight) {
+                responseInput.style.overflow = 'auto';
+            }
+            return;
+        }
 
         // Reset height to auto to get accurate scrollHeight
         responseInput.style.height = 'auto';
@@ -2264,6 +2287,63 @@ import { truncate } from './utils';
             responseInput.style.overflow = 'auto';
         }
     }
+
+    // ================================
+    // Resize Handle Logic
+    // ================================
+
+    const resizeHandle = document.getElementById('resize-handle');
+    let isResizing = false;
+    let resizeStartY = 0;
+    let resizeStartHeight = 0;
+
+    function startResize(e: MouseEvent): void {
+        if (!responseInput) return;
+        e.preventDefault();
+
+        isResizing = true;
+        resizeStartY = e.clientY;
+        resizeStartHeight = responseInput.offsetHeight;
+
+        resizeHandle?.classList.add('dragging');
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('mouseup', stopResize);
+    }
+
+    function onResizeMove(e: MouseEvent): void {
+        if (!isResizing || !responseInput) return;
+
+        // Dragging up (negative delta) increases height; dragging down decreases
+        const delta = resizeStartY - e.clientY;
+        const minHeight = 24;
+        const maxHeight = 2000;
+        const newHeight = Math.max(minHeight, Math.min(resizeStartHeight + delta, maxHeight));
+
+        userSetTextareaHeight = newHeight;
+        responseInput.style.height = `${newHeight}px`;
+        responseInput.style.overflow = newHeight >= maxHeight || responseInput.scrollHeight > newHeight ? 'auto' : 'hidden';
+    }
+
+    function stopResize(): void {
+        isResizing = false;
+        resizeHandle?.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        document.removeEventListener('mousemove', onResizeMove);
+        document.removeEventListener('mouseup', stopResize);
+    }
+
+    resizeHandle?.addEventListener('mousedown', startResize);
+
+    // Double-click to reset to auto-resize behavior
+    resizeHandle?.addEventListener('dblclick', () => {
+        userSetTextareaHeight = null;
+        autoResizeTextarea();
+    });
 
     /**
      * Handle textarea input for # trigger detection
