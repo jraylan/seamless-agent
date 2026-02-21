@@ -110,6 +110,8 @@ declare global {
             selectFile: string;
             noFilesFound: string;
             dropImageHere: string;
+            lastOpened: string;
+            pendingCount: string;
             // Session histors
             recentSessions: string;
             noRecentSessions: string;
@@ -424,7 +426,7 @@ import { truncate } from './utils';
             // Check if element is visible using offsetParent (null if hidden)
             // and also check computed display style
             return htmlItem.offsetParent !== null ||
-                   (htmlItem.style.display !== 'none' &&
+                (htmlItem.style.display !== 'none' &&
                     window.getComputedStyle(htmlItem).display !== 'none');
         });
 
@@ -463,7 +465,7 @@ import { truncate } from './utils';
         const visibleItems = allItems.filter(item => {
             const htmlItem = item as HTMLElement;
             return htmlItem.offsetParent !== null ||
-                   (htmlItem.style.display !== 'none' &&
+                (htmlItem.style.display !== 'none' &&
                     window.getComputedStyle(htmlItem).display !== 'none');
         });
 
@@ -493,7 +495,7 @@ import { truncate } from './utils';
      */
     function updateBatchSelectionUI(): void {
         const count = selectedInteractionIds.size;
-        const countText = window.__STRINGS__?.batchSelectedCount?.replace('{count}', count.toString()) || `${count} selected`;
+        const countText = window.__STRINGS__?.batchSelectedCount?.replace('{0}', count.toString()) || `${count} selected`;
 
         if (batchSelectedCount) {
             batchSelectedCount.textContent = countText;
@@ -891,7 +893,7 @@ import { truncate } from './utils';
 
         // Sort requests by creation time (oldest first) for numbering
         const sortedByCreation = [...requests].sort((a, b) => a.createdAt - b.createdAt);
-        
+
         // Create a map of id -> creation order (for numbering)
         const creationOrder = new Map<string, number>();
         sortedByCreation.forEach((req, idx) => {
@@ -932,12 +934,12 @@ import { truncate } from './utils';
                     title: window.__STRINGS__.close || 'Close',
                     attrs: { type: 'button', 'data-id': req.id }
                 }, codicon('circle-slash'));
-                
+
                 // Add "Last opened" label if this is the currently viewed request
                 if (req.id === selectedRequestId) {
-                    const lastOpenedBadge = el('span', { 
+                    const lastOpenedBadge = el('span', {
                         className: 'last-opened-badge',
-                        text: 'Last opened'
+                        text: window.__STRINGS__.lastOpened || 'Last opened'
                     });
                     appendChildren(metaEl, deleteBtn, ' ', timeEl, ' ', lastOpenedBadge);
                 } else {
@@ -996,19 +998,19 @@ import { truncate } from './utils';
         // Set header title with order and pending count if provided
         if (headerTitle) {
             const baseTitle = title || 'Confirmation Required';
-            
+
             // Clear and rebuild header with proper structure for truncation
             headerTitle.innerHTML = '';
-            
+
             // Format: "2. Title (3 pending)" or "Title" if only 1
             if (pendingCount && pendingCount > 1) {
                 const orderPrefix = requestOrder ? `${requestOrder}. ` : '';
-                const pendingBadge = `(${pendingCount} pending)`;
-                
+                const pendingBadge = window.__STRINGS__?.pendingCount?.replace('{0}', pendingCount.toString()) || `(${pendingCount} pending)`;
+
                 const orderSpan = el('span', { className: 'pending-badge', text: orderPrefix });
                 const titleText = el('span', { className: 'title-text', text: baseTitle });
                 const pendingText = el('span', { className: 'pending-badge', text: pendingBadge });
-                
+
                 headerTitle.appendChild(orderSpan);
                 headerTitle.appendChild(titleText);
                 headerTitle.appendChild(pendingText);
@@ -1055,16 +1057,16 @@ import { truncate } from './utils';
             // Update the header with new pending count
             const titleText = headerTitle.querySelector('.title-text');
             const baseTitle = titleText ? titleText.textContent || '' : '';
-            
+
             headerTitle.innerHTML = '';
-            
+
             const orderPrefix = requestOrder ? `${requestOrder}. ` : '';
-            const pendingBadge = `(${count} pending)`;
-            
+            const pendingBadge = window.__STRINGS__?.pendingCount?.replace('{0}', count.toString()) || `(${count} pending)`;
+
             const orderSpan = el('span', { className: 'pending-badge', text: orderPrefix });
             const titleEl = el('span', { className: 'title-text', text: baseTitle });
             const pendingText = el('span', { className: 'pending-badge', text: pendingBadge });
-            
+
             headerTitle.appendChild(orderSpan);
             headerTitle.appendChild(titleEl);
             headerTitle.appendChild(pendingText);

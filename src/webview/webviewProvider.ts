@@ -149,16 +149,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         console.log(req)
 
         return new Promise<UserResponseResult>((resolve) => {
-        const item: RequestItem = {
-            id: req,
-            question,
-            title: title || strings.confirmationRequired,
-            createdAt: Date.now(),
-            attachments: [],
-            agentName,
-            options,
-            draftText: '',
-        };
+            const item: RequestItem = {
+                id: req,
+                question,
+                title: title || strings.confirmationRequired,
+                createdAt: Date.now(),
+                attachments: [],
+                agentName,
+                options,
+                draftText: '',
+            };
 
             this._pendingRequests.set(req, { item, resolve });
 
@@ -206,12 +206,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             responded: false, response: reason, attachments: []
         });
         this._pendingRequests.delete(requestId);
-        
+
         // Clear last opened if this was the last opened request
         if (this._lastOpenedRequestId === requestId) {
             this._lastOpenedRequestId = null;
         }
-        
+
         this._setBadge(this._pendingRequests.size);
 
         // Update UI
@@ -265,7 +265,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const sortedRequests = Array.from(this._pendingRequests.values())
             .map(p => p.item)
             .sort((a, b) => a.createdAt - b.createdAt);
-        
+
         const requestOrder = sortedRequests.findIndex(r => r.id === item.id) + 1;
 
         const message: ToWebviewMessage = {
@@ -379,11 +379,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 }
 
                 break;
-            case 'backToList': 
+            case 'backToList':
                 // Don't clear _lastOpenedRequestId - keep for sorting
                 this._showList();
                 break;
-            case 'backToHome': 
+            case 'backToHome':
                 // Don't clear _lastOpenedRequestId - keep for sorting
                 this._showHome();
                 break;
@@ -1341,6 +1341,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{selectFile}}': strings.selectFile,
             '{{noFilesFound}}': strings.noFilesFound,
             '{{dropImageHere}}': strings.dropImageHere,
+            '{{lastOpened}}': strings.lastOpened,
+            '{{pendingCount}}': strings.pendingCount,
             // Session history strings
             '{{recentSessions}}': strings.recentSessions,
             '{{noRecentSessions}}': strings.noRecentSessions,

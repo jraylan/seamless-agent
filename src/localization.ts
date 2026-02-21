@@ -68,6 +68,8 @@ export const strings = {
     get noAttachments() { return localize('console.noAttachments'); },
     get pendingRequests() { return localize('console.pendingRequests'); },
     get inputRequired() { return localize('badge.inputRequired'); },
+    get pendingCount() { return localize('badge.pendingCount'); },
+    get lastOpened() { return localize('console.lastOpened'); },
     // Time formatting
     get justNow() { return localize('time.justNow'); },
     get minutesAgo() { return localize('time.minutesAgo'); },
