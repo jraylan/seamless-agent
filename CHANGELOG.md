@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.25](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.24...seamless-agent-v0.1.25) (2026-02-26)
+
+
+### Features
+
+* persist image attachments in history and add hover preview ([de82cf7](https://github.com/jraylan/seamless-agent/commit/de82cf7d259ed7bdc0cf1db1751e3853f9b42e86))
+* persist image attachments in history and add hover preview ([ba19fff](https://github.com/jraylan/seamless-agent/commit/ba19fffd6eec8af10a4d8ad07b8c39554e5534c4))
+* unify all logs with VS Code Output Channel closes [#87](https://github.com/jraylan/seamless-agent/issues/87) ([31465ef](https://github.com/jraylan/seamless-agent/commit/31465ef4d00b61a6a9f3409a05b8aab8f4070d1a))
+
+
+### Bug Fixes
+
+* **ask-user:** resolve session-end cleanup, stale selection, and list visibility ([#81](https://github.com/jraylan/seamless-agent/issues/81)) ([008fd61](https://github.com/jraylan/seamless-agent/commit/008fd61f525de38013d8bd09090e35c7d41355c7))
+* **ask-user:** resolve stale selection and hidden pending requests ([6d273cf](https://github.com/jraylan/seamless-agent/commit/6d273cfd39603d74b97b6aac5885b3b43b75f210))
+* clear pending requests list when agent session ends ([d5cbf88](https://github.com/jraylan/seamless-agent/commit/d5cbf886c6c392b5ec9f37ea22f111ec61516122))
+* resolve chip reference before declaration and null-check hoverPreviewImg ([09acca4](https://github.com/jraylan/seamless-agent/commit/09acca43f1e3dbef317595d2d4c4998f0becbbbd))
+
+
+### Code Refactoring
+
+* add type safety to postMessage on web views ([31465ef](https://github.com/jraylan/seamless-agent/commit/31465ef4d00b61a6a9f3409a05b8aab8f4070d1a))
+
 ## [0.1.24](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.23...seamless-agent-v0.1.24) (2026-02-21)
 
 
