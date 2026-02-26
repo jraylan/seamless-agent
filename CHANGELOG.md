@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.25](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.24...seamless-agent-v0.1.25) (2026-02-26)
+
+
+### Features
+
+* persist image attachments in history and add hover preview ([ba19fff](https://github.com/jraylan/seamless-agent/commit/ba19fffd6eec8af10a4d8ad07b8c39554e5534c4))
+
+
+### Bug Fixes
+
+* **ask-user:** resolve session-end cleanup, stale selection, and list visibility ([#81](https://github.com/jraylan/seamless-agent/issues/81)) ([#86](https://github.com/jraylan/seamless-agent/pull/86))
+
+
+### Code Refactoring
+
+* add type safety to postMessage on web views ([31465ef](https://github.com/jraylan/seamless-agent/commit/31465ef4d00b61a6a9f3409a05b8aab8f4070d1a))
+* unify all logs with VS Code Output Channel ([#87](https://github.com/jraylan/seamless-agent/issues/87)) ([31465ef](https://github.com/jraylan/seamless-agent/commit/31465ef4d00b61a6a9f3409a05b8aab8f4070d1a))
+
 ## [0.1.24](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.23...seamless-agent-v0.1.24) (2026-02-21)
 
 
