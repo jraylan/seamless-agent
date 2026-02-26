@@ -3,6 +3,7 @@ import { registerNativeTools } from './tools';
 import { AgentInteractionProvider } from './webview/webviewProvider';
 import { initializeChatHistoryStorage, getChatHistoryStorage } from './storage/chatHistoryStorage';
 import { strings } from './localization';
+import { registerChatOutputRenderers } from './renderers';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 
@@ -27,6 +28,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register the ask_user tool with the webview provider
     registerNativeTools(context, provider);
+
+    // Register chat output renderers for rich inline cards (proposed API, feature-gated)
+    registerChatOutputRenderers(context);
 
     // Register command to cancel pending plans
     const cancelPendingPlansCommand = vscode.commands.registerCommand('seamless-agent.cancelPendingPlans', async () => {
@@ -146,10 +150,13 @@ Never finish a response without first calling the ask_user tool to verify with t
                         toolInvocationToken: request.toolInvocationToken
                     }, token);
 
-                    // Show tool result
-                    for (const resultPart of toolResult.content) {
-                        if (resultPart instanceof vscode.LanguageModelTextPart) {
-                            stream.markdown(`\n\n**User Response:** ${resultPart.value}\n\n`);
+                    // Show tool result — skip markdown when a renderer card handles the display
+                    const hasRendererCard = !!(toolResult as any).toolResultDetails2;
+                    if (!hasRendererCard) {
+                        for (const resultPart of toolResult.content) {
+                            if (resultPart instanceof vscode.LanguageModelTextPart) {
+                                stream.markdown(`\n\n**User Response:** ${resultPart.value}\n\n`);
+                            }
                         }
                     }
                 }

@@ -171,4 +171,22 @@ export const strings = {
 
     // Errors
     get noSuchInteraction() { return localize('error.noSuchInteraction'); },
+
+    // Renderer cards
+    get rendererUserResponse() { return localize('renderer.userResponse'); },
+    get rendererDefaultAgentName() { return localize('renderer.defaultAgentName'); },
+    get rendererUserDismissed() { return localize('renderer.userDismissed'); },
+    get rendererClickToExpand() { return localize('renderer.clickToExpand'); },
+    get rendererUserResponded() { return localize('renderer.userResponded'); },
+    get rendererAttachments() { return localize('renderer.attachments'); },
+    get rendererRenderErrorAskUser() { return localize('renderer.renderErrorAskUser'); },
+    get rendererRenderErrorPlanReview() { return localize('renderer.renderErrorPlanReview'); },
+    get rendererError() { return localize('renderer.error'); },
+    get rendererPlanReview() { return localize('renderer.planReview'); },
+    get rendererWalkthrough() { return localize('renderer.walkthrough'); },
+    get rendererReview() { return localize('renderer.review'); },
+    get rendererStatus() { return localize('renderer.status'); },
+    get rendererChangesRequested() { return localize('renderer.changesRequested'); },
+    get rendererViewPlan() { return localize('renderer.viewPlan'); },
+    get rendererRevisionsRequired() { return localize('renderer.revisionsRequired'); },
 };

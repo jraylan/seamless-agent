@@ -26,7 +26,11 @@ import {
     parseApprovePlanInput,
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
+    ASK_USER_RESULT_MIME,
+    PLAN_REVIEW_RESULT_MIME,
 } from './schemas';
+import { AskUserRendererData, PlanReviewRendererData, encodeRendererData, truncatePlan } from '../renderers/types';
+import { getImageMimeType as getMimeType } from './utils';
 
 /**
  * Registers the native VS Code LM Tools
@@ -110,7 +114,36 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             }
 
             // Return result to the AI with both text and image parts
-            return new vscode.LanguageModelToolResult(resultParts);
+            const toolResult = new vscode.LanguageModelToolResult(resultParts);
+
+            // Attach renderer data for Chat Output Renderer (rich inline card)
+            try {
+                const rendererData: AskUserRendererData = {
+                    question: params.question,
+                    response: result.response,
+                    responded: result.responded,
+                    agentName: params.agentName,
+                    title: params.title,
+                    timestamp: Date.now(),
+                    attachments: (result.attachments || []).map(uri => {
+                        const name = uri.split('/').pop() || uri;
+                        const mime = getMimeType(vscode.Uri.parse(uri).fsPath);
+                        return {
+                            name,
+                            uri,
+                            isImage: mime !== 'application/octet-stream'
+                        };
+                    })
+                };
+                (toolResult as vscode.ExtendedLanguageModelToolResult2).toolResultDetails2 = {
+                    mime: ASK_USER_RESULT_MIME,
+                    value: encodeRendererData(rendererData)
+                };
+            } catch (e) {
+                console.warn('Failed to attach renderer data to ask_user result:', e);
+            }
+
+            return toolResult;
         },
         prepareInvocation(options) {
             return {
@@ -190,9 +223,31 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             );
 
             // Return result to the AI
-            return new vscode.LanguageModelToolResult([
+            const toolResult = new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(JSON.stringify(result))
             ]);
+
+            // Attach renderer data for Chat Output Renderer (rich inline card)
+            try {
+                const { content: planContent, truncated } = truncatePlan(params.plan);
+                const rendererData: PlanReviewRendererData = {
+                    title: params.title || 'Plan Review',
+                    status: result.status,
+                    mode: 'review',
+                    plan: planContent,
+                    timestamp: Date.now(),
+                    requiredRevisions: result.requiredRevisions || [],
+                    reviewId: result.reviewId
+                };
+                (toolResult as vscode.ExtendedLanguageModelToolResult2).toolResultDetails2 = {
+                    mime: PLAN_REVIEW_RESULT_MIME,
+                    value: encodeRendererData(rendererData)
+                };
+            } catch (e) {
+                console.warn('Failed to attach renderer data to plan_review result:', e);
+            }
+
+            return toolResult;
         }
     });
 
@@ -225,9 +280,31 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                 token
             );
 
-            return new vscode.LanguageModelToolResult([
+            const toolResult = new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(JSON.stringify(result))
             ]);
+
+            // Attach renderer data for Chat Output Renderer (rich inline card)
+            try {
+                const { content: planContent, truncated } = truncatePlan(params.plan);
+                const rendererData: PlanReviewRendererData = {
+                    title: params.title || 'Walkthrough Review',
+                    status: result.status,
+                    mode: 'walkthrough',
+                    plan: planContent,
+                    timestamp: Date.now(),
+                    requiredRevisions: result.requiredRevisions || [],
+                    reviewId: result.reviewId
+                };
+                (toolResult as vscode.ExtendedLanguageModelToolResult2).toolResultDetails2 = {
+                    mime: PLAN_REVIEW_RESULT_MIME,
+                    value: encodeRendererData(rendererData)
+                };
+            } catch (e) {
+                console.warn('Failed to attach renderer data to walkthrough_review result:', e);
+            }
+
+            return toolResult;
         }
     });
 

@@ -35,6 +35,9 @@
   ],
   "license": "MIT",
   "main": "./dist/extension.js",
+  "enabledApiProposals": [
+    "chatOutputRenderer"
+  ],
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -350,6 +353,20 @@
             "plan"
           ]
         }
+      }
+    ],
+    "chatOutputRenderers": [
+      {
+        "viewType": "seamless-agent.askUserResult",
+        "mimeTypes": [
+          "application/vnd.seamless-agent.ask-user-result"
+        ]
+      },
+      {
+        "viewType": "seamless-agent.planReviewResult",
+        "mimeTypes": [
+          "application/vnd.seamless-agent.plan-review-result"
+        ]
       }
     ],
     "commands": [

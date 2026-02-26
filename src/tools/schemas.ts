@@ -102,6 +102,16 @@ export type PlanReviewInput = z.infer<typeof PlanReviewInputSchema>;
 export type WalkthroughReviewInput = z.infer<typeof WalkthroughReviewInputSchema>;
 
 // ================================
+// Chat Output Renderer MIME Types
+// ================================
+
+/** MIME type for ask_user chat output renderer */
+export const ASK_USER_RESULT_MIME = 'application/vnd.seamless-agent.ask-user-result';
+
+/** MIME type for plan review chat output renderer */
+export const PLAN_REVIEW_RESULT_MIME = 'application/vnd.seamless-agent.plan-review-result';
+
+// ================================
 // Result Interfaces
 // ================================
 
