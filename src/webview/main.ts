@@ -1913,19 +1913,78 @@ import { truncate } from './utils';
                     : (interaction.response || noResponseLabel);
 
                 const attachmentsHtml = (interaction.attachments && interaction.attachments.length > 0)
-                    ? (() => (
-                        el('div', { className: 'detail-section detail-section-plain' },
+                    ? (() => {
+                        const hoverPreview = document.querySelector('.image-hover-preview') as HTMLElement;
+                        const hoverPreviewImg = hoverPreview?.querySelector('img') as HTMLImageElement;
+
+                        const chips = (interaction.attachments as (AttachmentInfo | string)[]).map((rawAtt) => {
+                            // Backward compat: old stored data may be plain URI strings
+                            if (typeof rawAtt === 'string') {
+                                const name = rawAtt.split('/').pop() || rawAtt;
+                                return el('span', { className: 'attachment-chip' },
+                                    codicon('file'), ' ', name
+                                );
+                            }
+                            const att = rawAtt as AttachmentInfo;
+                            const isImage = att.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name);
+                            const isFolder = att.isFolder;
+                            const hasThumbnailOrUri = !!(att.thumbnail || att.uri);
+
+                            let iconClass: string;
+                            let displayName: string;
+                            let extraClass: string;
+
+                            if (isFolder) {
+                                iconClass = 'folder';
+                                displayName = att.name;
+                                extraClass = '';
+                            } else if (isImage) {
+                                iconClass = 'file-media';
+                                displayName = att.id?.startsWith('img_') ? (window.__STRINGS__?.pastedImage || 'Pasted Image') : att.name;
+                                extraClass = ' attachment-chip-image';
+                            } else {
+                                iconClass = getFileIcon(att.name);
+                                displayName = att.name;
+                                extraClass = '';
+                            }
+
+                            const chipOptions: Parameters<typeof el>[1] = {
+                                className: `attachment-chip${extraClass}`,
+                                title: att.uri || att.name,
+                            };
+
+                            let chip: HTMLElement;
+
+                            if (isImage && hasThumbnailOrUri && hoverPreview && hoverPreviewImg) {
+                                chipOptions.on = {
+                                    mouseenter: () => {
+                                        const src = att.thumbnail || att.uri;
+                                        hoverPreviewImg.setAttribute('src', src);
+                                        hoverPreviewImg.setAttribute('alt', att.name);
+                                        const rect = chip.getBoundingClientRect();
+                                        hoverPreview.style.top = `${rect.top - hoverPreview.offsetHeight - 8}px`;
+                                        hoverPreview.classList.remove('hidden');
+                                    },
+                                    mouseleave: () => {
+                                        hoverPreview.classList.add('hidden');
+                                    }
+                                };
+                            }
+
+                            chip = el('span', chipOptions,
+                                codicon(iconClass), ' ', displayName
+                            );
+                            return chip;
+                        });
+
+                        return el('div', { className: 'detail-section detail-section-plain' },
                             el('div', { className: 'detail-label' },
-                                el('span', { className: 'codicon codicon-file' }),
+                                codicon('paperclip'),
                                 attachmentsLabel
                             ),
-                            el('div', { className: 'detail-attachments' },
-                                ...interaction.attachments.map(att => {
-                                    const name = att.split('/').pop() || att;
-                                    return el('span', { className: 'attachment-chip', text: name });
-                                })
-                            ))
-                    ))() : tn('');
+                            el('div', { className: 'detail-attachments' }, ...chips)
+                        );
+                    })() : tn('');
 
                 // Build read-only options display if the interaction had options
                 const optionsHtml = renderReadOnlyOptionsDetail(interaction);

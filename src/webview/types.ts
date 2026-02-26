@@ -13,7 +13,7 @@ export interface StoredInteraction {
     // For ask_user
     question?: string;
     response?: string;
-    attachments?: string[];
+    attachments?: AttachmentInfo[];
     agentName?: string;
     options?: AskUserOptions;
     selectedOptionLabels?: Record<string, string[]>;

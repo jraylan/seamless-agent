@@ -906,8 +906,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             };
             const ext = extMap[effectiveMimeType] || '.png';
 
-            // Use VS Code storage for temp images
-            const storageUri = this._context.storageUri;
+            // Use VS Code storage for temp images (fallback to globalStorageUri when no workspace is open)
+            const storageUri = this._context.storageUri ?? this._context.globalStorageUri;
 
             if (!storageUri) {
                 throw new Error('Storage URI not available');
@@ -1010,7 +1010,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     title: pending.item.title,
                     agentName: pending.item.agentName,
                     response: result.responded ? result.response : strings.cancelled,
-                    attachments: (result.attachments || []).map(a => a.uri),
+                    attachments: result.attachments || [],
                     options: pending.item.options,
                     selectedOptionLabels: selectedOptions,
                 });
@@ -1097,7 +1097,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public cleanupAllTempFiles(): void {
         try {
-            const storageUri = this._context.storageUri;
+            const storageUri = this._context.storageUri ?? this._context.globalStorageUri;
             if (!storageUri) return;
 
             const tempDir = path.join(storageUri.fsPath, 'temp-images');

@@ -70,7 +70,7 @@ export class ChatHistoryStorage {
         title?: string;
         agentName?: string;
         response?: string;
-        attachments?: string[];
+        attachments?: import('../webview/types').AttachmentInfo[];
         options?: import('../webview/types').AskUserOptions;
         selectedOptionLabels?: Record<string, string[]>;
     }): string {

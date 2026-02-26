@@ -1588,6 +1588,14 @@ button:disabled {
     font-size: 12px;
 }
 
+.attachment-chip-image {
+    cursor: default;
+}
+
+.attachment-chip-image .codicon {
+    color: var(--vscode-terminal-ansiCyan, #29b8db);
+}
+
 /* ================================
    Folder Attachment Styles
    ================================ */
