@@ -165,8 +165,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             // Update badge count
             this._setBadge(this._pendingRequests.size);
 
-            // Keep current view if a request is already being viewed
-            if (this._selectedRequestId) {
+            // Keep current view only when selected request is still valid
+            if (this._selectedRequestId && this._pendingRequests.has(this._selectedRequestId)) {
                 // Get the currently selected request and refresh it with updated pending count
                 const currentRequest = this._pendingRequests.get(this._selectedRequestId);
                 if (currentRequest) {
@@ -1036,6 +1036,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
             pending.resolve(cleanResult);
             this._pendingRequests.delete(requestId);
+
+            // Clear selected request if it was just resolved
+            if (this._selectedRequestId === requestId) {
+                this._selectedRequestId = null;
+            }
 
             // Clear last opened if this was the last opened request
             if (this._lastOpenedRequestId === requestId) {
