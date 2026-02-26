@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { askUser, planReviewApproval, walkthroughReview } from '../tools';
+import { Logger } from '../logging';
 
 export class McpServerManager {
     private server: http.Server | undefined;
@@ -26,7 +27,8 @@ export class McpServerManager {
             if (!reusePort || !this.port) {
                 this.port = await this.findAvailablePort();
             }
-            console.log(`Starting MCP server on port ${this.port}`);
+
+            Logger.log(`Starting MCP server on port ${this.port}`);
 
             this.mcpServer = new McpServer({
                 name: "Seamless Agent",
@@ -195,7 +197,7 @@ export class McpServerManager {
             // Create HTTP server
             this.server = http.createServer(async (req, res) => {
                 // Intencionalmente NÃO habilitamos CORS e evitamos logar headers (podem conter credenciais).
-                console.log(`[MCP Server] Incoming request: ${req.method} ${req.url}`);
+                Logger.log(`[MCP Server] Incoming request: ${req.method} ${req.url}`);
 
                 try {
                     const url = req.url || '/';
@@ -203,11 +205,11 @@ export class McpServerManager {
                     // Handle SSE connection endpoint
                     if (url === '/sse' || url.startsWith('/sse/') || url.startsWith('/sse?')) {
                         if (req.method === 'DELETE') {
-                            console.log('[MCP Server] Handling DELETE request');
+                            Logger.log('[MCP Server] Handling DELETE request');
                             try {
                                 await this.transport?.handleRequest(req, res);
                             } catch (e) {
-                                console.error('[MCP Server] Error in transport DELETE:', e);
+                                Logger.error('[MCP Server] Error in transport DELETE:', e);
                                 if (!res.headersSent) {
                                     res.writeHead(202);
                                     res.end('Session closed');
@@ -221,26 +223,26 @@ export class McpServerManager {
                         const queryIndex = url.indexOf('?');
                         req.url = queryIndex !== -1 ? '/' + url.substring(queryIndex) : '/';
 
-                        console.log(`[MCP Server] Forwarding to transport as ${req.url}`);
+                        Logger.log(`[MCP Server] Forwarding to transport as ${req.url}`);
                         await this.transport?.handleRequest(req, res);
-                        console.log(`[MCP Server] Transport finished. Status: ${res.statusCode}`);
+                        Logger.log(`[MCP Server] Transport finished. Status: ${res.statusCode}`);
                         return;
                     }
 
                     // Handle message endpoint (POST requests with session_id)
                     // The client sends messages to /message?session_id=...
                     if (url.startsWith('/message') || url.startsWith('/messages')) {
-                        console.log(`[MCP Server] Handling message request to ${url}`);
+                        Logger.log(`[MCP Server] Handling message request to ${url}`);
                         await this.transport?.handleRequest(req, res);
-                        console.log(`[MCP Server] Transport finished (message). Status: ${res.statusCode}`);
+                        Logger.log(`[MCP Server] Transport finished (message). Status: ${res.statusCode}`);
                         return;
                     }
 
-                    console.log(`[MCP Server] 404 for ${url}`);
+                    Logger.log(`[MCP Server] 404 for ${url}`);
                     res.writeHead(404);
                     res.end();
                 } catch (error) {
-                    console.error('[MCP Server] Error handling request:', error);
+                    Logger.error('[MCP Server] Error handling request:', error);
                     if (!res.headersSent) {
                         res.writeHead(500);
                         res.end('Internal Server Error');
@@ -257,20 +259,20 @@ export class McpServerManager {
             await this.registerWithAntigravity();
 
         } catch (error) {
-            console.error('Failed to start MCP server:', error);
+            Logger.error('Failed to start MCP server:', error);
             vscode.window.showErrorMessage(`Failed to start Seamless Agent MCP server: ${error}`);
         }
     }
 
     async restart() {
-        console.log('[MCP Server] Restarting...');
+        Logger.log('[MCP Server] Restarting...');
         try {
             await Promise.race([
                 this.dispose(),
                 new Promise(resolve => setTimeout(resolve, 2000))
             ]);
         } catch (e) {
-            console.error('[MCP Server] Error during dispose on restart:', e);
+            Logger.error('[MCP Server] Error during dispose on restart:', e);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -289,7 +291,7 @@ export class McpServerManager {
                 try {
                     await this.mcpServer.close();
                 } catch (e) {
-                    console.error('Error closing MCP server:', e);
+                    Logger.error('Error closing MCP server:', e);
                 }
                 this.mcpServer = undefined;
             }
@@ -333,7 +335,7 @@ export class McpServerManager {
                     const content = fs.readFileSync(mcpConfigPath, 'utf8');
                     config = JSON.parse(content);
                 } catch (e) {
-                    console.warn('Failed to parse existing mcp_config.json, starting fresh', e);
+                    Logger.warn('Failed to parse existing mcp_config.json, starting fresh', e);
                 }
             }
 
@@ -348,7 +350,7 @@ export class McpServerManager {
             fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
 
         } catch (error) {
-            console.error('Failed to register MCP server in mcp_config.json:', error);
+            Logger.error('Failed to register MCP server in mcp_config.json:', error);
         }
     }
 
@@ -372,7 +374,7 @@ export class McpServerManager {
                 }
             }
         } catch (error) {
-            console.error('Failed to unregister MCP server:', error);
+            Logger.error('Failed to unregister MCP server:', error);
         }
     }
 }

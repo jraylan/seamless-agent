@@ -69,7 +69,7 @@ describe('InputHistoryManager', () => {
             maxSize
         };
 
-        return new InputHistoryManager(deps, config);
+        return new InputHistoryManager(deps, config, console);
     };
 
     beforeEach(() => {
@@ -106,7 +106,7 @@ describe('InputHistoryManager', () => {
         it('should handle invalid localStorage data', () => {
             // Suppress expected console.error during this test
             const originalError = console.error;
-            console.error = () => {};
+            console.error = () => { };
 
             try {
                 mockLocalStorage.setItem('test-history', 'invalid json');
@@ -373,12 +373,13 @@ describe('InputHistoryManager', () => {
             const managerWithNullTextarea = new InputHistoryManager(
                 {
                     getTextarea: () => null,
-                    onTextChange: () => {}
+                    onTextChange: () => { }
                 },
                 {
                     storageKey: 'test',
                     maxSize: 50
-                }
+                },
+                console
             );
 
             managerWithNullTextarea.addToHistory('test');
@@ -535,12 +536,13 @@ describe('InputHistoryManager', () => {
             const newManager = new InputHistoryManager(
                 {
                     getTextarea: () => newTextarea as any,
-                    onTextChange: () => {}
+                    onTextChange: () => { }
                 },
                 {
                     storageKey: 'test-polluted',
                     maxSize: 50
-                }
+                },
+                console
             );
 
             // Should only keep string elements

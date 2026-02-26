@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logging';
 
 // Load localized strings
 const bundle = JSON.parse(
@@ -22,7 +23,7 @@ try {
                     Object.assign(bundle, localizedBundle);
                     return true;
                 } catch {
-                    console.log('[Seamless Agent] Lang not found: ' + loc);
+                    Logger.info('Lang not found: %s. Fallback to "en"', loc);
                 }
             }
 
@@ -37,7 +38,9 @@ try {
             }
         }
     }
-} catch { }
+} catch (error) {
+    Logger.error('Error loading localization files:', error);
+}
 
 export function localize(key: string, ...args: (string | number)[]): string {
     let message = bundle[key] || key;

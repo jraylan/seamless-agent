@@ -55,8 +55,8 @@ const md = new MarkdownIt({
 });
 
 // Types
-import type { RequiredPlanRevisions, PlanReviewMode } from './types';
-import { truncate } from './utils';
+import type { RequiredPlanRevisions, PlanReviewMode, VSCodeAPI, FromWebviewMessage } from './types';
+import { getLogger, truncate } from './utils';
 
 // Strings interface specific to planReview webview
 interface PlanReviewStrings {
@@ -83,6 +83,7 @@ declare global {
 // Webview initialization
 (function () {
     const vscode = acquireVsCodeApi();
+    const logger = getLogger(vscode);
 
     // State
     let comments: RequiredPlanRevisions[] = [];
@@ -205,7 +206,7 @@ declare global {
 
                 if (element.childElementCount === 1 && element.firstElementChild?.tagName === 'hr') {
                     readOnly = true
-                    console.log(node)
+                    logger.log(node)
                 }
 
                 // Get a meaningful citation from the content
@@ -440,12 +441,12 @@ declare global {
     // Event Listeners
     primaryBtn?.addEventListener('click', () => {
         const action = primaryBtn.getAttribute('data-action') || 'approve';
-        vscode.postMessage({ type: action, comments });
+        vscode.postMessage({ type: action, comments } as FromWebviewMessage);
     });
 
     secondaryBtn?.addEventListener('click', () => {
         const action = secondaryBtn.getAttribute('data-action') || 'reject';
-        vscode.postMessage({ type: action, comments });
+        vscode.postMessage({ type: action, comments } as FromWebviewMessage);
     });
 
     exportBtn?.addEventListener('click', () => {
@@ -503,8 +504,5 @@ declare global {
 })();
 
 // Type declaration for VS Code API
-declare function acquireVsCodeApi(): {
-    postMessage(message: unknown): void;
-    getState(): unknown;
-    setState(state: unknown): void;
-};
+declare function acquireVsCodeApi(): VSCodeAPI;
+

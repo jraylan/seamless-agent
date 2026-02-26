@@ -22,6 +22,7 @@ import {
     AskUserOptions,
 } from "./types";
 import { truncate } from './utils';
+import { Logger } from '../logging';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -146,7 +147,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         // Generate unique ID for this request
         const req = requestId ?? `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
-        console.log(req)
+        Logger.log(req)
 
         return new Promise<UserResponseResult>((resolve) => {
             const item: RequestItem = {
@@ -301,7 +302,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pendingPlanReviews = this._chatHistoryStorage.getPendingPlanReviews();
         const historyInteractions = this._chatHistoryStorage.getCompletedInteractions();
 
-        console.log('[Seamless Agent] _showHome called:', {
+        Logger.debug('_showHome called:', {
             pendingRequestsCount: pendingRequests.length,
             pendingPlanReviewsCount: pendingPlanReviews.length,
             historyInteractionsCount: historyInteractions.length,
@@ -356,20 +357,23 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     private async _handleWebviewMessage(message: FromWebviewMessage): Promise<void> {
         switch (message.type) {
-            case 'submit': this._resolveRequest(message.requestId, {
-                responded: true,
-                response: message.response,
-                attachments: message.attachments || []
-            }, message.selectedOptions);
+            case 'submit':
+                this._resolveRequest(message.requestId, {
+                    responded: true,
+                    response: message.response,
+                    attachments: message.attachments || []
+                }, message.selectedOptions);
                 break;
 
-            case 'cancel': this._resolveRequest(message.requestId, {
-                responded: false,
-                response: '',
-                attachments: []
-            });
+            case 'cancel':
+                this._resolveRequest(message.requestId, {
+                    responded: false,
+                    response: '',
+                    attachments: []
+                });
                 break;
-            case 'selectRequest': this._selectedRequestId = message.requestId;
+            case 'selectRequest':
+                this._selectedRequestId = message.requestId;
                 // Track last opened for sorting
                 this._lastOpenedRequestId = message.requestId;
                 const pending = this._pendingRequests.get(message.requestId);
@@ -387,7 +391,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 // Don't clear _lastOpenedRequestId - keep for sorting
                 this._showHome();
                 break;
-            case 'clearHistory': {
+            case 'clearHistory':
                 const result = await vscode.window.showWarningMessage(
                     strings.confirmClearHistory,
                     { modal: true },
@@ -397,39 +401,51 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     this.clearHistory();
                 }
                 break;
-            }
-            case 'addAttachment': this._handleAddAttachment(message.requestId);
+            case 'addAttachment':
+                this._handleAddAttachment(message.requestId);
                 break;
-            case 'addFolderAttachment': this._handleAddFolderAttachment(message.requestId);
+            case 'addFolderAttachment':
+                this._handleAddFolderAttachment(message.requestId);
                 break;
-            case 'removeAttachment': this._handleRemoveAttachment(message.requestId, message.attachmentId);
+            case 'removeAttachment':
+                this._handleRemoveAttachment(message.requestId, message.attachmentId);
                 break;
-            case 'searchFiles': this._handleSearchFiles(message.query);
+            case 'searchFiles':
+                this._handleSearchFiles(message.query);
                 break;
-            case 'saveImage': this._handleSaveImage(message.requestId, message.data, message.mimeType);
+            case 'saveImage':
+                this._handleSaveImage(message.requestId, message.data, message.mimeType);
                 break;
-            case 'addFileReference': this._handleAddFileReference(message.requestId, message.file);
+            case 'addFileReference':
+                this._handleAddFileReference(message.requestId, message.file);
                 break;
-            case 'clearChatHistory': this._handleClearChatHistory();
+            case 'clearChatHistory':
+                this._handleClearChatHistory();
                 break;
-            case 'selectPlanReview': this._handleSelectInteraction(message.interactionId);
+            case 'selectPlanReview':
+                this._handleSelectInteraction(message.interactionId);
                 break;
-            case 'selectInteraction': this._handleSelectInteraction(message.interactionId);
+            case 'selectInteraction':
+                this._handleSelectInteraction(message.interactionId);
                 break;
-            case 'openPlanReviewPanel': this._handleOpenPlanReviewPanel(message.interactionId);
+            case 'openPlanReviewPanel':
+                this._handleOpenPlanReviewPanel(message.interactionId);
                 break;
-            case 'deleteInteraction': this._handleDeleteInteraction(message.interactionId);
+            case 'deleteInteraction':
+                this._handleDeleteInteraction(message.interactionId);
                 break;
-            case 'deleteMultipleInteractions': this._handleDeleteMultipleInteractions(message.interactionIds);
+            case 'deleteMultipleInteractions':
+                this._handleDeleteMultipleInteractions(message.interactionIds);
                 break;
-            case 'cancelPendingRequest': {
+            case 'cancelPendingRequest':
                 this.cancelPendingRequest(message.requestId);
                 break;
-            }
-            case 'saveDraft': {
+            case 'saveDraft':
                 this._handleSaveDraft(message.requestId, message.draftText);
                 break;
-            }
+            case 'log':
+                Logger.logWithLevel(message.level, message.message);
+                break;
         }
     }
 
@@ -635,7 +651,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
 
         catch (error) {
-            console.error('Error finding folders:', error);
+            Logger.error('Error finding folders:', error);
         }
 
         // Sort by label
@@ -785,7 +801,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
 
         catch (error) {
-            console.error('File search error:', error);
+            Logger.error('File search error:', error);
 
             this._view?.webview.postMessage({
                 type: 'fileSearchResults',
@@ -837,14 +853,14 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         try {
             // Robust parse of data URL: data:<mime>[;base64],<data>
             if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
-                console.error('Invalid data URL format');
+                Logger.error('Invalid data URL format');
                 vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
                 return;
             }
 
             const commaIndex = dataUrl.indexOf(',');
             if (commaIndex === -1) {
-                console.error('Invalid data URL format (missing comma)');
+                Logger.error('Invalid data URL format (missing comma)');
                 vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
                 return;
             }
@@ -868,7 +884,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     ? Buffer.from(dataPart, 'base64')
                     : Buffer.from(decodeURIComponent(dataPart), 'utf8');
             } catch (e) {
-                console.error('Failed to decode data URL payload', e);
+                Logger.error('Failed to decode data URL payload', e);
                 vscode.window.showWarningMessage(strings.attachmentInvalidDataUrl);
                 return;
             }
@@ -979,7 +995,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
 
         catch (error) {
-            console.error('Failed to save image:', error);
+            Logger.error('Failed to save image:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
             vscode.window.showErrorMessage(localize('attachment.saveImageFailed', errorMessage));
@@ -1015,7 +1031,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     selectedOptionLabels: selectedOptions,
                 });
             } catch (e) {
-                console.error('[Seamless Agent] Failed to save ask_user interaction to ChatHistoryStorage:', e);
+                Logger.error('Failed to save ask_user interaction to ChatHistoryStorage:', e);
             }
 
             // Clean up temporary image files (pasted/dropped images)
@@ -1079,12 +1095,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                         if (fs.existsSync(filePath)) {
                             fs.unlinkSync(filePath);
 
-                            console.log(`Cleaned up temp attachment: ${filePath}`);
+                            Logger.log(`Cleaned up temp attachment: ${filePath}`);
                         }
                     }
 
                     catch (error) {
-                        console.error('Failed to cleanup temp attachment:', error);
+                        Logger.error('Failed to cleanup temp attachment:', error);
                     }
                 }
             }
@@ -1110,11 +1126,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                         const filePath = path.join(tempDir, file);
                         fs.unlinkSync(filePath);
 
-                        console.log(`Cleaned up orphaned temp file: ${filePath}`);
+                        Logger.log(`Cleaned up orphaned temp file: ${filePath}`);
                     }
 
                     catch (err) {
-                        console.error(`Failed to clean up ${file}:`, err);
+                        Logger.error(`Failed to clean up ${file}:`, err);
                     }
                 }
 
@@ -1128,7 +1144,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
 
         catch (error) {
-            console.error('Failed to cleanup temp directory:', error);
+            Logger.error('Failed to cleanup temp directory:', error);
         }
     }
 

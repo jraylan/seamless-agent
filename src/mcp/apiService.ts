@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { askUser, planReview } from '../tools';
 import { PlanReviewInput, parsePlanReviewInput } from '../tools/schemas';
+import { Logger } from '../logging';
 
 export { planReviewApproval, walkthroughReview } from '../tools/planReview';
 
@@ -36,7 +37,8 @@ export class ApiServiceManager {
                 this.authToken = crypto.randomBytes(32).toString('base64url');
                 await this.context.globalState.update('seamlessAgent.apiAuthToken', this.authToken);
             }
-            console.log(`Starting API service on port ${this.port}`);
+
+            Logger.log(`Starting API service on port ${this.port}`);
 
             // Create HTTP server for API endpoints
             this.server = http.createServer(async (req, res) => {
@@ -67,7 +69,7 @@ export class ApiServiceManager {
                     res.writeHead(404, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Not found' }));
                 } catch (error) {
-                    console.error('[API Service] Error handling request:', error);
+                    Logger.error('[API Service] Error handling request:', error);
                     if (!res.headersSent) {
                         res.writeHead(500, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -80,7 +82,7 @@ export class ApiServiceManager {
                 this.server?.listen(this.port, '127.0.0.1', () => resolve());
             });
 
-            console.log(`API service started on port ${this.port}`);
+            Logger.log(`API service started on port ${this.port}`);
 
             // Register with Antigravity using command format
             await this.registerWithAntigravity();
@@ -90,7 +92,7 @@ export class ApiServiceManager {
             );
 
         } catch (error) {
-            console.error('Failed to start API service:', error);
+            Logger.error('Failed to start API service:', error);
             vscode.window.showErrorMessage(`Failed to start Seamless Agent API service: ${error}`);
         }
     }
@@ -300,11 +302,11 @@ export class ApiServiceManager {
     }
 
     async restart() {
-        console.log('[API Service] Restarting...');
+        Logger.log('[API Service] Restarting...');
         try {
             await this.dispose();
         } catch (e) {
-            console.error('[API Service] Error during dispose on restart:', e);
+            Logger.error('[API Service] Error during dispose on restart:', e);
         }
 
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -370,7 +372,7 @@ export class ApiServiceManager {
                     const content = fs.readFileSync(mcpConfigPath, 'utf8');
                     config = JSON.parse(content);
                 } catch (e) {
-                    console.warn('Failed to parse existing mcp_config.json, starting fresh', e);
+                    Logger.warn('Failed to parse existing mcp_config.json, starting fresh', e);
                 }
             }
 
@@ -387,10 +389,10 @@ export class ApiServiceManager {
             };
 
             fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
-            console.log(`Registered with Antigravity: command=node, args=[${cliScriptPath}, --port, ${this.port}]`);
+            Logger.log(`Registered with Antigravity: command=node, args=[${cliScriptPath}, --port, ${this.port}]`);
 
         } catch (error) {
-            console.error('Failed to register MCP server in mcp_config.json:', error);
+            Logger.error('Failed to register MCP server in mcp_config.json:', error);
         }
     }
 
@@ -417,7 +419,7 @@ export class ApiServiceManager {
                 }
             }
         } catch (error) {
-            console.error('Failed to unregister MCP server:', error);
+            Logger.error('Failed to unregister MCP server:', error);
         }
     }
 }

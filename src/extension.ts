@@ -3,6 +3,7 @@ import { registerNativeTools } from './tools';
 import { AgentInteractionProvider } from './webview/webviewProvider';
 import { initializeChatHistoryStorage, getChatHistoryStorage } from './storage/chatHistoryStorage';
 import { strings } from './localization';
+import { Logger } from './logging';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 
@@ -10,8 +11,7 @@ const PARTICIPANT_ID = 'seamless-agent.agent';
 let agentProvider: AgentInteractionProvider | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Seamless Agent extension active');
-
+    Logger.log('Seamless Agent extension active');
     // Initialize the chat history storage (must be done before tools are registered)
     initializeChatHistoryStorage(context);
 
@@ -178,5 +178,5 @@ export function deactivate() {
         agentProvider.cleanupAllTempFiles();
         agentProvider = null;
     }
-    console.log('Seamless Agent extension deactivated');
+    Logger.log('Seamless Agent extension deactivated');
 }

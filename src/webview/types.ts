@@ -160,6 +160,8 @@ export type ToWebviewMessage = | {
         type: 'clear'
     };
 
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
 export type FromWebviewMessage = | {
     type: 'submit';
     response: string;
@@ -243,7 +245,46 @@ export type FromWebviewMessage = | {
         type: 'saveDraft';
         requestId: string;
         draftText: string
-    };
+    }
+    | {
+        type: 'approve';
+        comments: RequiredPlanRevisions[]
+    }
+    | {
+        type: 'reject';
+        comments: RequiredPlanRevisions[]
+    }
+    | {
+        type: 'acknowledge';
+        comments: RequiredPlanRevisions[]
+    }
+    | {
+        type: 'close';
+        comments: RequiredPlanRevisions[]
+    }
+    | {
+        type: 'addComment';
+        revisedPart: string;
+        revisorInstructions: string
+    }
+    | {
+        type: 'editComment';
+        index: number;
+        revisorInstructions: string
+    }
+    | {
+        type: 'removeComment';
+        index: number
+    }
+    | {
+        type: 'exportPlan'
+    }
+    | {
+        type: 'log';
+        level: LogLevel;
+        message: any[];
+    }
+    | { type: 'ready' };
 
 
 // Plan review types (shared between extension and webview)
@@ -294,3 +335,10 @@ export interface UserResponseResult {
     response: string;
     attachments: AttachmentInfo[];
 }
+
+export interface VSCodeAPI {
+    postMessage(message: FromWebviewMessage): void;
+    getState(): unknown;
+    setState(state: unknown): void;
+}
+

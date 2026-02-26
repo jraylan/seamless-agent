@@ -4,6 +4,7 @@ import type { PlanReviewOptions } from '../webview/types';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
 import { getChatHistoryStorage } from '../storage/chatHistoryStorage';
 import { PlanReviewInput, PlanReviewToolResult, WalkthroughReviewInput } from './schemas';
+import { Logger } from '../logging';
 
 export type PlanReviewApprovalInput = Pick<PlanReviewInput, 'plan' | 'title' | 'chatId'>;
 
@@ -39,14 +40,14 @@ export async function planReview(
         requiredRevisions: []
     });
 
-    console.log('[Seamless Agent] planReview saved with interactionId:', interactionId);
+    Logger.log('planReview saved with interactionId:', interactionId);
 
     // Refresh the webview to show the pending plan in the list
     provider.refreshHome();
 
     // Register cancellation handler - if agent stops, mark as cancelled
     const cancellationDisposable = token.onCancellationRequested(() => {
-        console.log('[Seamless Agent] planReview cancelled by agent, closing:', interactionId);
+        Logger.log('planReview cancelled by agent, closing:', interactionId);
 
         storage.updateInteraction(interactionId, { status: 'closed' });
         // Also close the panel if it's open
@@ -98,7 +99,7 @@ export async function planReview(
             reviewId: interactionId
         };
     } catch (error) {
-        console.error('Error showing plan review panel:', error);
+        Logger.error('Error showing plan review panel:', error);
 
         // Mark as closed on error
         storage.updateInteraction(interactionId, { status: 'closed' });

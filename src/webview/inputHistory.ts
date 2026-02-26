@@ -5,6 +5,8 @@
  * Supports draft saving, edit tracking, and localStorage persistence.
  */
 
+import type { WebviewLogger } from "./utils";
+
 /**
  * Configuration options for InputHistoryManager
  */
@@ -36,7 +38,8 @@ export class InputHistoryManager {
 
     constructor(
         private deps: InputHistoryDependencies,
-        private config: InputHistoryConfig
+        private config: InputHistoryConfig,
+        private logger: WebviewLogger
     ) {
         this.loadFromStorage();
     }
@@ -59,7 +62,7 @@ export class InputHistoryManager {
                 }
             }
         } catch (error) {
-            console.error('Failed to load input history:', error);
+            this.logger.error('Failed to load input history:', error);
             this.history = [];
         }
     }
@@ -71,7 +74,7 @@ export class InputHistoryManager {
         try {
             localStorage.setItem(this.config.storageKey, JSON.stringify(this.history));
         } catch (error) {
-            console.error('Failed to save input history:', error);
+            this.logger.error('Failed to save input history:', error);
         }
     }
 
@@ -219,7 +222,7 @@ export class InputHistoryManager {
         try {
             localStorage.removeItem(this.config.storageKey);
         } catch (error) {
-            console.error('Failed to clear input history:', error);
+            this.logger.error('Failed to clear input history:', error);
         }
     }
 

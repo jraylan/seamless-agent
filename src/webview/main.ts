@@ -172,15 +172,17 @@ import type {
     RequestItem,
     FileSearchResult,
     ToolCallInteraction,
-    RequiredPlanRevisions,
-    StoredInteraction
+    StoredInteraction,
+    VSCodeAPI,
 } from './types';
-import { truncate } from './utils';
+import { truncate, getLogger } from './utils';
+
 
 // Webview initialization
 (function () {
     // Acquire VS Code API
     const vscode = acquireVsCodeApi();
+    const logger = getLogger(vscode);
 
     // State
     let currentRequestId: string | null = null;
@@ -232,7 +234,8 @@ import { truncate } from './utils';
         {
             storageKey: 'seamless-agent-input-history',
             maxSize: 50
-        }
+        },
+        logger // Not very elegant but we can't acquire vscode api twice
     );
 
     // Tab content elements
@@ -2735,7 +2738,7 @@ import { truncate } from './utils';
             draftSaveTimer = setTimeout(() => {
                 vscode.postMessage({
                     type: 'saveDraft',
-                    requestId: currentRequestId,
+                    requestId: currentRequestId!,
                     draftText: value
                 });
             }, 500); // Save after 500ms of inactivity
@@ -2974,12 +2977,12 @@ import { truncate } from './utils';
 
     // IME composition handlers - prevent scroll issues on Windows during IME input
     responseInput?.addEventListener('compositionstart', () => {
-        console.log(`composing start`)
+        logger.log(`composing start`)
         isComposing = true;
     });
 
     responseInput?.addEventListener('compositionend', () => {
-        console.log(`composing end`)
+        logger.log(`composing end`)
         isComposing = false;
     });
 
@@ -3185,7 +3188,7 @@ import { truncate } from './utils';
                 }
                 // If cancelled (success = false), stay in batch mode with current selection
                 break;
-            case 'clear': 
+            case 'clear':
                 showHome();
                 // Clear pending requests list when session ends
                 if (pendingRequestsList) {
@@ -3217,8 +3220,4 @@ import { truncate } from './utils';
 })();
 
 // Type declaration for VS Code API
-declare function acquireVsCodeApi(): {
-    postMessage(message: unknown): void;
-    getState(): unknown;
-    setState(state: unknown): void;
-};
+declare function acquireVsCodeApi(): VSCodeAPI;

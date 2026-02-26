@@ -1,3 +1,6 @@
+import { Logger } from "../../logging";
+
+
 /**
  * Validates that image file content matches its claimed MIME type using magic numbers
  * This provides additional security against files with spoofed extensions
@@ -26,7 +29,7 @@ export function validateImageMagicNumber(buffer: Uint8Array, mimeType: string): 
 
     if (!expectedSignatures) {
         // Unknown MIME type - allow but log warning
-        console.warn(`No magic number validation for MIME type: ${mimeType}`);
+        Logger.warn(`No magic number validation for MIME type: ${mimeType}`);
         return true;
     }
 

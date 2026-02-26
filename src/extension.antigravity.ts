@@ -4,12 +4,13 @@ import { AgentInteractionProvider } from './webview/webviewProvider';
 import { ApiServiceManager } from './mcp/apiService';
 import { initializeChatHistoryStorage, getChatHistoryStorage } from './storage/chatHistoryStorage';
 import { strings } from './localization';
+import { Logger } from './logging';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 let apiServiceManager: ApiServiceManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('Seamless Agent extension active');
+    Logger.log('Seamless Agent extension active');
 
     // Initialize the chat history storage (must be done before provider is created)
     initializeChatHistoryStorage(context);
@@ -71,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
         registerNativeTools(context, provider);
     } catch (e) {
-        console.warn('Failed to register native tools:', e);
+        Logger.warn('Failed to register native tools:', e);
     }
 
     // Register command to cancel pending plans

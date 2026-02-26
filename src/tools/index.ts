@@ -27,6 +27,7 @@ import {
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
 } from './schemas';
+import { Logger } from '../logging';
 
 /**
  * Registers the native VS Code LM Tools
@@ -40,10 +41,10 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             if (input.options && typeof input.options === 'string') {
                 try {
                     const parsed = JSON.parse(input.options as string);
-                    console.log('[LM Tools] Parsed options from JSON string (LLM serialization workaround):', parsed);
+                    Logger.log('[LM Tools] Parsed options from JSON string (LLM serialization workaround):', parsed);
                     input = { ...input, options: parsed };
                 } catch (e) {
-                    console.warn('[LM Tools] Failed to parse options as JSON string, validation may fail:', e);
+                    Logger.warn('[LM Tools] Failed to parse options as JSON string, validation may fail:', e);
                 }
             }
 
@@ -85,7 +86,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
 
                             // Validate that file content matches claimed MIME type (security check)
                             if (!validateImageMagicNumber(data, mimeType)) {
-                                console.warn(`Image file ${filePath} does not match expected format for ${mimeType}`);
+                                Logger.warn(`Image file ${filePath} does not match expected format for ${mimeType}`);
                                 return null;
                             }
 
@@ -94,7 +95,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
 
                         return null;
                     } catch (error) {
-                        console.error('Failed to read image attachment:', error);
+                        Logger.error('Failed to read image attachment:', error);
                         return null;
                     }
                 });
