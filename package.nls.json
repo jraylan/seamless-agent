@@ -119,5 +119,16 @@
   "confirm.deleteSelected": "Are you sure you want to delete {0} selected items?",
   "console.orTypeYourOwn": "Or type your own response below",
   "response.selectedOptions": "Selected options:",
-  "response.additionalResponse": "Additional response:"
+  "response.additionalResponse": "Additional response:",
+  "config.enableToolDebug.title": "Enable Tool Debug",
+  "config.enableToolDebug.description": "Show a debug tab in the webview for testing mock tool calls without starting a real conversation.",
+  "console.debugTools": "Debug",
+  "debug.sectionAskUser": "Ask User",
+  "debug.sectionPlanReview": "Plan Review",
+  "debug.sectionWalkthroughReview": "Walkthrough Review",
+  "debug.mockAskUser": "Plain Question",
+  "debug.mockAskUserOptions": "Options Question",
+  "debug.mockAskUserMultiStep": "Multi-Step Question",
+  "debug.mockPlanReview": "Plan Review",
+  "debug.mockWalkthroughReview": "Walkthrough Review"
 }

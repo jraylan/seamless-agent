@@ -65,6 +65,18 @@
               data-badge-for="history"
             ></span>
           </button>
+          <button
+            type="button"
+            class="home-toolbar-btn hidden"
+            id="debug-tab-btn"
+            data-tab="debug"
+            data-label="{{debugTools}}"
+            title="{{debugTools}}"
+            aria-label="{{debugTools}}"
+            aria-pressed="false"
+          >
+            <span class="codicon codicon-beaker"></span>
+          </button>
         </div>
 
         <!-- Content area - shows selected tab content -->
@@ -164,6 +176,11 @@
 
           <!-- Legacy recent interactions list for backwards compatibility -->
           <div id="recent-interactions-list" class="hidden"></div>
+
+          <!-- Debug Tab (Mock Tool Calls) -->
+          <div id="content-debug" class="tab-pane hidden">
+            <div id="debug-tools-list" class="debug-tools-list"></div>
+          </div>
         </div>
       </div>
 
@@ -357,9 +374,19 @@
         batchSelectedCount: "{{batchSelectedCount}}",
         historyTimeDisplay: "{{historyTimeDisplay}}",
         orTypeYourOwn: "{{orTypeYourOwn}}",
+        debugTools: "{{debugTools}}",
+        debugSectionAskUser: "{{debugSectionAskUser}}",
+        debugSectionPlanReview: "{{debugSectionPlanReview}}",
+        debugSectionWalkthroughReview: "{{debugSectionWalkthroughReview}}",
+        debugMockAskUser: "{{debugMockAskUser}}",
+        debugMockAskUserOptions: "{{debugMockAskUserOptions}}",
+        debugMockAskUserMultiStep: "{{debugMockAskUserMultiStep}}",
+        debugMockPlanReview: "{{debugMockPlanReview}}",
+        debugMockWalkthroughReview: "{{debugMockWalkthroughReview}}",
       };
       window.__CONFIG__ = {
         historyTimeDisplay: "{{historyTimeDisplay}}",
+        enableToolDebug: {{enableToolDebug}},
       };
     </script>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
