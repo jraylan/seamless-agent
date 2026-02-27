@@ -1492,7 +1492,7 @@ import { truncate, getLogger } from './utils';
             debug: window.__STRINGS__?.debugTools || 'Debug',
         };
 
-        announceToScreenReader(`${tabNames[tab]}tab selected`);
+        announceToScreenReader(`${tabNames[tab]} tab selected`);
     }
 
     /**
@@ -1844,7 +1844,7 @@ import { truncate, getLogger } from './utils';
 
             // Add debug badge if this is a debug mock interaction
             if (entry.isDebug) {
-                const debugBadge = el('span', { className: 'debug-badge', title: 'Debug Mock' }, codicon('bug'));
+                const debugBadge = el('span', { className: 'history-item-debug-badge', title: 'Debug Mock' }, codicon('bug'));
                 item.appendChild(debugBadge);
             }
 
@@ -3129,7 +3129,7 @@ import { truncate, getLogger } from './utils';
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: string; label: string; icon: string };
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3171,7 +3171,7 @@ import { truncate, getLogger } from './utils';
                             vscode.postMessage({
                                 type: 'debugMockToolCall',
                                 mockType: item.mockType,
-                            } as any);
+                            });
                         }
                     }
                 }, codicon(item.icon), item.label);
@@ -3290,10 +3290,10 @@ import { truncate, getLogger } from './utils';
                     window.__CONFIG__.enableToolDebug = !!message.value;
                     const debugTabBtn = document.querySelector('[data-tab="debug"]') as HTMLElement | null;
                     if (debugTabBtn) {
-                        debugTabBtn.style.display = message.value ? '' : 'none';
+                        debugTabBtn.classList.toggle('hidden', !message.value);
                     }
                     // If debug tab is currently active and it's being hidden, switch to pending
-                    if (!message.value && debugTabBtn?.classList.contains('active')) {
+                    if (!message.value && debugTabBtn && debugTabBtn.classList.contains('active')) {
                         switchTab('pending');
                     }
                 }

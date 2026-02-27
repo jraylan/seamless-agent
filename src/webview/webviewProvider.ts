@@ -117,7 +117,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     value: enabled,
                 } as ToWebviewMessage);
             }
-        });
+        }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
@@ -491,6 +491,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUser result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUser error:', err);
                 });
                 break;
 
@@ -509,6 +511,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUserOptions result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUserOptions error:', err);
                 });
                 break;
 
@@ -543,6 +547,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUserMultiStep result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUserMultiStep error:', err);
                 });
                 break;
 
