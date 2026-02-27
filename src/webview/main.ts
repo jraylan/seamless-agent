@@ -114,7 +114,7 @@ declare global {
             pendingCount: string;
             dragToResize: string;
             delete: string;
-            // Session histors
+            // Session histories
             recentSessions: string;
             noRecentSessions: string;
             clearHistory: string;
@@ -124,7 +124,7 @@ declare global {
             output: string;
             addFolder: string;
             viewDetail: string;
-            // Chat histors
+            // Chat histories
             pendingReviews: string;
             noPendingReviews: string;
             chatHistory: string;
@@ -139,7 +139,7 @@ declare global {
             question: string;
             response: string;
             noResponse: string;
-            // History filtes
+            // History filters
             historyFilterAll: string;
             historyFilterAskUser: string;
             historyFilterPlanReview: string;
@@ -3116,6 +3116,32 @@ import { truncate, getLogger } from './utils';
     });
 
 
+    function updateDebugTab(): void {
+        if (window.__CONFIG__?.enableToolDebug)
+            return initDebugTab();
+        else
+            return disposeDebugTab();
+    }
+
+
+    /** 
+     * Dispose the debug tab by hiding the button and clearing any existing debug tools - used when enableToolDebug is false or not set
+     */
+    function disposeDebugTab(): void {
+        if (window.__CONFIG__?.enableToolDebug) return;
+
+        switchTab('pending');
+
+        const debugTabBtn = document.getElementById('debug-tab-btn');
+        debugTabBtn?.classList.add('hidden');
+
+        const debugList = document.getElementById('debug-tools-list');
+        if (debugList) {
+            clearChildren(debugList);
+        }
+    }
+
+
     /**
      * Initialize the debug tab: populate mock tool call buttons if enableToolDebug is true.
      */
@@ -3288,14 +3314,7 @@ import { truncate, getLogger } from './utils';
             case 'updateConfig':
                 if (message.key === 'enableToolDebug') {
                     window.__CONFIG__.enableToolDebug = !!message.value;
-                    const debugTabBtn = document.querySelector('[data-tab="debug"]') as HTMLElement | null;
-                    if (debugTabBtn) {
-                        debugTabBtn.classList.toggle('hidden', !message.value);
-                    }
-                    // If debug tab is currently active and it's being hidden, switch to pending
-                    if (!message.value && debugTabBtn && debugTabBtn.classList.contains('active')) {
-                        switchTab('pending');
-                    }
+                    updateDebugTab()
                 }
                 break;
         }
@@ -3320,7 +3339,7 @@ import { truncate, getLogger } from './utils';
     initHistoryListDelegation();
 
     // Initialize debug tab if enabled
-    initDebugTab();
+    updateDebugTab();
 
 })();
 

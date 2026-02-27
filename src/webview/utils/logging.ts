@@ -1,11 +1,5 @@
-import type { LogLevel, VSCodeAPI } from "./types";
 
-export function truncate(str: string, maxLen: number): string {
-    if (str.length <= maxLen) return str;
-    return str.substring(0, maxLen) + '...';
-}
-
-
+import type { LogLevel, VSCodeAPI } from "../types";
 
 export interface WebviewLogger {
     log: (...message: any[]) => void;
