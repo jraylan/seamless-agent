@@ -118,7 +118,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Wait for a user response to a question.
      * Supports multiple concurrent requests.
      */
-    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions, multiSelect?: boolean): Promise<UserResponseResult> {
+    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions, multiSelect?: boolean, isDebug?: boolean): Promise<UserResponseResult> {
 
         // If the view isn't available, try to open it
         if (!this._view) {
