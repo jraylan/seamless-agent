@@ -5,22 +5,8 @@
 
 ### Features
 
-* add debug tool mock tab for webview testing ([42fee7d](https://github.com/jraylan/seamless-agent/commit/42fee7df8691be2d866f0ad2654218f664ea3162))
 * add debug tool mock tab for webview testing ([a5c8093](https://github.com/jraylan/seamless-agent/commit/a5c80933ce5341089a1fc5196dbf79d1581f317b))
-* add multiSelect parameter to ask_user tool ([65865c4](https://github.com/jraylan/seamless-agent/commit/65865c4c1d56fd108c28beec725545b2e8d16317))
 * **askUser:** add multiSelect parameter for flat option arrays ([ba169a1](https://github.com/jraylan/seamless-agent/commit/ba169a17bdb4a8584282940df2465c31da5b299a))
-
-
-### Bug Fixes
-
-* address code review issues in debug tool mock tab ([ae346bb](https://github.com/jraylan/seamless-agent/commit/ae346bbe59b64288ed2de18ddcc73c8edc9923e8))
-
-
-### Code Refactoring
-
-* add `multiSelect` option to mocked calls to waitForUserResponse ([1732eff](https://github.com/jraylan/seamless-agent/commit/1732eff8d477a23559e922afef6bfc26dad634e4))
-* optimize mock tool loading and debug tab initialization ([f0e4504](https://github.com/jraylan/seamless-agent/commit/f0e45046e4bbb98b4be06055687153feda1dd0cf))
-* resolve merge conflict ([b3ae9f4](https://github.com/jraylan/seamless-agent/commit/b3ae9f497a3c2106a6c8f184cc1f3033696c05b1))
 
 ## [0.1.25](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.24...seamless-agent-v0.1.25) (2026-02-26)
 
