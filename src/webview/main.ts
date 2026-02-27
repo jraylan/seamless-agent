@@ -977,7 +977,7 @@ import { truncate, getLogger } from './utils';
     /**
  * Show the question form and hide other views
  */
-    function showQuestion(question: string, title: string, requestId: string, options?: any[], pendingCount?: number, requestOrder?: number, attachments?: AttachmentInfo[]): void {
+    function showQuestion(question: string, title: string, requestId: string, options?: any[], pendingCount?: number, requestOrder?: number, attachments?: AttachmentInfo[], multiSelect?: boolean): void {
         if (responseInput && currentRequestId && currentRequestId !== requestId) {
             draftResponses.set(currentRequestId, responseInput.value);
             // Reset state when switching between different requests
@@ -1037,7 +1037,7 @@ import { truncate, getLogger } from './utils';
         }
 
         // Render option buttons if provided
-        renderOptions(options);
+        renderOptions(options, multiSelect);
 
         // Hide ALL other views
         homeView?.classList.add('hidden');
@@ -1117,8 +1117,10 @@ import { truncate, getLogger } from './utils';
 
     /**
      * Normalize raw options to a unified group structure
+     * @param options Raw options array
+     * @param globalMultiSelect Optional global multiSelect setting for flat arrays
      */
-    function parseOptionsToGroups(options: any[]): NormalizedOptionGroup[] {
+    function parseOptionsToGroups(options: any[], globalMultiSelect?: boolean): NormalizedOptionGroup[] {
         if (isOptionGroupArray(options)) {
             return options.map((g: any) => ({
                 title: String(g.title || ''),
@@ -1137,7 +1139,7 @@ import { truncate, getLogger } from './utils';
                         typeof o === 'string' ? { label: o } : { label: String(o.label || ''), description: o.description ? String(o.description) : undefined }
                     )
                     .filter((o: NormalizedOptionItem) => o.label.trim().length > 0),
-                multiSelect: false
+                multiSelect: Boolean(globalMultiSelect) || false
             }];
         }
     }
@@ -1146,7 +1148,7 @@ import { truncate, getLogger } from './utils';
      * Render options in the options container.
      * Creates an OptionsStepper instance and mounts it into the fieldset.
      */
-    function renderOptions(options?: any[]): void {
+    function renderOptions(options?: any[], multiSelect?: boolean): void {
         if (!optionsContainer) return;
 
         // Destroy previous stepper if any
@@ -1164,6 +1166,7 @@ import { truncate, getLogger } from './utils';
         activeOptionsStepper = createOptionsStepper({
             options,
             readOnly: false,
+            multiSelect,
         });
 
         // Mount stepper before the separator
@@ -1261,16 +1264,18 @@ import { truncate, getLogger } from './utils';
      *
      * @param config.options Raw options data (AskUserOptions)
      * @param config.readOnly If true, buttons are non-interactive
+     * @param config.multiSelect If true, allow multiple selections for flat arrays
      * @param config.selectedLabels Pre-populated selections (for history view)
      * @param config.onSelectionChange Callback when selection changes (for pending view)
      */
     function createOptionsStepper(config: {
         options: any[];
         readOnly: boolean;
+        multiSelect?: boolean;
         selectedLabels?: Record<string, string[]>;
         onSelectionChange?: () => void;
     }): OptionsStepper {
-        const groups = parseOptionsToGroups(config.options);
+        const groups = parseOptionsToGroups(config.options, config.multiSelect);
         let currentIndex = 0;
         const selectionsMap = new Map<string, Set<string>>();
         const multiSelectMap = new Map<string, boolean>();
@@ -3100,7 +3105,7 @@ import { truncate, getLogger } from './utils';
         const message = event.data;
 
         switch (message.type) {
-            case 'showQuestion': showQuestion(message.question, message.title, message.requestId, message.options, message.pendingCount, message.requestOrder, message.attachments);
+            case 'showQuestion': showQuestion(message.question, message.title, message.requestId, message.options, message.pendingCount, message.requestOrder, message.attachments, message.multiSelect);
                 break;
             case 'showList': if (message.requests && message.requests.length > 0) {
                 switchTab('pending');

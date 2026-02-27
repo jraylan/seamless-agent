@@ -82,7 +82,8 @@ export class McpServerManager {
                             question: String(args.question),
                             title: args.title ? String(args.title) : undefined,
                             agentName: args.agentName ? String(args.agentName) : undefined,
-                            options: args.options ?? undefined
+                            options: args.options ?? undefined,
+                            multiSelect: args.multiSelect ? Boolean(args.multiSelect) : false
                         },
                         this.provider,
                         tokenSource.token

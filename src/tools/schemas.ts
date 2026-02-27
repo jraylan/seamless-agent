@@ -42,7 +42,10 @@ export const AskUserInputSchema = z.object({
         z.array(OptionItemSchema),
         z.array(OptionGroupSchema)
     ]).optional()
-        .describe('Optional predefined answer options. Can be a flat array of strings/objects for simple choices (e.g. ["Yes", "No"]), or an array of option groups for multi-category selection (e.g. [{"title": "Framework", "options": ["Express", "Koa"], "multiSelect": false}]). User clicks to select, then submits.')
+        .describe('Optional predefined answer options. Can be a flat array of strings/objects for simple choices (e.g. ["Yes", "No"]), or an array of option groups for multi-category selection (e.g. [{"title": "Framework", "options": ["Express", "Koa"], "multiSelect": false}]). User clicks to select, then submits.'),
+    multiSelect: z.boolean()
+        .optional()
+        .describe('Allow multiple selections from flat option arrays. Use true when the question implies multiple answers: "select all that apply", "choose multiple", "pick one or more", "which ones?". Use false (default) for single choice: "pick one", "choose one", "which one?". For grouped options, each group can override with its own multiSelect setting.')
 });
 
 /**

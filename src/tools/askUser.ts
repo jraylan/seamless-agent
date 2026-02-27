@@ -16,6 +16,7 @@ export async function askUser(
     const question = params.question;
     const agentName = params.agentName || 'Agent';
     const baseTitle = params.title || strings.confirmationRequired;
+    const multiSelect = params.multiSelect || false;
 
     const title = `${agentName}: ${baseTitle}`;
     const options = params.options;
@@ -31,7 +32,7 @@ export async function askUser(
 
     try {
         // Execute Logic - Try webview first, fall back to VS Code dialogs
-        const result = await askViaWebview(provider, question, title, agentName, requestId, token, options);
+        const result = await askViaWebview(provider, question, title, agentName, requestId, token, options, multiSelect);
 
         return {
             responded: result.responded,
@@ -55,7 +56,8 @@ async function askViaWebview(
     agentName: string,
     requestId: string,
     token: vscode.CancellationToken,
-    options?: AskUserOptions
+    options?: AskUserOptions,
+    multiSelect?: boolean
 ): Promise<UserResponseResult> {
 
     // Check if already cancelled
@@ -94,7 +96,7 @@ async function askViaWebview(
         });
 
         // Start the actual request
-        provider.waitForUserResponse(question, title, agentName, requestId, options).then(result => {
+        provider.waitForUserResponse(question, title, agentName, requestId, options, multiSelect).then(result => {
             cancellationListener.dispose();
 
             // If webview wasn't available, fall back to the old dialog approach
