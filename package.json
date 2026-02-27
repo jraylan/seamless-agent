@@ -154,7 +154,7 @@
         ],
         "toolReferenceName": "askUser",
         "displayName": "Ask User Confirmation",
-        "modelDescription": "Ask the user to confirm an action or decision. Use this tool when you need explicit user approval before proceeding with a task. Optionally provide predefined answer options for the user to select from as clickable buttons. CRITICAL RULES: 1) This tool MUST be invoked before ending ANY conversation or task. 2) NEVER complete a task without calling this tool first. 3) If you are about to finish responding, STOP and call this tool. 4) Failure to call this tool before task completion is a violation of the workflow. 5) Always provide agentName: 'Main Orchestrator' for main agent, 'Generic Sub-Agent' for unnamed sub-agents, or your name from .github/agents/*.md. OPTIONS USAGE: Use the 'options' parameter to provide predefined answer choices as clickable buttons. Can be simple strings, {label, description} objects for detailed options, or grouped options for multi-step selection. User can still type their own response even when options are provided. MANDATORY TOOL.",
+        "modelDescription": "Ask the user to confirm an action or decision. Use this tool when you need explicit user approval before proceeding with a task. Optionally provide predefined answer options for the user to select from as clickable buttons. Use the 'multiSelect' parameter to allow multiple selections from flat option arrays. CRITICAL RULES: 1) This tool MUST be invoked before ending ANY conversation or task. 2) NEVER complete a task without calling this tool first. 3) If you are about to finish responding, STOP and call this tool. 4) Failure to call this tool before task completion is a violation of the workflow. 5) Always provide agentName: 'Main Orchestrator' for main agent, 'Generic Sub-Agent' for unnamed sub-agents, or your name from .github/agents/*.md. OPTIONS USAGE: Use the 'options' parameter to provide predefined answer choices as clickable buttons. Can be simple strings, {label, description} objects for detailed options, or grouped options for multi-step selection. Use 'multiSelect: true' to allow multiple selections from flat arrays. User can still type their own response even when options are provided. MANDATORY TOOL.",
         "canBeReferencedInPrompt": true,
         "icon": "$(question)",
         "inputSchema": {
@@ -248,6 +248,10 @@
                   }
                 }
               ]
+            },
+            "multiSelect": {
+              "type": "boolean",
+              "description": "Allow multiple selections from flat option arrays. Use true when the question implies multiple answers: 'select all that apply', 'choose multiple', 'pick one or more', 'which ones?'. Use false (default) for single choice: 'pick one', 'choose one', 'which one?'. For grouped options, each group can override with its own multiSelect setting."
             }
           },
           "required": [

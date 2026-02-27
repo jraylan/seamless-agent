@@ -130,7 +130,7 @@ export class ApiServiceManager {
             res.end(JSON.stringify({ error: 'Request body too large' }));
             return;
         }
-        let params: { question: string; title?: string; agentName?: string };
+        let params: { question: string; title?: string; agentName?: string; multiSelect?: boolean };
 
         try {
             params = JSON.parse(body);
@@ -155,6 +155,7 @@ export class ApiServiceManager {
                     question: params.question,
                     title: params.title,
                     agentName: params.agentName,
+                    multiSelect: params.multiSelect ?? false
                 },
                 this.provider,
                 tokenSource.token

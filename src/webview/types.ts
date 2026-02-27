@@ -67,6 +67,7 @@ export interface RequestItem {
     agentName: string | undefined;
     attachments: AttachmentInfo[];
     options?: AskUserOptions;
+    multiSelect?: boolean; // Allow multiple selections for flat option arrays
     draftText?: string; // Draft response text (auto-saved)
     isDebug?: boolean; // Whether this is a debug mock request
 }
@@ -110,6 +111,7 @@ export type ToWebviewMessage = | {
     title: string;
     requestId: string;
     options?: AskUserOptions;
+    multiSelect?: boolean; // Allow multiple selections for flat option arrays
     pendingCount?: number;
     requestOrder?: number; // The order number (1-based) of this request
     attachments?: AttachmentInfo[]; // Attachments for this specific request
