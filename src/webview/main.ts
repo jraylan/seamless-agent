@@ -157,9 +157,20 @@ declare global {
             // Response labels
             selectedOptionsLabel: string;
             additionalResponseLabel: string;
+            // Debug
+            debugTools: string;
+            debugSectionAskUser: string;
+            debugSectionPlanReview: string;
+            debugSectionWalkthroughReview: string;
+            debugMockAskUser: string;
+            debugMockAskUserOptions: string;
+            debugMockAskUserMultiStep: string;
+            debugMockPlanReview: string;
+            debugMockWalkthroughReview: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
+            enableToolDebug: boolean;
         };
     }
 }
@@ -259,7 +270,7 @@ import { truncate, getLogger } from './utils';
     // History filter state
     let currentHistoryFilter: string = 'all';
 
-    type HomeTab = 'pending' | 'history';
+    type HomeTab = 'pending' | 'history' | 'debug';
 
     function setHomeToolbarActiveTab(tab: HomeTab): void {
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
@@ -1465,10 +1476,12 @@ import { truncate, getLogger } from './utils';
     /**
  * Switch between tabs in the home view
  */
-    function switchTab(tab: 'pending' | 'history'): void {
+    function switchTab(tab: 'pending' | 'history' | 'debug'): void {
         // Update content panes visibility
         contentPending?.classList.toggle('hidden', tab !== 'pending');
         contentHistory?.classList.toggle('hidden', tab !== 'history');
+        const contentDebug = document.getElementById('content-debug');
+        contentDebug?.classList.toggle('hidden', tab !== 'debug');
 
         setHomeToolbarActiveTab(tab);
 
@@ -1476,9 +1489,10 @@ import { truncate, getLogger } from './utils';
         const tabNames: Record<string, string> = {
             pending: window.__STRINGS__?.pendingItems || 'Pending Items',
             history: window.__STRINGS__?.chatHistory || 'Chat History',
+            debug: window.__STRINGS__?.debugTools || 'Debug',
         };
 
-        announceToScreenReader(`${tabNames[tab]}tab selected`);
+        announceToScreenReader(`${tabNames[tab]} tab selected`);
     }
 
     /**
@@ -1729,6 +1743,7 @@ import { truncate, getLogger } from './utils';
             title: string;
             preview: string;
             status?: string;
+            isDebug?: boolean;
         };
 
         const entries: UnifiedEntry[] = [];
@@ -1745,7 +1760,8 @@ import { truncate, getLogger } from './utils';
                 timestamp: interaction.timestamp,
                 title,
                 preview,
-                status: interaction.status
+                status: interaction.status,
+                isDebug: interaction.isDebug,
             });
         }
 
@@ -1825,6 +1841,13 @@ import { truncate, getLogger } from './utils';
             appendChildren(contentWrapper, header, preview);
 
             appendChildren(item, typeIcon, contentWrapper);
+
+            // Add debug badge if this is a debug mock interaction
+            if (entry.isDebug) {
+                const debugBadge = el('span', { className: 'history-item-debug-badge', title: 'Debug Mock' }, codicon('bug'));
+                item.appendChild(debugBadge);
+            }
+
             fragment.appendChild(item);
         }
 
@@ -3093,6 +3116,72 @@ import { truncate, getLogger } from './utils';
     });
 
 
+    /**
+     * Initialize the debug tab: populate mock tool call buttons if enableToolDebug is true.
+     */
+    function initDebugTab(): void {
+        if (!window.__CONFIG__?.enableToolDebug) return;
+
+        // Show the debug tab button
+        const debugTabBtn = document.getElementById('debug-tab-btn');
+        debugTabBtn?.classList.remove('hidden');
+
+        const debugList = document.getElementById('debug-tools-list');
+        if (!debugList) return;
+
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
+        type SectionDef = { title: string; items: MockDef[] };
+
+        const S = window.__STRINGS__;
+        const sections: SectionDef[] = [
+            {
+                title: S?.debugSectionAskUser || 'Ask User',
+                items: [
+                    { mockType: 'askUser', label: S?.debugMockAskUser || 'Plain Question', icon: 'comment' },
+                    { mockType: 'askUserOptions', label: S?.debugMockAskUserOptions || 'Options Question', icon: 'list-selection' },
+                    { mockType: 'askUserMultiStep', label: S?.debugMockAskUserMultiStep || 'Multi-Step Question', icon: 'list-tree' },
+                ]
+            },
+            {
+                title: S?.debugSectionPlanReview || 'Plan Review',
+                items: [
+                    { mockType: 'planReview', label: S?.debugMockPlanReview || 'Plan Review', icon: 'checklist' },
+                ]
+            },
+            {
+                title: S?.debugSectionWalkthroughReview || 'Walkthrough Review',
+                items: [
+                    { mockType: 'walkthroughReview', label: S?.debugMockWalkthroughReview || 'Walkthrough Review', icon: 'book' },
+                ]
+            }
+        ];
+
+        clearChildren(debugList);
+
+        for (const section of sections) {
+            const titleEl = el('div', { className: 'debug-section-title', text: section.title });
+            const buttonsContainer = el('div', { className: 'debug-section-buttons' });
+
+            for (const item of section.items) {
+                const btn = el('button', {
+                    className: 'debug-mock-btn',
+                    attrs: { type: 'button', 'data-mock-type': item.mockType },
+                    on: {
+                        click: () => {
+                            vscode.postMessage({
+                                type: 'debugMockToolCall',
+                                mockType: item.mockType,
+                            });
+                        }
+                    }
+                }, codicon(item.icon), item.label);
+
+                buttonsContainer.appendChild(btn);
+            }
+
+            appendChildren(debugList, titleEl, buttonsContainer);
+        }
+    }
 
 
     // Listen for messages from the Extension Host
@@ -3196,6 +3285,19 @@ import { truncate, getLogger } from './utils';
                 }
                 hideAutocomplete();
                 break;
+            case 'updateConfig':
+                if (message.key === 'enableToolDebug') {
+                    window.__CONFIG__.enableToolDebug = !!message.value;
+                    const debugTabBtn = document.querySelector('[data-tab="debug"]') as HTMLElement | null;
+                    if (debugTabBtn) {
+                        debugTabBtn.classList.toggle('hidden', !message.value);
+                    }
+                    // If debug tab is currently active and it's being hidden, switch to pending
+                    if (!message.value && debugTabBtn && debugTabBtn.classList.contains('active')) {
+                        switchTab('pending');
+                    }
+                }
+                break;
         }
     });
 
@@ -3216,6 +3318,9 @@ import { truncate, getLogger } from './utils';
 
     // Initialize delegated handler for history list clicks/keys
     initHistoryListDelegation();
+
+    // Initialize debug tab if enabled
+    initDebugTab();
 
 })();
 

@@ -2140,3 +2140,66 @@ button:disabled {
 .history-item-view .codicon {
     font-size: 11px;
 }
+
+/* ─── Debug Tab ──────────────────────────── */
+
+.debug-tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.debug-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground);
+    padding: 4px 8px 0;
+    margin: 0;
+}
+
+.debug-section-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.debug-mock-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+    border-radius: 4px;
+    transition: background-color 0.1s;
+}
+
+.debug-mock-btn:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.debug-mock-btn:active {
+    background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.debug-mock-btn .codicon {
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+    flex-shrink: 0;
+}
+
+/* Debug badge on history items */
+.history-item-debug-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    color: var(--vscode-testing-iconUnset);
+    font-size: 12px;
+}

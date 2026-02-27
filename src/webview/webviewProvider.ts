@@ -20,6 +20,7 @@ import {
     FileSearchResult,
     UserResponseResult,
     AskUserOptions,
+    PlanReviewResult,
 } from "./types";
 import { truncate } from './utils';
 import { Logger } from '../logging';
@@ -105,6 +106,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             void this._handleWebviewMessage(message);
         }, undefined, []);
 
+        // Listen for config changes and forward to webview
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('seamless-agent.enableToolDebug')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const enabled = config.get<boolean>('enableToolDebug', false);
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'enableToolDebug',
+                    value: enabled,
+                } as ToWebviewMessage);
+            }
+        }, undefined, []);
+
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
 
@@ -118,7 +132,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Wait for a user response to a question.
      * Supports multiple concurrent requests.
      */
-    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions): Promise<UserResponseResult> {
+    public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions, isDebug?: boolean): Promise<UserResponseResult> {
 
         // If the view isn't available, try to open it
         if (!this._view) {
@@ -159,6 +173,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 agentName,
                 options,
                 draftText: '',
+                isDebug,
             };
 
             this._pendingRequests.set(req, { item, resolve });
@@ -446,6 +461,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'log':
                 Logger.logWithLevel(message.level, message.message);
                 break;
+            case 'debugMockToolCall':
+                this._handleDebugMockToolCall(message.mockType);
+                break;
         }
     }
 
@@ -454,6 +472,161 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
         if (pending) {
             pending.item.draftText = draftText;
+        }
+    }
+
+    /**
+     * Handle debug mock tool call from the webview debug tab.
+     * Creates a mock pending request to simulate real tool calls.
+     */
+    private async _handleDebugMockToolCall(mockType: string): Promise<void> {
+        switch (mockType) {
+            case 'askUser':
+                this.waitForUserResponse(
+                    'This is a **mock plain question** for debugging.\n\nDo you approve the deployment to production?',
+                    'Debug: Plain Question',
+                    'Debug Agent',
+                    undefined,
+                    undefined,
+                    true
+                ).then(result => {
+                    Logger.log('[Debug Mock] askUser result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUser error:', err);
+                });
+                break;
+
+            case 'askUserOptions':
+                this.waitForUserResponse(
+                    'Which framework do you prefer for this project?',
+                    'Debug: Options Question',
+                    'Debug Agent',
+                    undefined,
+                    [
+                        { label: 'React', description: 'Popular UI library by Meta' },
+                        { label: 'Vue', description: 'Progressive framework by Evan You' },
+                        { label: 'Angular', description: 'Full-featured framework by Google' },
+                        { label: 'Svelte', description: 'Compile-time framework' },
+                    ],
+                    true
+                ).then(result => {
+                    Logger.log('[Debug Mock] askUserOptions result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUserOptions error:', err);
+                });
+                break;
+
+            case 'askUserMultiStep':
+                this.waitForUserResponse(
+                    'Configure your project settings step by step.',
+                    'Debug: Multi-Step Question',
+                    'Debug Agent',
+                    undefined,
+                    [
+                        {
+                            title: 'Language',
+                            options: ['TypeScript', 'JavaScript', 'Python', 'Go'],
+                            multiSelect: false,
+                        },
+                        {
+                            title: 'Features',
+                            options: [
+                                { label: 'Linting', description: 'ESLint / Pylint' },
+                                { label: 'Testing', description: 'Jest / Pytest / Go test' },
+                                { label: 'CI/CD', description: 'GitHub Actions' },
+                                { label: 'Docker', description: 'Container support' },
+                            ],
+                            multiSelect: true,
+                        },
+                        {
+                            title: 'Deploy Target',
+                            options: ['AWS', 'Azure', 'GCP', 'Vercel', 'Self-hosted'],
+                            multiSelect: false,
+                        },
+                    ],
+                    true
+                ).then(result => {
+                    Logger.log('[Debug Mock] askUserMultiStep result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] askUserMultiStep error:', err);
+                });
+                break;
+
+            case 'planReview': {
+                const mockPlan = `# Deployment Plan\n\n## Phase 1: Preparation\n- Review code changes\n- Run full test suite\n- Update documentation\n\n## Phase 2: Staging\n- Deploy to staging environment\n- Run integration tests\n- Performance benchmarking\n\n## Phase 3: Production\n- Blue-green deployment\n- Health check monitoring\n- Rollback plan ready\n\n## Timeline\n| Phase | Duration |\n|-------|----------|\n| Prep | 2 hours |\n| Staging | 4 hours |\n| Production | 1 hour |`;
+
+                const planId = this._chatHistoryStorage.savePlanReviewInteraction({
+                    plan: mockPlan,
+                    title: 'Debug: Plan Review',
+                    mode: 'review',
+                    status: 'pending',
+                    requiredRevisions: [],
+                    isDebug: true,
+                });
+                this._showHome();
+
+                const { PlanReviewPanel } = await import('./planReviewPanel');
+                PlanReviewPanel.showWithOptions(this._context.extensionUri, {
+                    plan: mockPlan,
+                    title: 'Debug: Plan Review',
+                    mode: 'review',
+                    readOnly: false,
+                    existingComments: [],
+                    interactionId: planId,
+                }).then((result: PlanReviewResult) => {
+                    const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
+                        ? result.action : 'closed';
+                    this._chatHistoryStorage.updateInteraction(planId, {
+                        status: state,
+                        requiredRevisions: result.requiredRevisions,
+                    });
+                    this._showHome();
+                    Logger.log('[Debug Mock] planReview result:', result);
+                }).catch((err: any) => {
+                    this._chatHistoryStorage.updateInteraction(planId, { status: 'closed' });
+                    this._showHome();
+                    Logger.error('[Debug Mock] planReview error:', err);
+                });
+                break;
+            }
+
+            case 'walkthroughReview': {
+                const mockWalkthrough = `# Getting Started Guide\n\n## Step 1: Install Dependencies\n\`\`\`bash\nnpm install\n\`\`\`\n\n## Step 2: Configure Environment\nCreate a \`.env\` file:\n\`\`\`\nDATABASE_URL=postgresql://localhost:5432/mydb\nAPI_KEY=your-api-key\n\`\`\`\n\n## Step 3: Run Migrations\n\`\`\`bash\nnpm run db:migrate\n\`\`\`\n\n## Step 4: Start Development Server\n\`\`\`bash\nnpm run dev\n\`\`\`\n\nVisit http://localhost:3000 to see the app running.`;
+
+                const walkthroughId = this._chatHistoryStorage.savePlanReviewInteraction({
+                    plan: mockWalkthrough,
+                    title: 'Debug: Walkthrough',
+                    mode: 'walkthrough',
+                    status: 'pending',
+                    requiredRevisions: [],
+                    isDebug: true,
+                });
+                this._showHome();
+
+                const { PlanReviewPanel: WalkthroughPanel } = await import('./planReviewPanel');
+                WalkthroughPanel.showWithOptions(this._context.extensionUri, {
+                    plan: mockWalkthrough,
+                    title: 'Debug: Walkthrough',
+                    mode: 'walkthrough',
+                    readOnly: false,
+                    existingComments: [],
+                    interactionId: walkthroughId,
+                }).then((result: PlanReviewResult) => {
+                    const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
+                        ? result.action : 'closed';
+                    this._chatHistoryStorage.updateInteraction(walkthroughId, {
+                        status: state,
+                        requiredRevisions: result.requiredRevisions,
+                    });
+                    this._showHome();
+                    Logger.log('[Debug Mock] walkthroughReview result:', result);
+                }).catch((err: any) => {
+                    this._chatHistoryStorage.updateInteraction(walkthroughId, { status: 'closed' });
+                    this._showHome();
+                    Logger.error('[Debug Mock] walkthroughReview error:', err);
+                });
+                break;
+            }
         }
     }
 
@@ -1029,6 +1202,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     attachments: result.attachments || [],
                     options: pending.item.options,
                     selectedOptionLabels: selectedOptions,
+                    isDebug: pending.item.isDebug,
                 });
             } catch (e) {
                 Logger.error('Failed to save ask_user interaction to ChatHistoryStorage:', e);
@@ -1329,6 +1503,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const historyTimeDisplay = ['relative', 'absolute', 'hybrid'].includes(rawHistoryTimeDisplay)
             ? rawHistoryTimeDisplay
             : 'hybrid';
+        const enableToolDebug = config.get<boolean>('enableToolDebug', false);
 
         // Replace placeholders
         const replacements: Record<string,
@@ -1403,6 +1578,17 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{batchSelectedCount}}': strings.batchSelectedCount,
             '{{historyTimeDisplay}}': historyTimeDisplay,
             '{{orTypeYourOwn}}': strings.orTypeYourOwn,
+            // Debug tab strings
+            '{{debugTools}}': strings.debugTools,
+            '{{debugSectionAskUser}}': strings.debugSectionAskUser,
+            '{{debugSectionPlanReview}}': strings.debugSectionPlanReview,
+            '{{debugSectionWalkthroughReview}}': strings.debugSectionWalkthroughReview,
+            '{{debugMockAskUser}}': strings.debugMockAskUser,
+            '{{debugMockAskUserOptions}}': strings.debugMockAskUserOptions,
+            '{{debugMockAskUserMultiStep}}': strings.debugMockAskUserMultiStep,
+            '{{debugMockPlanReview}}': strings.debugMockPlanReview,
+            '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
+            '{{enableToolDebug}}': String(enableToolDebug),
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {
