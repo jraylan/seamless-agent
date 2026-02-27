@@ -133,6 +133,12 @@
           "default": "",
           "title": "%config.askUserAppendText.title%",
           "markdownDescription": "%config.askUserAppendText.description%"
+        },
+        "seamless-agent.enableToolDebug": {
+          "type": "boolean",
+          "default": false,
+          "title": "%config.enableToolDebug.title%",
+          "markdownDescription": "%config.enableToolDebug.description%"
         }
       }
     },

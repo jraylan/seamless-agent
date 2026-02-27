@@ -401,9 +401,12 @@ body {
 
 .option-btn {
     display: flex;
-    flex-direction: row; /* Changed to row for single-line layout */
-    align-items: center; /* Center vertically */
-    gap: 8px; /* Space between label and description */
+    flex-direction: row;
+    /* Changed to row for single-line layout */
+    align-items: center;
+    /* Center vertically */
+    gap: 8px;
+    /* Space between label and description */
     width: 100%;
     padding: 8px 12px;
     border: 1px solid transparent;
@@ -438,7 +441,8 @@ body {
     border-left: 3px solid var(--vscode-button-background, #0078d4);
     background-color: color-mix(in srgb, var(--vscode-button-background, #0078d4) 20%, transparent);
     color: var(--vscode-foreground);
-    padding-left: 8px; /* compensate for thicker left border */
+    padding-left: 8px;
+    /* compensate for thicker left border */
 }
 
 .option-btn.selected .option-btn-label::before {
@@ -508,8 +512,10 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex-shrink: 0; /* Label doesn't shrink when description exists */
-    max-width: 50%; /* Label takes max 50% width when description exists */
+    flex-shrink: 0;
+    /* Label doesn't shrink when description exists */
+    max-width: 50%;
+    /* Label takes max 50% width when description exists */
 }
 
 /* When label is the only child (no description), allow full width */
@@ -524,13 +530,17 @@ body {
     line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap; /* Single line */
-    flex: 1; /* Take remaining space */
-    min-width: 0; /* Allow shrinking */
+    white-space: nowrap;
+    /* Single line */
+    flex: 1;
+    /* Take remaining space */
+    min-width: 0;
+    /* Allow shrinking */
 }
 
 .options-separator {
-    display: none; /* Hide separator to save space */
+    display: none;
+    /* Hide separator to save space */
 }
 
 /* Response section - fixed at bottom */
@@ -934,8 +944,8 @@ button:disabled {
     justify-content: center;
     height: 8px;
     cursor: ns-resize;
-    user-select: none;
     -webkit-user-select: none;
+    user-select: none;
     border-radius: 4px 4px 0 0;
     opacity: 0.5;
     transition: opacity 0.15s ease, background-color 0.15s ease;
@@ -1701,7 +1711,7 @@ button:disabled {
 }
 
 /* Type icon (visible) */
-.history-item > .codicon:first-child {
+.history-item>.codicon:first-child {
     color: var(--vscode-descriptionForeground);
     font-size: 14px;
     flex-shrink: 0;
@@ -1778,10 +1788,10 @@ button:disabled {
 
 /* In batch mode, prevent text selection to avoid interference with shift-click */
 .history-item.batch-mode {
-    user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    user-select: none;
 }
 
 /* Remove focus outline in batch mode to prevent orange border on shift-click */
@@ -2139,4 +2149,67 @@ button:disabled {
 
 .history-item-view .codicon {
     font-size: 11px;
+}
+
+/* ─── Debug Tab ──────────────────────────── */
+
+.debug-tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.debug-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground);
+    padding: 4px 8px 0;
+    margin: 0;
+}
+
+.debug-section-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.debug-mock-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+    border-radius: 4px;
+    transition: background-color 0.1s;
+}
+
+.debug-mock-btn:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.debug-mock-btn:active {
+    background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.debug-mock-btn .codicon {
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+    flex-shrink: 0;
+}
+
+/* Debug badge on history items */
+.history-item-debug-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    color: var(--vscode-testing-iconUnset);
+    font-size: 12px;
 }

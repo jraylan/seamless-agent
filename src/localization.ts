@@ -172,6 +172,17 @@ export const strings = {
     get selectedOptionsLabel() { return localize('response.selectedOptions'); },
     get additionalResponseLabel() { return localize('response.additionalResponse'); },
 
+    // Debug
+    get debugTools() { return localize('console.debugTools'); },
+    get debugSectionAskUser() { return localize('debug.sectionAskUser'); },
+    get debugSectionPlanReview() { return localize('debug.sectionPlanReview'); },
+    get debugSectionWalkthroughReview() { return localize('debug.sectionWalkthroughReview'); },
+    get debugMockAskUser() { return localize('debug.mockAskUser'); },
+    get debugMockAskUserOptions() { return localize('debug.mockAskUserOptions'); },
+    get debugMockAskUserMultiStep() { return localize('debug.mockAskUserMultiStep'); },
+    get debugMockPlanReview() { return localize('debug.mockPlanReview'); },
+    get debugMockWalkthroughReview() { return localize('debug.mockWalkthroughReview'); },
+
     // Errors
     get noSuchInteraction() { return localize('error.noSuchInteraction'); },
 };

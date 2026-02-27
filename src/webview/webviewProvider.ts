@@ -20,6 +20,7 @@ import {
     FileSearchResult,
     UserResponseResult,
     AskUserOptions,
+    PlanReviewResult,
 } from "./types";
 import { truncate } from './utils';
 import { Logger } from '../logging';
@@ -76,6 +77,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Returns the extension context
+     *
+     * @return { vscode.ExtensionContext } The extension context
+     * @memberof AgentInteractionProvider
+     */
+    public getContext(): vscode.ExtensionContext {
+        return this._context;
+    }
+
+    /**
      * Clear all interaction history (both legacy and storage)
      */
     public clearHistory(): void {
@@ -103,6 +114,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage((message: FromWebviewMessage) => {
             void this._handleWebviewMessage(message);
+        }, undefined, []);
+
+        // Listen for config changes and forward to webview
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('seamless-agent.enableToolDebug')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const enabled = config.get<boolean>('enableToolDebug', false);
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'enableToolDebug',
+                    value: enabled,
+                } as ToWebviewMessage);
+            }
         }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
@@ -160,6 +184,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 options,
                 multiSelect,
                 draftText: '',
+                isDebug,
             };
 
             this._pendingRequests.set(req, { item, resolve });
@@ -448,6 +473,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'log':
                 Logger.logWithLevel(message.level, message.message);
                 break;
+            case 'debugMockToolCall':
+                this._handleDebugMockToolCall(message.mockType);
+                break;
         }
     }
 
@@ -457,6 +485,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         if (pending) {
             pending.item.draftText = draftText;
         }
+    }
+
+    /**
+     * Handle debug mock tool call from the webview debug tab.
+     * Creates a mock pending request to simulate real tool calls.
+     */
+    private async _handleDebugMockToolCall(mockType: string): Promise<void> {
+        const { MockToolCallService } = await import('./utils/mockToolCall');
+        await MockToolCallService.mockToolCall(mockType, this);
     }
 
 
@@ -1031,6 +1068,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     attachments: result.attachments || [],
                     options: pending.item.options,
                     selectedOptionLabels: selectedOptions,
+                    isDebug: pending.item.isDebug,
                 });
             } catch (e) {
                 Logger.error('Failed to save ask_user interaction to ChatHistoryStorage:', e);
@@ -1331,6 +1369,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const historyTimeDisplay = ['relative', 'absolute', 'hybrid'].includes(rawHistoryTimeDisplay)
             ? rawHistoryTimeDisplay
             : 'hybrid';
+        const enableToolDebug = config.get<boolean>('enableToolDebug', false);
 
         // Replace placeholders
         const replacements: Record<string,
@@ -1405,6 +1444,17 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{batchSelectedCount}}': strings.batchSelectedCount,
             '{{historyTimeDisplay}}': historyTimeDisplay,
             '{{orTypeYourOwn}}': strings.orTypeYourOwn,
+            // Debug tab strings
+            '{{debugTools}}': strings.debugTools,
+            '{{debugSectionAskUser}}': strings.debugSectionAskUser,
+            '{{debugSectionPlanReview}}': strings.debugSectionPlanReview,
+            '{{debugSectionWalkthroughReview}}': strings.debugSectionWalkthroughReview,
+            '{{debugMockAskUser}}': strings.debugMockAskUser,
+            '{{debugMockAskUserOptions}}': strings.debugMockAskUserOptions,
+            '{{debugMockAskUserMultiStep}}': strings.debugMockAskUserMultiStep,
+            '{{debugMockPlanReview}}': strings.debugMockPlanReview,
+            '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
+            '{{enableToolDebug}}': String(enableToolDebug),
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

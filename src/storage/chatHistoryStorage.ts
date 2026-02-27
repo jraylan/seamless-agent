@@ -73,6 +73,7 @@ export class ChatHistoryStorage {
         attachments?: import('../webview/types').AttachmentInfo[];
         options?: import('../webview/types').AskUserOptions;
         selectedOptionLabels?: Record<string, string[]>;
+        isDebug?: boolean;
     }): string {
         const interactionId = this.generateId('ask');
         const interaction: StoredInteraction = {
@@ -86,6 +87,7 @@ export class ChatHistoryStorage {
             attachments: data.attachments,
             options: data.options,
             selectedOptionLabels: data.selectedOptionLabels,
+            isDebug: data.isDebug,
         };
 
         this.saveInteraction(interaction);
@@ -101,6 +103,7 @@ export class ChatHistoryStorage {
         mode?: 'review' | 'walkthrough';
         status?: 'pending' | 'approved' | 'recreateWithChanges' | 'acknowledged' | 'closed' | 'cancelled';
         requiredRevisions?: RequiredPlanRevisions[];
+        isDebug?: boolean;
     }): string {
         const interactionId = this.generateId('review');
         const interaction: StoredInteraction = {
@@ -112,6 +115,7 @@ export class ChatHistoryStorage {
             mode: data.mode || 'review',
             status: data.status || 'pending',
             requiredRevisions: data.requiredRevisions || [],
+            isDebug: data.isDebug,
         };
 
         this.saveInteraction(interaction);

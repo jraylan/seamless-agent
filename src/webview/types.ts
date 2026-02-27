@@ -9,6 +9,7 @@ export interface StoredInteraction {
     id: string;
     type: 'ask_user' | 'plan_review';
     timestamp: number;
+    isDebug?: boolean;
 
     // For ask_user
     question?: string;
@@ -68,6 +69,7 @@ export interface RequestItem {
     options?: AskUserOptions;
     multiSelect?: boolean; // Allow multiple selections for flat option arrays
     draftText?: string; // Draft response text (auto-saved)
+    isDebug?: boolean; // Whether this is a debug mock request
 }
 
 /**
@@ -157,6 +159,11 @@ export type ToWebviewMessage = | {
     | {
         type: 'batchDeleteCompleted';
         success: boolean; // true if user confirmed and items were deleted, false if cancelled
+    }
+    | {
+        type: 'updateConfig';
+        key: string;
+        value: boolean | string | number;
     }
     | {
         type: 'clear'
@@ -286,7 +293,11 @@ export type FromWebviewMessage = | {
         level: LogLevel;
         message: any[];
     }
-    | { type: 'ready' };
+    | { type: 'ready' }
+    | {
+        type: 'debugMockToolCall';
+        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'planReview' | 'walkthroughReview';
+    };
 
 
 // Plan review types (shared between extension and webview)
@@ -343,4 +354,3 @@ export interface VSCodeAPI {
     getState(): unknown;
     setState(state: unknown): void;
 }
-
