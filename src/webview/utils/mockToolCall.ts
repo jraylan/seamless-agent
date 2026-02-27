@@ -16,6 +16,7 @@ export class MockToolCallService {
                     'Debug Agent',
                     undefined,
                     undefined,
+                    false,
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUser result:', result);
@@ -36,6 +37,7 @@ export class MockToolCallService {
                         { label: 'Angular', description: 'Full-featured framework by Google' },
                         { label: 'Svelte', description: 'Compile-time framework' },
                     ],
+                    true,
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUserOptions result:', result);
@@ -72,6 +74,7 @@ export class MockToolCallService {
                             multiSelect: false,
                         },
                     ],
+                    false,
                     true
                 ).then(result => {
                     Logger.log('[Debug Mock] askUserMultiStep result:', result);
