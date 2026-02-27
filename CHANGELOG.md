@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.26](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.25...seamless-agent-v0.1.26) (2026-02-27)
+
+
+### Features
+
+* add debug tool mock tab for webview testing ([a5c8093](https://github.com/jraylan/seamless-agent/commit/a5c80933ce5341089a1fc5196dbf79d1581f317b))
+* **askUser:** add multiSelect parameter for flat option arrays ([ba169a1](https://github.com/jraylan/seamless-agent/commit/ba169a17bdb4a8584282940df2465c31da5b299a))
+
 ## [0.1.25](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.24...seamless-agent-v0.1.25) (2026-02-26)
 
 
