@@ -159,17 +159,20 @@ declare global {
             additionalResponseLabel: string;
             // Debug
             debugTools: string;
+            settings: string;
             debugSectionAskUser: string;
             debugSectionPlanReview: string;
             debugSectionWalkthroughReview: string;
             debugMockAskUser: string;
             debugMockAskUserOptions: string;
             debugMockAskUserMultiStep: string;
+            debugMockAskUserMultiStepLongText: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
+            askUserOptionsLayout: 'expanded' | 'compact';
             enableToolDebug: boolean;
         };
     }
@@ -187,6 +190,17 @@ import type {
     VSCodeAPI,
 } from './types';
 import { truncate, getLogger } from './utils';
+
+type AskUserOptionsLayout = 'expanded' | 'compact';
+
+function normalizeAskUserOptionsLayout(value: unknown): AskUserOptionsLayout {
+    return value === 'expanded' || value === 'compact' ? value : 'compact';
+}
+
+function applyAskUserOptionsLayoutMode(): void {
+    const mode = normalizeAskUserOptionsLayout(window.__CONFIG__?.askUserOptionsLayout);
+    document.body.dataset.askUserOptionsLayout = mode;
+}
 
 
 // Webview initialization
@@ -235,6 +249,9 @@ import { truncate, getLogger } from './utils';
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+
+    // Apply option layout mode early so all rendered buttons follow the selected setting.
+    applyAskUserOptionsLayoutMode();
 
     // Initialize input history manager
     const inputHistoryManager = new InputHistoryManager(
@@ -332,6 +349,15 @@ import { truncate, getLogger } from './utils';
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tab = (btn.getAttribute('data-tab') || 'pending') as HomeTab;
+                
+                // Special handling for settings button
+                if (btn.id === 'settings-btn') {
+                    vscode.postMessage({
+                        type: 'openSettings'
+                    });
+                    return;
+                }
+                
                 switchTab(tab);
             });
         });
@@ -1206,6 +1232,7 @@ import { truncate, getLogger } from './utils';
      * @param selected Set of currently selected labels
      * @param readOnly If true, buttons are non-interactive (for history view)
      * @param onToggle Optional callback for interactive mode
+     * @param isMultiSelect Whether this is multi-select (for radio vs checkbox indicator)
      * @returns Array of button elements
      */
     function buildOptionButtons(
@@ -1213,32 +1240,41 @@ import { truncate, getLogger } from './utils';
         selected: Set<string>,
         readOnly: boolean,
         onToggle?: (label: string, btn: HTMLElement) => void,
+        isMultiSelect?: boolean,
     ): HTMLElement[] {
         const buttons: HTMLElement[] = [];
 
         for (const opt of group.options) {
-            const btnChildren: ElementChild[] = [
-                el('span', { className: 'option-btn-label', text: opt.label })
-            ];
-
-            if (opt.description) {
-                const descEl = el('span', { className: 'option-btn-description', text: opt.description });
-                btnChildren.push(descEl);
-
-                // Always add tooltip for descriptions - will show on hover
-                const tooltip = el('span', {
-                    className: 'option-btn-tooltip',
-                    text: opt.description
-                });
-                btnChildren.push(tooltip);
-            }
-
             const isSelected = selected.has(opt.label);
+            
+            // Indicator element (left side, fixed)
+            const indicatorEl = el('span', { className: 'option-btn-indicator' });
+            
+            // Description element (side-by-side with label, fixed, no scroll)
+            const descEl = opt.description 
+                ? el('span', { className: 'option-btn-description', text: opt.description })
+                : null;
+            
+            // Label element (side-by-side with description, scrollable)
+            const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
+            
+            // Tooltip (shows on hover)
+            const tooltip = opt.description 
+                ? el('span', { className: 'option-btn-tooltip', text: opt.description })
+                : null;
+
+            const btnChildren: ElementChild[] = [indicatorEl];
+            
+            if (descEl) btnChildren.push(descEl);
+            btnChildren.push(labelEl);
+            if (tooltip) btnChildren.push(tooltip);
+
             // Set button title to show full description on hover - single line break, no empty line
             const btnTitle = opt.description ? `${opt.label}\n${opt.description}` : opt.label;
             const classNames = 'option-btn'
                 + (isSelected ? ' selected' : '')
-                + (readOnly ? ' readonly' : '');
+                + (readOnly ? ' readonly' : '')
+                + (isMultiSelect ? ' multi-select' : ' single-select');
             const btn = el('button', {
                 className: classNames,
                 attrs: {
@@ -1376,7 +1412,8 @@ import { truncate, getLogger } from './utils';
                 group, selected, config.readOnly,
                 config.readOnly ? undefined : (label, btn) => {
                     handleToggle(group.title, label, btn, group.multiSelect);
-                }
+                },
+                group.multiSelect
             );
             for (const btn of buttons) { buttonsContainer.appendChild(btn); }
 
@@ -3181,7 +3218,7 @@ import { truncate, getLogger } from './utils';
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3192,6 +3229,7 @@ import { truncate, getLogger } from './utils';
                     { mockType: 'askUser', label: S?.debugMockAskUser || 'Plain Question', icon: 'comment' },
                     { mockType: 'askUserOptions', label: S?.debugMockAskUserOptions || 'Options Question', icon: 'list-selection' },
                     { mockType: 'askUserMultiStep', label: S?.debugMockAskUserMultiStep || 'Multi-Step Question', icon: 'list-tree' },
+                    { mockType: 'askUserMultiStepLongText', label: S?.debugMockAskUserMultiStepLongText || 'Multi-Step Long Text Options', icon: 'symbol-string' },
                 ]
             },
             {
@@ -3341,6 +3379,9 @@ import { truncate, getLogger } from './utils';
                 if (message.key === 'enableToolDebug') {
                     window.__CONFIG__.enableToolDebug = !!message.value;
                     updateDebugTab()
+                } else if (message.key === 'askUserOptionsLayout') {
+                    window.__CONFIG__.askUserOptionsLayout = normalizeAskUserOptionsLayout(message.value);
+                    applyAskUserOptionsLayoutMode();
                 }
                 break;
         }
