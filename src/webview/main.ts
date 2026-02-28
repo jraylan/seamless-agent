@@ -1258,9 +1258,14 @@ function applyAskUserOptionsLayoutMode(): void {
             // Label element (side-by-side with description, scrollable)
             const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
             
-            // Tooltip (shows on hover)
-            const tooltip = opt.description 
-                ? el('span', { className: 'option-btn-tooltip', text: opt.description })
+            // Tooltip (single reliable custom tooltip for both description + label)
+            const tooltip = opt.description
+                ? el(
+                    'span',
+                    { className: 'option-btn-tooltip' },
+                    el('span', { className: 'option-btn-tooltip-description', text: opt.description }),
+                    el('span', { className: 'option-btn-tooltip-label', text: opt.label })
+                )
                 : null;
 
             const btnChildren: ElementChild[] = [indicatorEl];
@@ -1269,8 +1274,6 @@ function applyAskUserOptionsLayoutMode(): void {
             btnChildren.push(labelEl);
             if (tooltip) btnChildren.push(tooltip);
 
-            // Set button title to show full description on hover - single line break, no empty line
-            const btnTitle = opt.description ? `${opt.label}\n${opt.description}` : opt.label;
             const classNames = 'option-btn'
                 + (isSelected ? ' selected' : '')
                 + (readOnly ? ' readonly' : '')
@@ -1279,7 +1282,7 @@ function applyAskUserOptionsLayoutMode(): void {
                 className: classNames,
                 attrs: {
                     type: 'button',
-                    title: btnTitle,
+                    'aria-label': opt.description ? `${opt.description}. ${opt.label}` : opt.label,
                     'aria-pressed': String(isSelected),
                     ...(readOnly ? { disabled: '' } : {})
                 }
