@@ -134,6 +134,16 @@
           "title": "%config.askUserAppendText.title%",
           "markdownDescription": "%config.askUserAppendText.description%"
         },
+        "seamless-agent.askUserOptionsLayout": {
+          "type": "string",
+          "enum": [
+            "expanded",
+            "compact"
+          ],
+          "default": "compact",
+          "title": "%config.askUserOptionsLayout.title%",
+          "markdownDescription": "%config.askUserOptionsLayout.description%"
+        },
         "seamless-agent.enableToolDebug": {
           "type": "boolean",
           "default": false,

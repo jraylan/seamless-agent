@@ -127,6 +127,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     value: enabled,
                 } as ToWebviewMessage);
             }
+
+            if (event.affectsConfiguration('seamless-agent.askUserOptionsLayout')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const rawLayout = config.get<string>('askUserOptionsLayout', 'compact');
+                const askUserOptionsLayout = ['expanded', 'compact'].includes(rawLayout)
+                    ? rawLayout
+                    : 'compact';
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'askUserOptionsLayout',
+                    value: askUserOptionsLayout,
+                } as ToWebviewMessage);
+            }
         }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
@@ -476,6 +489,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 break;
             case 'debugMockToolCall':
                 this._handleDebugMockToolCall(message.mockType);
+                break;
+            case 'openSettings':
+                vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jraylan.seamless-agent');
                 break;
         }
     }
@@ -1385,6 +1401,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const historyTimeDisplay = ['relative', 'absolute', 'hybrid'].includes(rawHistoryTimeDisplay)
             ? rawHistoryTimeDisplay
             : 'hybrid';
+        const rawAskUserOptionsLayout = config.get<string>('askUserOptionsLayout', 'compact');
+        const askUserOptionsLayout = ['expanded', 'compact'].includes(rawAskUserOptionsLayout)
+            ? rawAskUserOptionsLayout
+            : 'compact';
         const enableToolDebug = config.get<boolean>('enableToolDebug', false);
 
         // Replace placeholders
@@ -1459,7 +1479,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{batchDeleteSelected}}': strings.batchDeleteSelected,
             '{{batchSelectedCount}}': strings.batchSelectedCount,
             '{{historyTimeDisplay}}': historyTimeDisplay,
+            '{{askUserOptionsLayout}}': askUserOptionsLayout,
             '{{orTypeYourOwn}}': strings.orTypeYourOwn,
+            // Settings button
+            '{{settings}}': strings.settings,
             // Debug tab strings
             '{{debugTools}}': strings.debugTools,
             '{{debugSectionAskUser}}': strings.debugSectionAskUser,
@@ -1468,6 +1491,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugMockAskUser}}': strings.debugMockAskUser,
             '{{debugMockAskUserOptions}}': strings.debugMockAskUserOptions,
             '{{debugMockAskUserMultiStep}}': strings.debugMockAskUserMultiStep,
+            '{{debugMockAskUserMultiStepLongText}}': strings.debugMockAskUserMultiStepLongText,
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
             '{{enableToolDebug}}': String(enableToolDebug),

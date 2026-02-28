@@ -504,6 +504,32 @@ body {
     opacity: 0.75;
 }
 
+/* Compact layout: keep all button text in a single truncated line. */
+body[data-ask-user-options-layout="compact"] .option-btn {
+    align-items: center;
+}
+
+body[data-ask-user-options-layout="compact"] .option-btn-description {
+    width: auto;
+    max-width: 45%;
+    flex: 0 1 45%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body[data-ask-user-options-layout="compact"] .option-btn-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: none;
+    padding-right: 0;
+}
+
+body[data-ask-user-options-layout="compact"] .option-btn-label::-webkit-scrollbar {
+    display: none;
+}
+
 /* Read-only option buttons (history view) */
 .option-btn.readonly {
     cursor: default;

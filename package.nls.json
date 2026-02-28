@@ -48,6 +48,7 @@
   "session.output": "Output",
   "session.noRecent": "No recent sessions",
   "session.clearHistory": "Clear History",
+  "console.settings": "Settings",
   "approvePlan.button.addComment": "Add Comment",
   "approvePlan.button.approve": "Approve",
   "approvePlan.button.cancel": "Cancel",
@@ -61,6 +62,8 @@
   "approvePlan.panelTitle": "Review Plan",
   "config.askUserAppendText.title": "Append Text to `askUser`",
   "config.askUserAppendText.description": "Text to automatically append to every response when using the `askUser` feature.",
+  "config.askUserOptionsLayout.title": "`ask_user` Options Layout",
+  "config.askUserOptionsLayout.description": "Controls how `ask_user` option buttons are displayed in the Agent Console. `Compact` keeps each option on one line and truncates long text. `Expanded` shows a multi-line layout with dedicated areas for label and description.",
   "config.ignoreCommonPaths.description": "When enabled, ignores well-known build, cache, and dependency folders (node_modules, dist, .git, etc.) when searching for files.",
   "config.ignoreCommonPaths.title": "Ignore Common Paths",
   "config.additionalIgnoredPaths.description": "Additional glob patterns for paths to ignore when searching for files. Use `**` for recursive matching. Example: `**/logs/**`, `**/*.log`",
@@ -129,6 +132,7 @@
   "debug.mockAskUser": "Plain Question",
   "debug.mockAskUserOptions": "Options Question",
   "debug.mockAskUserMultiStep": "Multi-Step Question",
+  "debug.mockAskUserMultiStepLongText": "Multi-Step Long Text Options",
   "debug.mockPlanReview": "Plan Review",
   "debug.mockWalkthroughReview": "Walkthrough Review"
 }

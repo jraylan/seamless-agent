@@ -43,6 +43,10 @@
           data-label="{{debugTools}}" title="{{debugTools}}" aria-label="{{debugTools}}" aria-pressed="false">
           <span class="codicon codicon-beaker"></span>
         </button>
+        <button type="button" class="home-toolbar-btn" id="settings-btn" data-tab="settings"
+          data-label="{{settings}}" title="{{settings}}" aria-label="{{settings}}" aria-pressed="false">
+          <span class="codicon codicon-gear"></span>
+        </button>
       </div>
 
       <!-- Content area - shows selected tab content -->
@@ -293,11 +297,13 @@
       debugMockAskUser: "{{debugMockAskUser}}",
       debugMockAskUserOptions: "{{debugMockAskUserOptions}}",
       debugMockAskUserMultiStep: "{{debugMockAskUserMultiStep}}",
+      debugMockAskUserMultiStepLongText: "{{debugMockAskUserMultiStepLongText}}",
       debugMockPlanReview: "{{debugMockPlanReview}}",
       debugMockWalkthroughReview: "{{debugMockWalkthroughReview}}",
     };
     window.__CONFIG__ = {
       historyTimeDisplay: "{{historyTimeDisplay}}",
+      askUserOptionsLayout: "{{askUserOptionsLayout}}",
       enableToolDebug: "{{enableToolDebug}}" === "true",
     };
   </script>

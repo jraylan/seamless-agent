@@ -159,17 +159,20 @@ declare global {
             additionalResponseLabel: string;
             // Debug
             debugTools: string;
+            settings: string;
             debugSectionAskUser: string;
             debugSectionPlanReview: string;
             debugSectionWalkthroughReview: string;
             debugMockAskUser: string;
             debugMockAskUserOptions: string;
             debugMockAskUserMultiStep: string;
+            debugMockAskUserMultiStepLongText: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
+            askUserOptionsLayout: 'expanded' | 'compact';
             enableToolDebug: boolean;
         };
     }
@@ -187,6 +190,17 @@ import type {
     VSCodeAPI,
 } from './types';
 import { truncate, getLogger } from './utils';
+
+type AskUserOptionsLayout = 'expanded' | 'compact';
+
+function normalizeAskUserOptionsLayout(value: unknown): AskUserOptionsLayout {
+    return value === 'expanded' || value === 'compact' ? value : 'compact';
+}
+
+function applyAskUserOptionsLayoutMode(): void {
+    const mode = normalizeAskUserOptionsLayout(window.__CONFIG__?.askUserOptionsLayout);
+    document.body.dataset.askUserOptionsLayout = mode;
+}
 
 
 // Webview initialization
@@ -235,6 +249,9 @@ import { truncate, getLogger } from './utils';
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+
+    // Apply option layout mode early so all rendered buttons follow the selected setting.
+    applyAskUserOptionsLayoutMode();
 
     // Initialize input history manager
     const inputHistoryManager = new InputHistoryManager(
@@ -332,6 +349,15 @@ import { truncate, getLogger } from './utils';
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tab = (btn.getAttribute('data-tab') || 'pending') as HomeTab;
+                
+                // Special handling for settings button
+                if (btn.id === 'settings-btn') {
+                    vscode.postMessage({
+                        type: 'openSettings'
+                    });
+                    return;
+                }
+                
                 switchTab(tab);
             });
         });
@@ -3192,7 +3218,7 @@ import { truncate, getLogger } from './utils';
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3203,6 +3229,7 @@ import { truncate, getLogger } from './utils';
                     { mockType: 'askUser', label: S?.debugMockAskUser || 'Plain Question', icon: 'comment' },
                     { mockType: 'askUserOptions', label: S?.debugMockAskUserOptions || 'Options Question', icon: 'list-selection' },
                     { mockType: 'askUserMultiStep', label: S?.debugMockAskUserMultiStep || 'Multi-Step Question', icon: 'list-tree' },
+                    { mockType: 'askUserMultiStepLongText', label: S?.debugMockAskUserMultiStepLongText || 'Multi-Step Long Text Options', icon: 'symbol-string' },
                 ]
             },
             {
@@ -3352,6 +3379,9 @@ import { truncate, getLogger } from './utils';
                 if (message.key === 'enableToolDebug') {
                     window.__CONFIG__.enableToolDebug = !!message.value;
                     updateDebugTab()
+                } else if (message.key === 'askUserOptionsLayout') {
+                    window.__CONFIG__.askUserOptionsLayout = normalizeAskUserOptionsLayout(message.value);
+                    applyAskUserOptionsLayoutMode();
                 }
                 break;
         }
