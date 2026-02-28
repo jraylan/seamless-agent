@@ -174,6 +174,14 @@ export class PlanReviewPanel {
     }
 
     /**
+     * Check if there is a live agent still waiting for this review's result.
+     * Returns false after VS Code restart (resolvers are in-memory only).
+     */
+    public static hasPendingResolver(interactionId: string): boolean {
+        return PlanReviewPanel._pendingResolvers.has(interactionId);
+    }
+
+    /**
      * Reopen a panel for a pending review from storage
      * Uses the global resolver if one exists (agent is still waiting)
      * Returns the existing panel if already open, or creates a new one
