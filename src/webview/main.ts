@@ -312,12 +312,12 @@ import { truncate, getLogger } from './utils';
     }
 
     function updateHomeToolbarBadgesFromDom(): void {
-        const pendingRequestsCount = pendingRequestsList ? pendingRequestsList.querySelectorAll('.request-item').length : 0;
+        const pendingRequestsCount = pendingRequestsList ? pendingRequestsList.querySelectorAll('.list-item').length : 0;
 
-        const pendingReviewsCount = pendingReviewsList ? pendingReviewsList.querySelectorAll('.pending-review-item').length : 0;
+        const pendingReviewsCount = pendingReviewsList ? pendingReviewsList.querySelectorAll('.list-item').length : 0;
 
         const pendingCount = pendingRequestsCount + pendingReviewsCount;
-        const historyCount = historyList ? historyList.querySelectorAll('.history-item').length : 0;
+        const historyCount = historyList ? historyList.querySelectorAll('.list-item').length : 0;
 
         // Keep UI minimal: numeric badge only for pending.
         setHomeToolbarBadge('pending', pendingCount);
@@ -350,7 +350,7 @@ import { truncate, getLogger } from './utils';
 
         // Show/hide history items based on filter
         if (historyList) {
-            historyList.querySelectorAll('.history-item').forEach(item => {
+            historyList.querySelectorAll('.list-item').forEach(item => {
                 const type = item.getAttribute('data-type') || '';
                 let show = false;
 
@@ -379,14 +379,14 @@ import { truncate, getLogger } from './utils';
 
         if (batchSelectMode) {
             batchActionsBar?.classList.remove('hidden');
-            historyList?.querySelectorAll('.history-item').forEach(item => {
+            historyList?.querySelectorAll('.list-item').forEach(item => {
                 item.classList.add('batch-mode');
             });
         } else {
             batchActionsBar?.classList.add('hidden');
             selectedInteractionIds.clear();
             lastClickedItemId = null; // Reset last clicked item
-            historyList?.querySelectorAll('.history-item').forEach(item => {
+            historyList?.querySelectorAll('.list-item').forEach(item => {
                 item.classList.remove('batch-mode', 'selected');
             });
         }
@@ -415,7 +415,7 @@ import { truncate, getLogger } from './utils';
     function selectSingleItem(id: string, element: HTMLElement): void {
         // Clear all selections
         selectedInteractionIds.clear();
-        historyList?.querySelectorAll('.history-item.selected').forEach(item => {
+        historyList?.querySelectorAll('.list-item.selected').forEach(item => {
             item.classList.remove('selected');
         });
 
@@ -437,7 +437,7 @@ import { truncate, getLogger } from './utils';
         }
 
         // Get all history items and filter to only visible ones
-        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const allItems = Array.from(historyList?.querySelectorAll('.list-item') || []);
         const visibleItems = allItems.filter(item => {
             const htmlItem = item as HTMLElement;
             // Check if element is visible using offsetParent (null if hidden)
@@ -478,7 +478,7 @@ import { truncate, getLogger } from './utils';
      */
     function toggleSelectAll(): void {
         // Get all history items and filter to only visible ones
-        const allItems = Array.from(historyList?.querySelectorAll('.history-item') || []);
+        const allItems = Array.from(historyList?.querySelectorAll('.list-item') || []);
         const visibleItems = allItems.filter(item => {
             const htmlItem = item as HTMLElement;
             return htmlItem.offsetParent !== null ||
@@ -523,7 +523,7 @@ import { truncate, getLogger } from './utils';
         }
 
         // Update select all button icon based on state
-        const visibleItems = historyList?.querySelectorAll('.history-item:not([style*="display: none"])') || [];
+        const visibleItems = historyList?.querySelectorAll('.list-item:not([style*="display: none"])') || [];
         const allSelected = visibleItems.length > 0 && Array.from(visibleItems).every(item => {
             const id = item.getAttribute('data-id');
             return id && selectedInteractionIds.has(id);
@@ -596,7 +596,7 @@ import { truncate, getLogger } from './utils';
                 const target = e.target as HTMLElement;
 
                 // Delete button takes precedence
-                const deleteBtn = target.closest('.pending-item-delete') as HTMLElement | null;
+                const deleteBtn = target.closest('.list-item-delete') as HTMLElement | null;
 
                 if (deleteBtn) {
                     e.stopPropagation();
@@ -623,7 +623,7 @@ import { truncate, getLogger } from './utils';
                 const target = e.target as HTMLElement;
 
                 // Delete button takes precedence
-                const deleteBtn = target.closest('.pending-item-delete') as HTMLElement | null;
+                const deleteBtn = target.closest('.list-item-delete') as HTMLElement | null;
 
                 if (deleteBtn) {
                     e.stopPropagation();
@@ -656,7 +656,7 @@ import { truncate, getLogger } from './utils';
             const clickEvent = e as MouseEvent;
 
             // Delete button takes precedence
-            const deleteBtn = target.closest('.history-item-delete') as HTMLElement | null;
+            const deleteBtn = target.closest('.list-item-delete') as HTMLElement | null;
 
             if (deleteBtn) {
                 e.stopPropagation();
@@ -671,11 +671,11 @@ import { truncate, getLogger } from './utils';
             }
 
             // View button (magnifier) - opens item even in batch mode
-            const viewBtn = target.closest('.history-item-view') as HTMLElement | null;
+            const viewBtn = target.closest('.list-item-view') as HTMLElement | null;
 
             if (viewBtn) {
                 e.stopPropagation();
-                const item = viewBtn.closest('.history-item') as HTMLElement | null;
+                const item = viewBtn.closest('.list-item') as HTMLElement | null;
                 if (!item) return;
 
                 const id = item.getAttribute('data-id');
@@ -695,13 +695,13 @@ import { truncate, getLogger } from './utils';
                 return;
             }
 
-            const item = target.closest('.history-item') as HTMLElement | null;
+            const item = target.closest('.list-item') as HTMLElement | null;
 
             // If clicking on empty area in batch mode, clear all selections
             if (!item && batchSelectMode) {
                 selectedInteractionIds.clear();
                 lastClickedItemId = null;
-                historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                historyList?.querySelectorAll('.list-item.selected').forEach(historyItem => {
                     historyItem.classList.remove('selected');
                 });
                 updateBatchSelectionUI();
@@ -753,7 +753,7 @@ import { truncate, getLogger } from './utils';
             if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
 
             const target = e.target as HTMLElement;
-            const item = target.closest('.history-item') as HTMLElement | null;
+            const item = target.closest('.list-item') as HTMLElement | null;
             if (!item) return;
 
             keyEvent.preventDefault();
@@ -767,7 +767,7 @@ import { truncate, getLogger } from './utils';
             if (!batchSelectMode) return;
 
             const target = e.target as HTMLElement;
-            const item = target.closest('.history-item') as HTMLElement | null;
+            const item = target.closest('.list-item') as HTMLElement | null;
 
             // If clicking on empty area (not on a history item), clear all selections
             if (!item) {
@@ -776,7 +776,7 @@ import { truncate, getLogger } from './utils';
                 if (!isFilterOrBatchBtn) {
                     selectedInteractionIds.clear();
                     lastClickedItemId = null;
-                    historyList?.querySelectorAll('.history-item.selected').forEach(historyItem => {
+                    historyList?.querySelectorAll('.list-item.selected').forEach(historyItem => {
                         historyItem.classList.remove('selected');
                     });
                     updateBatchSelectionUI();
@@ -932,38 +932,46 @@ import { truncate, getLogger } from './utils';
             for (const req of sortedRequests) {
                 const isSelected = req.id === selectedRequestId;
                 const item = el('div', {
-                    className: `request-item${isSelected ? ' selected' : ''}`,
+                    className: `list-item${isSelected ? ' selected' : ''}`,
                     attrs: { 'data-id': req.id, tabindex: '0' }
                 });
 
-                // Title with number on the left (based on creation order)
-                const titleEl = el('div', { className: 'request-item-title' });
+                const typeIcon = codicon('comment');
+
+                // Header: title + meta
+                const header = el('div', { className: 'list-item-header' });
+                const titleWrapper = el('div', { className: 'list-item-title-wrapper' });
                 const orderNum = creationOrder.get(req.id) || 1;
-                const numberBadge = el('span', { className: 'request-item-number-inline', text: `${orderNum}. ` });
-                const titleText = el('span', { text: req.title });
-                appendChildren(titleEl, numberBadge, titleText);
+                const title = el('div', { className: 'list-item-title', text: `${orderNum}. ${req.title}` });
+                titleWrapper.appendChild(title);
 
-                const previewEl = el('div', { className: 'request-item-preview', text: truncate(req.question, 100) });
-                const metaEl = el('div', { className: 'request-item-meta' });
-                const timeEl = el('span', { text: formatTime(req.createdAt) });
-                const deleteBtn = el('button', {
-                    className: 'pending-item-delete',
-                    title: window.__STRINGS__.close || 'Close',
-                    attrs: { type: 'button', 'data-id': req.id }
-                }, codicon('circle-slash'));
-
-                // Add "Last opened" label if this is the currently viewed request
+                const meta = el('div', { className: 'list-item-meta' });
+                const timeEl = el('span', { className: 'list-item-time', text: formatTime(req.createdAt) });
+                meta.appendChild(timeEl);
                 if (req.id === selectedRequestId) {
                     const lastOpenedBadge = el('span', {
                         className: 'last-opened-badge',
                         text: window.__STRINGS__.lastOpened || 'Last opened'
                     });
-                    appendChildren(metaEl, deleteBtn, ' ', timeEl, ' ', lastOpenedBadge);
-                } else {
-                    appendChildren(metaEl, deleteBtn, ' ', timeEl);
+                    meta.appendChild(lastOpenedBadge);
                 }
 
-                appendChildren(item, titleEl, previewEl, metaEl);
+                const deleteBtn = el('button', {
+                    className: 'list-item-delete',
+                    title: window.__STRINGS__.close || 'Close',
+                    attrs: { type: 'button', 'data-id': req.id }
+                }, codicon('circle-slash'));
+
+                appendChildren(header, titleWrapper, meta, deleteBtn);
+
+                // Preview
+                const preview = el('div', { className: 'list-item-preview', text: truncate(req.question, 100) });
+
+                // Content wrapper
+                const contentWrapper = el('div', { className: 'list-item-content' });
+                appendChildren(contentWrapper, header, preview);
+
+                appendChildren(item, typeIcon, contentWrapper);
 
                 item.addEventListener('click', () => {
                     vscode.postMessage({ type: 'selectRequest', requestId: req.id });
@@ -1694,27 +1702,39 @@ import { truncate, getLogger } from './utils';
 
         for (const review of reviews) {
             const item = el('div', {
-                className: 'request-item pending-review-item',
+                className: 'list-item',
                 attrs: { 'data-id': review.id, tabindex: '0' }
             });
 
-            const title = el('div', { className: 'request-item-title' });
-            appendChildren(title, codicon('file-text'), ' ', (review.title || 'Plan Review'));
+            const typeIcon = codicon('file-text');
 
-            const preview = el('div', { className: 'request-item-preview', text: truncate(review.plan || '', 100) });
+            // Header: title + meta
+            const header = el('div', { className: 'list-item-header' });
+            const titleWrapper = el('div', { className: 'list-item-title-wrapper' });
+            const title = el('div', { className: 'list-item-title', text: review.title || 'Plan Review' });
+            titleWrapper.appendChild(title);
 
-            const meta = el('div', { className: 'request-item-meta' });
+            const meta = el('div', { className: 'list-item-meta' });
             const status = review.status || 'pending';
             const statusBadge = el('span', { className: `status-badge status-${status}`, text: getStatusLabel(review.status) });
-            const time = el('span', { text: formatTime(review.timestamp) });
+            meta.appendChild(statusBadge);
+
             const deleteBtn = el('button', {
-                className: 'pending-item-delete',
+                className: 'list-item-delete',
                 title: window.__STRINGS__.close || 'Close',
                 attrs: { type: 'button', 'data-id': review.id }
             }, codicon('circle-slash'));
-            appendChildren(meta, statusBadge, ' ', deleteBtn, ' ', time);
 
-            appendChildren(item, title, preview, meta);
+            appendChildren(header, titleWrapper, meta, deleteBtn);
+
+            // Preview
+            const preview = el('div', { className: 'list-item-preview', text: truncate(review.plan || '', 100) });
+
+            // Content wrapper
+            const contentWrapper = el('div', { className: 'list-item-content' });
+            appendChildren(contentWrapper, header, preview);
+
+            appendChildren(item, typeIcon, contentWrapper);
 
             item.addEventListener('click', () => {
                 vscode.postMessage({ type: 'openPlanReviewPanel', interactionId: review.id });
@@ -1792,7 +1812,7 @@ import { truncate, getLogger } from './utils';
             const typeIcon = codicon(icon);
             const statusClass = entry.status || 'pending';
 
-            const itemClasses = batchSelectMode ? 'history-item batch-mode' : 'history-item';
+            const itemClasses = batchSelectMode ? 'list-item batch-mode' : 'list-item';
             const item = el('div', {
                 className: itemClasses,
                 attrs: {
@@ -1803,14 +1823,14 @@ import { truncate, getLogger } from './utils';
             });
 
             // First line: title + time (+ status for plan reviews)
-            const header = el('div', { className: 'history-item-header' });
+            const header = el('div', { className: 'list-item-header' });
 
-            const titleWrapper = el('div', { className: 'history-item-title-wrapper' });
-            const title = el('div', { className: 'history-item-title', text: entry.title });
+            const titleWrapper = el('div', { className: 'list-item-title-wrapper' });
+            const title = el('div', { className: 'list-item-title', text: entry.title });
             titleWrapper.appendChild(title);
 
             // Meta: time + status badge (inline on first line)
-            const meta = el('div', { className: 'history-item-meta' });
+            const meta = el('div', { className: 'list-item-meta' });
 
             if (isPlanReview) {
                 const statusBadge = el('span', {
@@ -1819,19 +1839,19 @@ import { truncate, getLogger } from './utils';
                 });
                 appendChildren(meta, statusBadge);
             } else {
-                const time = el('span', { className: 'history-item-time', text: formatTime(entry.timestamp) });
+                const time = el('span', { className: 'list-item-time', text: formatTime(entry.timestamp) });
                 meta.appendChild(time);
             }
 
             // Action buttons (shown on hover)
             const deleteBtn = el('button', {
-                className: 'history-item-delete',
+                className: 'list-item-delete',
                 title: window.__STRINGS__.delete ?? 'Delete',
                 attrs: { type: 'button', 'data-id': entry.id }
             }, codicon('trash'));
 
             const viewBtn = el('button', {
-                className: 'history-item-view',
+                className: 'list-item-view',
                 title: window.__STRINGS__.viewDetail ?? 'View Detail',
                 attrs: { type: 'button' }
             }, codicon('go-to-file'));
@@ -1839,17 +1859,17 @@ import { truncate, getLogger } from './utils';
             appendChildren(header, titleWrapper, meta, viewBtn, deleteBtn);
 
             // Second line: preview text
-            const preview = el('div', { className: 'history-item-preview', text: entry.preview });
+            const preview = el('div', { className: 'list-item-preview', text: entry.preview });
 
             // Wrapper for content rows
-            const contentWrapper = el('div', { className: 'history-item-content' });
+            const contentWrapper = el('div', { className: 'list-item-content' });
             appendChildren(contentWrapper, header, preview);
 
             appendChildren(item, typeIcon, contentWrapper);
 
             // Add debug badge if this is a debug mock interaction
             if (entry.isDebug) {
-                const debugBadge = el('span', { className: 'history-item-debug-badge', title: 'Debug Mock' }, codicon('bug'));
+                const debugBadge = el('span', { className: 'list-item-debug-badge', title: 'Debug Mock' }, codicon('bug'));
                 item.appendChild(debugBadge);
             }
 
@@ -3129,7 +3149,7 @@ import { truncate, getLogger } from './utils';
     }
 
 
-    /** 
+    /**
      * Dispose the debug tab by hiding the button and clearing any existing debug tools - used when enableToolDebug is false or not set
      */
     function disposeDebugTab(): void {
