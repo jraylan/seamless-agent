@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.27](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.26...seamless-agent-v0.1.27) (2026-02-28)
+
+
+### Features
+
+* **ui:** Improve ask_user Option Buttons Layout and UX ([#95](https://github.com/jraylan/seamless-agent/issues/95)) ([4a94a83](https://github.com/jraylan/seamless-agent/commit/4a94a83b9c007a2b4636079eb7cb44201030d880))
+
+
+### Code Refactoring
+
+* unify pending tab to list style matching history tab ([50e86d6](https://github.com/jraylan/seamless-agent/commit/50e86d60f7f14aa72db53754b3305e48755b31e8))
+
 ## [0.1.26](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.25...seamless-agent-v0.1.26) (2026-02-27)
 
 
