@@ -362,6 +362,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Public method to switch tabs in the webview (called from commands)
      */
     public switchTab(tab: 'pending' | 'history'): void {
+        this._showHome();
         const message: ToWebviewMessage = {
             type: 'switchTab',
             tab
@@ -1340,11 +1341,26 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 interactionId: interactionId
             };
 
-            if (isPending) {
-                // Use reopenPendingReview to connect to the existing agent promise
+            if (isPending && PlanReviewPanel.hasPendingResolver(interactionId)) {
+                // Agent is still alive and waiting — reconnect to its promise
                 await PlanReviewPanel.reopenPendingReview(this._extensionUri, interactionId, options);
+            } else if (isPending) {
+                // Orphaned pending review (e.g. after VS Code restart — resolver is gone).
+                // Open in interactive mode and persist the result directly via storage.
+                PlanReviewPanel.showWithOptions(this._extensionUri, options).then(result => {
+                    const status = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
+                        ? result.action : 'closed';
+                    this._chatHistoryStorage.updateInteraction(interactionId, {
+                        status,
+                        requiredRevisions: result.requiredRevisions,
+                    });
+                    this._showHome();
+                }).catch(() => {
+                    this._chatHistoryStorage.updateInteraction(interactionId, { status: 'closed' });
+                    this._showHome();
+                });
             } else {
-                // Historical view - just open in read-only mode
+                // Historical view — read-only
                 PlanReviewPanel.showWithOptions(this._extensionUri, options);
             }
         }

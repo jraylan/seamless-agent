@@ -723,68 +723,11 @@ button:disabled {
     color: var(--vscode-foreground);
 }
 
-/* Request list */
+/* Section title */
 .section-title {
     font-weight: 600;
     margin-bottom: 12px;
     color: var(--vscode-foreground);
-}
-
-.request-item {
-    padding: 12px;
-    margin-bottom: 8px;
-    background-color: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.request-item:hover,
-.request-item:focus {
-    border-color: var(--vscode-focusBorder);
-    outline: none;
-}
-
-.request-item-title {
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: var(--vscode-foreground);
-}
-
-.request-item-preview {
-    color: var(--vscode-descriptionForeground);
-    font-size: 0.9em;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.request-item-meta {
-    font-size: 0.8em;
-    color: var(--vscode-descriptionForeground);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Sequential number for request items - inline with title */
-.request-item-number-inline {
-    color: var(--vscode-textLink-foreground);
-    font-weight: 600;
-    margin-right: 4px;
-    font-size: 0.9em;
-}
-
-/* Selected state for request items */
-.request-item.selected {
-    border-color: var(--vscode-focusBorder);
-    background-color: var(--vscode-list-inactiveSelectionBackground);
-}
-
-.request-item.selected .request-item-title {
-    color: var(--vscode-list-activeSelectionForeground);
 }
 
 /* Last opened badge - subtle indicator for the currently viewed request */
@@ -1699,7 +1642,7 @@ button:disabled {
 }
 
 /* History List Items - Compact with Type Icons */
-.history-item {
+.list-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1714,27 +1657,27 @@ button:disabled {
     min-height: auto;
 }
 
-.history-item:hover {
+.list-item:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.history-item:last-child {
+.list-item:last-child {
     margin-bottom: 0;
 }
 
 /* Remove bullet point - use type icon instead */
-.history-item::before {
+.list-item::before {
     display: none;
 }
 
 /* Type icon (visible) */
-.history-item>.codicon:first-child {
+.list-item>.codicon:first-child {
     color: var(--vscode-descriptionForeground);
     font-size: 14px;
     flex-shrink: 0;
 }
 
-.history-item-header {
+.list-item-header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -1744,12 +1687,16 @@ button:disabled {
     min-width: 0;
 }
 
+/* Due to conflict, kept both until futher refactor */
 .history-item-header .codicon {
     display: none;
     /* Hide duplicate icon in header */
 }
+.list-item-header .codicon {
+    display: none; /* Hide duplicate icon in header */
+}
 
-.history-item-content {
+.list-item-content {
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -1758,14 +1705,14 @@ button:disabled {
     padding-right: 8px;
 }
 
-.history-item-title-wrapper {
+.list-item-title-wrapper {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-width: 0;
 }
 
-.history-item-title {
+.list-item-title {
     font-weight: 400;
     font-size: 0.9em;
     color: var(--vscode-foreground);
@@ -1775,8 +1722,7 @@ button:disabled {
     line-height: 1.4;
 }
 
-.history-item-delete,
-.pending-item-delete {
+.list-item-delete {
     background: transparent;
     border: none;
     color: var(--vscode-descriptionForeground);
@@ -1793,19 +1739,20 @@ button:disabled {
     height: 18px;
 }
 
-/* In normal mode, show delete button on hover */
-.history-item:not(.batch-mode):hover .history-item-delete,
-.request-item:hover .pending-item-delete {
+/* In normal mode, show delete button on hover or focus-within */
+.list-item:not(.batch-mode):hover .list-item-delete,
+.list-item:not(.batch-mode):focus .list-item-delete,
+.list-item:not(.batch-mode):focus-within .list-item-delete {
     opacity: 1;
 }
 
 /* In batch mode, hide delete button completely */
-.history-item.batch-mode .history-item-delete {
+.list-item.batch-mode .list-item-delete {
     display: none;
 }
 
 /* In batch mode, prevent text selection to avoid interference with shift-click */
-.history-item.batch-mode {
+.list-item.batch-mode {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -1813,23 +1760,21 @@ button:disabled {
 }
 
 /* Remove focus outline in batch mode to prevent orange border on shift-click */
-.history-item.batch-mode:focus {
+.list-item.batch-mode:focus {
     outline: none;
 }
 
-.history-item-delete:hover,
-.pending-item-delete:hover {
+.list-item-delete:hover {
     color: var(--vscode-errorForeground);
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.history-item-delete .codicon,
-.pending-item-delete .codicon {
+.list-item-delete .codicon {
     font-size: 11px;
     margin-right: 2px;
 }
 
-.history-item-preview {
+.list-item-preview {
     font-size: 0.75em;
     color: var(--vscode-descriptionForeground);
     overflow: hidden;
@@ -1840,7 +1785,7 @@ button:disabled {
     padding-left: 0;
 }
 
-.history-item-meta {
+.list-item-meta {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1848,7 +1793,7 @@ button:disabled {
     white-space: nowrap;
 }
 
-.history-item-time {
+.list-item-time {
     font-size: 0.75em;
     color: var(--vscode-descriptionForeground);
     flex-shrink: 0;
@@ -1857,7 +1802,7 @@ button:disabled {
 }
 
 /* Status badge in meta - inline with time */
-.history-item-meta .status-badge {
+.list-item-meta .status-badge {
     display: inline-flex;
 }
 
@@ -1987,14 +1932,12 @@ button:disabled {
     font-size: var(--vscode-editor-font-size);
 }
 
-/* Pending review item specific styling */
-.pending-review-item,
+/* Chat session/interaction item styling */
 .chat-session-item,
 .chat-interaction-item {
     transition: background-color 0.15s ease;
 }
 
-.pending-review-item:hover,
 .chat-session-item:hover,
 .chat-interaction-item:hover {
     background-color: var(--vscode-list-hoverBackground);
@@ -2123,18 +2066,18 @@ button:disabled {
 }
 
 /* History item selection state */
-.history-item.selected {
+.list-item.selected {
     background-color: var(--vscode-list-activeSelectionBackground);
     color: var(--vscode-list-activeSelectionForeground);
 }
 
-.history-item.selected .history-item-title,
-.history-item.selected .history-item-preview {
+.list-item.selected .list-item-title,
+.list-item.selected .list-item-preview {
     color: var(--vscode-list-activeSelectionForeground);
 }
 
 /* View button - compact icon button */
-.history-item-view {
+.list-item-view {
     width: 18px;
     height: 18px;
     padding: 0;
@@ -2152,20 +2095,20 @@ button:disabled {
 }
 
 /* In batch mode, always show view button */
-.history-item.batch-mode .history-item-view {
+.list-item.batch-mode .list-item-view {
     opacity: 1;
 }
 
 /* In normal mode, hide view button completely */
-.history-item:not(.batch-mode) .history-item-view {
+.list-item:not(.batch-mode) .list-item-view {
     display: none;
 }
 
-.history-item-view:hover {
+.list-item-view:hover {
     background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.history-item-view .codicon {
+.list-item-view .codicon {
     font-size: 11px;
 }
 
@@ -2224,7 +2167,7 @@ button:disabled {
 }
 
 /* Debug badge on history items */
-.history-item-debug-badge {
+.list-item-debug-badge {
     display: inline-flex;
     align-items: center;
     margin-left: 4px;
