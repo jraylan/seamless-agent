@@ -141,12 +141,40 @@ body {
     overflow: hidden;
 }
 
-.question-section {
+.form-scroll-area {
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    padding-right: 4px;
+}
+
+/* Monaco-style scrollbar for the unified form area */
+.form-scroll-area::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.form-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Always visible thumb using slightly higher opacity */
+.form-scroll-area::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.form-scroll-area::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+.question-section {
+    /* Natural height - let content size it; options follow directly after */
     display: flex;
     flex-direction: column;
-    min-height: 0;
 }
 
 .question-title {
@@ -157,44 +185,12 @@ body {
 }
 
 .question-content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
     color: var(--vscode-foreground);
-    padding-right: 4px;
-    min-height: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
 
-/* Monaco-style scrollbar */
-.question-content::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
 
-.question-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.question-content::-webkit-scrollbar-thumb {
-    background-color: var(--vscode-scrollbarSlider-background);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-}
-
-.question-content::-webkit-scrollbar-thumb:hover {
-    background-color: var(--vscode-scrollbarSlider-hoverBackground);
-}
-
-.question-content::-webkit-scrollbar-thumb:active {
-    background-color: var(--vscode-scrollbarSlider-activeBackground);
-}
-
-.question-content::-webkit-scrollbar-corner {
-    background: transparent;
-}
 
 /* Code blocks inside question content */
 .question-content pre {
@@ -246,47 +242,19 @@ body {
     font-style: italic;
 }
 
-/* Options container - clickable option buttons */
+/* Options container - fixed between question scroll area and response section */
 .options-container {
     flex-shrink: 0;
-    margin-top: 12px;
+    margin-top: 0;
+    margin-bottom: 0;
     padding: 4px;
-    /* Add padding to prevent small scrolling */
     border: none;
     min-inline-size: 0;
-    max-height: 300px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    /* All options always fully visible - no container scroll */
 }
 
-/* Monaco-style scrollbar for options container */
-.options-container::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
 
-.options-container::-webkit-scrollbar-track {
-    background: transparent;
-}
 
-.options-container::-webkit-scrollbar-thumb {
-    background-color: var(--vscode-scrollbarSlider-background);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-}
-
-.options-container::-webkit-scrollbar-thumb:hover {
-    background-color: var(--vscode-scrollbarSlider-hoverBackground);
-}
-
-.options-container::-webkit-scrollbar-thumb:active {
-    background-color: var(--vscode-scrollbarSlider-activeBackground);
-}
-
-.options-container::-webkit-scrollbar-corner {
-    background: transparent;
-}
 
 /* Step navigator (wizard-style multi-group) */
 .options-stepper {
@@ -502,7 +470,7 @@ body {
     line-height: 1.4;
     min-width: 0;
     word-break: break-word;
-    max-height: 100px;
+    max-height: 70px;
     overflow-y: auto;
     padding-right: 4px;
     /* Optional for scrollbar breathing room */
