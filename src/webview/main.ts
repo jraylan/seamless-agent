@@ -1250,12 +1250,11 @@ function applyAskUserOptionsLayoutMode(): void {
             // Indicator element (left side, fixed)
             const indicatorEl = el('span', { className: 'option-btn-indicator' });
             
-            // Description element (side-by-side with label, fixed, no scroll)
-            const descEl = opt.description 
+            // Description is primary (long-form, scrollable). Label stays compact metadata.
+            const descEl = opt.description
                 ? el('span', { className: 'option-btn-description', text: opt.description })
                 : null;
-            
-            // Label element (side-by-side with description, scrollable)
+
             const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
             
             // Tooltip (single reliable custom tooltip for both description + label)
@@ -1263,15 +1262,19 @@ function applyAskUserOptionsLayoutMode(): void {
                 ? el(
                     'span',
                     { className: 'option-btn-tooltip' },
-                    el('span', { className: 'option-btn-tooltip-label', text: opt.label }),
-                    el('span', { className: 'option-btn-tooltip-description', text: opt.description })
+                    el('span', { className: 'option-btn-tooltip-description', text: opt.description }),
+                    el('span', { className: 'option-btn-tooltip-label', text: opt.label })
                 )
                 : null;
 
             const btnChildren: ElementChild[] = [indicatorEl];
             
-            btnChildren.push(labelEl);
-            if (descEl) btnChildren.push(descEl);
+            if (descEl) {
+                btnChildren.push(descEl);
+                btnChildren.push(labelEl);
+            } else {
+                btnChildren.push(labelEl);
+            }
             if (tooltip) btnChildren.push(tooltip);
 
             const classNames = 'option-btn'
