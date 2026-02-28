@@ -482,6 +482,16 @@ body {
     overflow: hidden;
 }
 
+/* Label-only options should not reserve the 70% description column. */
+.option-btn.label-only .option-btn-label {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 100%;
+    font-size: 0.95em;
+    color: var(--vscode-foreground);
+    font-weight: 500;
+}
+
 /* Monaco-style scrollbar for long descriptions */
 .option-btn-description::-webkit-scrollbar {
     width: 6px;
@@ -510,6 +520,12 @@ body {
     opacity: 0.85;
 }
 
+/* Label-only options keep description-style emphasis when selected. */
+.option-btn.label-only.selected .option-btn-label {
+    color: var(--vscode-foreground);
+    opacity: 1;
+}
+
 /* Compact layout: keep all button text in a single truncated line. */
 body[data-ask-user-options-layout="compact"] .option-btn {
     align-items: center;
@@ -533,6 +549,11 @@ body[data-ask-user-options-layout="compact"] .option-btn-label {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+body[data-ask-user-options-layout="compact"] .option-btn.label-only .option-btn-label {
+    flex: 1 1 auto;
+    max-width: 100%;
 }
 
 body[data-ask-user-options-layout="compact"] .option-btn-description::-webkit-scrollbar {
@@ -599,6 +620,13 @@ body[data-ask-user-options-layout="compact"] .option-btn-description::-webkit-sc
     font-size: 0.9em;
     color: var(--vscode-descriptionForeground);
     margin-top: 4px;
+}
+
+.option-btn-tooltip-label-only {
+    margin-top: 0;
+    color: inherit;
+    font-size: 1em;
+    font-weight: 500;
 }
 
 .options-separator {

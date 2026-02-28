@@ -1265,7 +1265,11 @@ function applyAskUserOptionsLayoutMode(): void {
                     el('span', { className: 'option-btn-tooltip-description', text: opt.description }),
                     el('span', { className: 'option-btn-tooltip-label', text: opt.label })
                 )
-                : null;
+                : el(
+                    'span',
+                    { className: 'option-btn-tooltip' },
+                    el('span', { className: 'option-btn-tooltip-label option-btn-tooltip-label-only', text: opt.label })
+                );
 
             const btnChildren: ElementChild[] = [indicatorEl];
             
@@ -1275,11 +1279,12 @@ function applyAskUserOptionsLayoutMode(): void {
             } else {
                 btnChildren.push(labelEl);
             }
-            if (tooltip) btnChildren.push(tooltip);
+            btnChildren.push(tooltip);
 
             const classNames = 'option-btn'
                 + (isSelected ? ' selected' : '')
                 + (readOnly ? ' readonly' : '')
+                + (!descEl ? ' label-only' : '')
                 + (isMultiSelect ? ' multi-select' : ' single-select');
             const btn = el('button', {
                 className: classNames,
