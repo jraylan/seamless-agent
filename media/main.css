@@ -250,7 +250,8 @@ body {
 .options-container {
     flex-shrink: 0;
     margin-top: 12px;
-    padding: 0;
+    padding: 4px;
+    /* Add padding to prevent small scrolling */
     border: none;
     min-inline-size: 0;
     max-height: 300px;
@@ -402,13 +403,10 @@ body {
 .option-btn {
     display: flex;
     flex-direction: row;
-    /* Changed to row for single-line layout */
-    align-items: center;
-    /* Center vertically */
-    gap: 8px;
-    /* Space between label and description */
+    align-items: flex-start;
+    gap: 6px;
     width: 100%;
-    padding: 8px 12px;
+    padding: 6px 8px;
     border: 1px solid transparent;
     border-radius: 4px;
     background-color: var(--vscode-button-secondaryBackground);
@@ -419,10 +417,7 @@ body {
     transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     text-align: left;
     box-sizing: border-box;
-    /* Single line height */
     min-height: 32px;
-    max-height: 32px;
-    overflow: hidden;
     position: relative;
 }
 
@@ -445,10 +440,95 @@ body {
     /* compensate for thicker left border */
 }
 
-.option-btn.selected .option-btn-label::before {
-    content: '✓ ';
+/* === OPTION BUTTON NEW LAYOUT === */
+
+/* Indicator - fixed on the left */
+.option-btn-indicator {
+    flex-shrink: 0;
+    width: 28px;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+    font-size: 1em;
+    line-height: 1.4;
+}
+
+/* Single-select: circle indicator */
+.option-btn.single-select .option-btn-indicator::before {
+    content: '\25cb';
+    color: var(--vscode-disabledForeground, #999);
+}
+
+.option-btn.single-select.selected .option-btn-indicator::before {
+    content: '\25cf';
     color: var(--vscode-button-background, #0078d4);
     font-weight: 700;
+}
+
+/* Multi-select: checkbox indicator */
+.option-btn.multi-select .option-btn-indicator::before {
+    content: '[ ]';
+    color: var(--vscode-disabledForeground, #999);
+    font-family: monospace;
+    font-size: 0.9em;
+    display: inline-block;
+    min-width: 2.4em;
+}
+
+.option-btn.multi-select.selected .option-btn-indicator::before {
+    content: '[\2713]';
+    color: var(--vscode-button-background, #0078d4);
+    font-weight: 700;
+    font-family: monospace;
+    font-size: 0.9em;
+    display: inline-block;
+    min-width: 2.4em;
+}
+
+/* Description - fixed, no scroll, side by side with label */
+.option-btn-description {
+    flex-shrink: 0;
+    width: 40%;
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+/* Label - wraps text, side by side with description */
+.option-btn-label {
+    flex: 1;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+    word-break: break-word;
+    max-height: 100px;
+    overflow-y: auto;
+    padding-right: 4px;
+    /* Optional for scrollbar breathing room */
+}
+
+/* Monaco-style scrollbar for option labels */
+.option-btn-label::-webkit-scrollbar {
+    width: 6px;
+}
+
+.option-btn-label::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.option-btn-label::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 3px;
+    background-clip: padding-box;
+}
+
+.option-btn-label::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.option-btn-label::-webkit-scrollbar-thumb:active {
+    background-color: var(--vscode-scrollbarSlider-activeBackground);
 }
 
 .option-btn.selected .option-btn-description {
@@ -504,38 +584,6 @@ body {
 .option-btn:hover .option-btn-tooltip {
     visibility: visible;
     opacity: 1;
-}
-
-.option-btn-label {
-    font-weight: 500;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex-shrink: 0;
-    /* Label doesn't shrink when description exists */
-    max-width: 50%;
-    /* Label takes max 50% width when description exists */
-}
-
-/* When label is the only child (no description), allow full width */
-.option-btn-label:only-child {
-    max-width: 100%;
-    flex: 1;
-}
-
-.option-btn-description {
-    font-size: 0.9em;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    /* Single line */
-    flex: 1;
-    /* Take remaining space */
-    min-width: 0;
-    /* Allow shrinking */
 }
 
 .options-separator {
@@ -1061,7 +1109,8 @@ button:disabled {
 .input-area .textarea-wrapper textarea {
     width: 100%;
     min-height: auto !important;
-    max-height: none !important; /* Height controlled dynamically by JS + resize handle */
+    max-height: none !important;
+    /* Height controlled dynamically by JS + resize handle */
     height: auto;
     padding: 8px 12px 8px 0;
     border: none !important;
@@ -1728,7 +1777,8 @@ button:disabled {
 }
 
 .history-item-header .codicon {
-    display: none; /* Hide duplicate icon in header */
+    display: none;
+    /* Hide duplicate icon in header */
 }
 
 .history-item-content {

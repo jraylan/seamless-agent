@@ -1198,6 +1198,7 @@ import { truncate, getLogger } from './utils';
      * @param selected Set of currently selected labels
      * @param readOnly If true, buttons are non-interactive (for history view)
      * @param onToggle Optional callback for interactive mode
+     * @param isMultiSelect Whether this is multi-select (for radio vs checkbox indicator)
      * @returns Array of button elements
      */
     function buildOptionButtons(
@@ -1205,32 +1206,41 @@ import { truncate, getLogger } from './utils';
         selected: Set<string>,
         readOnly: boolean,
         onToggle?: (label: string, btn: HTMLElement) => void,
+        isMultiSelect?: boolean,
     ): HTMLElement[] {
         const buttons: HTMLElement[] = [];
 
         for (const opt of group.options) {
-            const btnChildren: ElementChild[] = [
-                el('span', { className: 'option-btn-label', text: opt.label })
-            ];
-
-            if (opt.description) {
-                const descEl = el('span', { className: 'option-btn-description', text: opt.description });
-                btnChildren.push(descEl);
-
-                // Always add tooltip for descriptions - will show on hover
-                const tooltip = el('span', {
-                    className: 'option-btn-tooltip',
-                    text: opt.description
-                });
-                btnChildren.push(tooltip);
-            }
-
             const isSelected = selected.has(opt.label);
+            
+            // Indicator element (left side, fixed)
+            const indicatorEl = el('span', { className: 'option-btn-indicator' });
+            
+            // Description element (side-by-side with label, fixed, no scroll)
+            const descEl = opt.description 
+                ? el('span', { className: 'option-btn-description', text: opt.description })
+                : null;
+            
+            // Label element (side-by-side with description, scrollable)
+            const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
+            
+            // Tooltip (shows on hover)
+            const tooltip = opt.description 
+                ? el('span', { className: 'option-btn-tooltip', text: opt.description })
+                : null;
+
+            const btnChildren: ElementChild[] = [indicatorEl];
+            
+            if (descEl) btnChildren.push(descEl);
+            btnChildren.push(labelEl);
+            if (tooltip) btnChildren.push(tooltip);
+
             // Set button title to show full description on hover - single line break, no empty line
             const btnTitle = opt.description ? `${opt.label}\n${opt.description}` : opt.label;
             const classNames = 'option-btn'
                 + (isSelected ? ' selected' : '')
-                + (readOnly ? ' readonly' : '');
+                + (readOnly ? ' readonly' : '')
+                + (isMultiSelect ? ' multi-select' : ' single-select');
             const btn = el('button', {
                 className: classNames,
                 attrs: {
@@ -1368,7 +1378,8 @@ import { truncate, getLogger } from './utils';
                 group, selected, config.readOnly,
                 config.readOnly ? undefined : (label, btn) => {
                     handleToggle(group.title, label, btn, group.multiSelect);
-                }
+                },
+                group.multiSelect
             );
             for (const btn of buttons) { buttonsContainer.appendChild(btn); }
 
