@@ -456,7 +456,7 @@ body {
 /* Description - fixed, no scroll, side by side with label */
 .option-btn-description {
     flex-shrink: 0;
-    width: 40%;
+    width: 30%;
     font-size: 0.9em;
     color: var(--vscode-descriptionForeground);
     line-height: 1.4;
