@@ -1717,8 +1717,10 @@ button:disabled {
     height: 18px;
 }
 
-/* In normal mode, show delete button on hover */
-.list-item:not(.batch-mode):hover .list-item-delete {
+/* In normal mode, show delete button on hover or focus-within */
+.list-item:not(.batch-mode):hover .list-item-delete,
+.list-item:not(.batch-mode):focus .list-item-delete,
+.list-item:not(.batch-mode):focus-within .list-item-delete {
     opacity: 1;
 }
 

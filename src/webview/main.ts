@@ -1717,7 +1717,8 @@ import { truncate, getLogger } from './utils';
             const meta = el('div', { className: 'list-item-meta' });
             const status = review.status || 'pending';
             const statusBadge = el('span', { className: `status-badge status-${status}`, text: getStatusLabel(review.status) });
-            meta.appendChild(statusBadge);
+            const time = el('span', { className: 'list-item-time', text: formatTime(review.timestamp) });
+            appendChildren(meta, statusBadge, time);
 
             const deleteBtn = el('button', {
                 className: 'list-item-delete',
