@@ -583,7 +583,7 @@ body[data-ask-user-options-layout="compact"] .option-btn-label::-webkit-scrollba
 .option-btn-tooltip-description {
     display: block;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-top: 4px;
 }
 
 .option-btn-tooltip-label {

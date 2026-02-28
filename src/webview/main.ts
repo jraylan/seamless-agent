@@ -1263,15 +1263,15 @@ function applyAskUserOptionsLayoutMode(): void {
                 ? el(
                     'span',
                     { className: 'option-btn-tooltip' },
-                    el('span', { className: 'option-btn-tooltip-description', text: opt.description }),
-                    el('span', { className: 'option-btn-tooltip-label', text: opt.label })
+                    el('span', { className: 'option-btn-tooltip-label', text: opt.label }),
+                    el('span', { className: 'option-btn-tooltip-description', text: opt.description })
                 )
                 : null;
 
             const btnChildren: ElementChild[] = [indicatorEl];
             
-            if (descEl) btnChildren.push(descEl);
             btnChildren.push(labelEl);
+            if (descEl) btnChildren.push(descEl);
             if (tooltip) btnChildren.push(tooltip);
 
             const classNames = 'option-btn'
