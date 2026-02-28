@@ -52,6 +52,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
 
+    // Event emitter for pending request count changes (used by status bar)
+    private _onPendingRequestsChanged = new vscode.EventEmitter<RequestItem[]>();
+    public readonly onPendingRequestsChanged = this._onPendingRequestsChanged.event;
+
     constructor(private readonly _context: vscode.ExtensionContext) {
         // Use the singleton instance that was initialized in extension.ts
         this._chatHistoryStorage = getChatHistoryStorage();
@@ -295,6 +299,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public getPendingRequests(): RequestItem[] {
         return Array.from(this._pendingRequests.values()).map(p => p.item);
+    }
+
+    /**
+     * Select a pending request by ID and show it in the webview.
+     * Used by the status bar quick pick to navigate directly to a request.
+     */
+    public selectRequest(requestId: string): void {
+        const pending = this._pendingRequests.get(requestId);
+        if (pending) {
+            this._selectedRequestId = requestId;
+            this._lastOpenedRequestId = requestId;
+            this._showQuestion(pending.item);
+        }
     }
 
     /**
@@ -1209,6 +1226,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Set the badge count on the view
      */
     private _setBadge(count: number): void {
+        // Notify listeners (status bar) of pending request changes
+        this._onPendingRequestsChanged.fire(this.getPendingRequests());
+
         if (this._view) {
             if (count === 0) {
 

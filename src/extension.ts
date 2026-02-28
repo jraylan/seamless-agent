@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import { registerNativeTools } from './tools';
 import { AgentInteractionProvider } from './webview/webviewProvider';
 import { initializeChatHistoryStorage, getChatHistoryStorage } from './storage/chatHistoryStorage';
-import { strings } from './localization';
+import { strings, localize } from './localization';
 import { Logger } from './logging';
+import { StatusBarManager } from './statusBar';
 
 const PARTICIPANT_ID = 'seamless-agent.agent';
 
@@ -27,6 +28,46 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register the ask_user tool with the webview provider
     registerNativeTools(context, provider);
+
+    // Status bar: persistent indicator for pending agent requests
+    const statusBar = new StatusBarManager();
+    (context.subscriptions as unknown as Array<vscode.Disposable>).push(statusBar);
+    provider.onPendingRequestsChanged(items => {
+        statusBar.update(items.map(r => ({
+            id: r.id,
+            title: r.title,
+            agentName: r.agentName,
+            createdAt: r.createdAt,
+        })));
+    });
+
+    // Quick pick command: show pending requests and navigate to selected
+    const showPendingQuickPickCmd = vscode.commands.registerCommand('seamless-agent.showPendingQuickPick', async () => {
+        const pending = statusBar.getPendingItems();
+        if (pending.length === 0) {
+            vscode.window.showInformationMessage(localize('statusBar.noPendingMessage'));
+            return;
+        }
+
+        const now = Date.now();
+        const items = pending.map(p => ({
+            label: p.title,
+            description: p.agentName || '',
+            detail: formatTimeAgo(now - p.createdAt),
+            id: p.id,
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            title: localize('statusBar.quickPickTitle'),
+            placeHolder: localize('statusBar.quickPickPlaceholder'),
+        });
+
+        if (selected) {
+            provider.selectRequest(selected.id);
+            vscode.commands.executeCommand('seamlessAgentView.focus');
+        }
+    });
+    (context.subscriptions as unknown as Array<vscode.Disposable>).push(showPendingQuickPickCmd);
 
     // Register command to cancel pending plans
     const cancelPendingPlansCommand = vscode.commands.registerCommand('seamless-agent.cancelPendingPlans', async () => {
@@ -179,4 +220,13 @@ export function deactivate() {
         agentProvider = null;
     }
     Logger.log('Seamless Agent extension deactivated');
+}
+
+function formatTimeAgo(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return strings.justNow;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
 }

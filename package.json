@@ -374,6 +374,12 @@
     ],
     "commands": [
       {
+        "command": "seamless-agent.showPendingQuickPick",
+        "title": "%command.showPendingQuickPick.title%",
+        "icon": "$(bell)",
+        "category": "Seamless Agent"
+      },
+      {
         "command": "seamless-agent.cancelPendingPlans",
         "title": "%command.cancelPendingPlans.title%",
         "category": "Seamless Agent"
@@ -410,7 +416,7 @@
     "package:vsce": "node build-package.js vsce",
     "package:ovsx": "node build-package.js ovsx",
     "check-types": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --require ./test/vscode-mock.cjs --import tsx --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",

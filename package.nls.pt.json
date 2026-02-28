@@ -122,5 +122,12 @@
   "confirm.deleteSelected": "Tem a certeza que deseja eliminar {0} itens selecionados?",
   "console.orTypeYourOwn": "Ou escreva a sua própria resposta abaixo",
   "response.selectedOptions": "Opções selecionadas:",
-  "response.additionalResponse": "Resposta adicional:"
+  "response.additionalResponse": "Resposta adicional:",
+  "statusBar.noRequests": "Nenhum pedido de agente pendente",
+  "statusBar.pending": "pendente(s)",
+  "statusBar.pendingTooltip": "{0} pedido(s) de agente a aguardar a sua resposta — clique para ver",
+  "statusBar.noPendingMessage": "Nenhum pedido de agente pendente neste momento.",
+  "statusBar.quickPickTitle": "Pedidos de Agente Pendentes",
+  "statusBar.quickPickPlaceholder": "Selecione um pedido para visualizar",
+  "command.showPendingQuickPick.title": "Mostrar Pedidos Pendentes"
 }
