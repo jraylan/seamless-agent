@@ -54,10 +54,11 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                 params = parseAskUserInput(input);
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                const retryGuidance = "Retry with corrected ask_user options shape: keep 'label' concise and move long explanatory text to 'description'.";
                 return new vscode.LanguageModelToolResult([
                     new vscode.LanguageModelTextPart(JSON.stringify({
                         responded: false,
-                        response: `Validation error: ${errorMessage}`,
+                        response: `Validation error: ${errorMessage}. ${retryGuidance}`,
                         attachments: []
                     }))
                 ]);

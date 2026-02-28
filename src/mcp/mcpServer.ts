@@ -37,10 +37,8 @@ export class McpServerManager {
 
             // Register ask_user tool
             const askUserOptionLabelSchema = z.string()
-                .max(120)
-                .refine((value) => !value.includes('\n'))
-                .refine((value) => ((value.match(/[.!?]/g) || []).length <= 1))
-                .describe("Short option title shown in the button (single sentence, max 120 chars)");
+                .max(120, "Option label must be 120 characters or less. Keep 'label' concise and move long explanatory text to 'description'.")
+                .describe("Short option title shown in the button. Keep it concise (ideally single line and <=120 chars); put longer details in description.");
 
             this.mcpServer.registerTool(
                 "ask_user",

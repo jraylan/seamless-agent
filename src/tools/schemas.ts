@@ -9,14 +9,8 @@ import type { RequiredPlanRevisions, PlanReviewMode } from '../webview/types';
  * Schema for a single option item (string or {label, description})
  */
 const OptionLabelSchema = z.string()
-    .max(120, 'Option label must be 120 characters or less')
-    .refine((value) => !value.includes('\n'), {
-        message: 'Option label must be a single line'
-    })
-    .refine((value) => ((value.match(/[.!?]/g) || []).length <= 1), {
-        message: 'Option label should be a single sentence'
-    })
-    .describe('Short option title shown in the button (single sentence, max 120 chars).');
+    .max(120, "Option label must be 120 characters or less. Keep 'label' concise and move long explanatory text to 'description'.")
+    .describe('Short option title shown in the button. Keep it concise (ideally single line and <=120 chars); put longer details in description.');
 
 const OptionItemSchema = z.union([
     z.string(),
