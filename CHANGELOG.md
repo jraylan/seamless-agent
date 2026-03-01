@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.28](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.27...seamless-agent-v0.1.28) (2026-03-01)
+
+
+### Bug Fixes
+
+* add missing translation strings ([26fdcd2](https://github.com/jraylan/seamless-agent/commit/26fdcd2052481e88ce8564e616f89dff3ca6b1f3))
+* **webview:** Consolidate ask_user option tooltip and align label/description semantics ([#99](https://github.com/jraylan/seamless-agent/issues/99)) ([d1a40f2](https://github.com/jraylan/seamless-agent/commit/d1a40f23d5d60a8d3f87c97e6b75a4aee583e224))
+
 ## [0.1.27](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.26...seamless-agent-v0.1.27) (2026-02-28)
 
 
