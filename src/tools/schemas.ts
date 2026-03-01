@@ -8,11 +8,15 @@ import type { RequiredPlanRevisions, PlanReviewMode } from '../webview/types';
 /**
  * Schema for a single option item (string or {label, description})
  */
+const OptionLabelSchema = z.string()
+    .max(120, "Option label must be 120 characters or less. Keep 'label' concise and move long explanatory text to 'description'.")
+    .describe('Short option title shown in the button. Keep it concise (ideally single line and <=120 chars); put longer details in description.');
+
 const OptionItemSchema = z.union([
     z.string(),
     z.object({
-        label: z.string().describe('The display label for the option button'),
-        description: z.string().optional().describe('Optional description shown below the label')
+        label: OptionLabelSchema,
+        description: z.string().optional().describe('Optional detailed context for the option. Put long explanatory text here.')
     })
 ]);
 

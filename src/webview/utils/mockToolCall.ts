@@ -85,7 +85,7 @@ export class MockToolCallService {
 
             case 'askUserMultiStepLongText':
                 webviewProvider.waitForUserResponse(
-                    'Run a realistic multi-step approval flow for a production release. This mock puts long content in `label` fields (the main option text), while `description` stays brief and contextual.',
+                    'Run a realistic multi-step approval flow for a production release. This mock puts long content in `description` fields (primary option text), while `label` stays brief and contextual.',
                     'Debug: Multi-Step Long Text Options',
                     'Debug Agent',
                     undefined,
@@ -94,16 +94,16 @@ export class MockToolCallService {
                             title: 'Release Window Selection',
                             options: [
                                 {
-                                    label: 'Immediate deployment during current business hours with active on-call support, real-time incident monitoring, mandatory stakeholder bridge channel participation, and explicit acknowledgment that the team will own rapid mitigation for any authentication, billing, or API latency regression reported within the first two hours after release',
-                                    description: 'Fastest path, high visibility.'
+                                    label: 'Immediate deployment',
+                                    description: 'Deploy during current business hours with active on-call support, real-time incident monitoring, mandatory stakeholder bridge channel participation, and explicit acknowledgment that the team will own rapid mitigation for any authentication, billing, or API latency regression reported within the first two hours after release.'
                                 },
                                 {
-                                    label: 'Scheduled deployment in an off-peak traffic window with gradual rollout percentages, automated rollback guardrails tied to service level objectives, and pre-approved checkpoint criteria that must be met before each progressive exposure phase can continue to the next audience segment',
-                                    description: 'Best for controlled risk reduction.'
+                                    label: 'Scheduled deployment',
+                                    description: 'Deploy in an off-peak traffic window with gradual rollout percentages, automated rollback guardrails tied to service level objectives, and pre-approved checkpoint criteria that must be met before each progressive exposure phase can continue to the next audience segment.'
                                 },
                                 {
-                                    label: 'Deferred deployment pending final legal, compliance, and stakeholder communication sign-off, including policy wording review, customer-facing change summary approval, and confirmation that regional notice obligations are fully satisfied before any production toggles are enabled',
-                                    description: 'Wait for non-technical approvals.'
+                                    label: 'Deferred deployment',
+                                    description: 'Delay release pending final legal, compliance, and stakeholder communication sign-off, including policy wording review, customer-facing change summary approval, and confirmation that regional notice obligations are fully satisfied before any production toggles are enabled.'
                                 }
                             ],
                             multiSelect: false,
@@ -112,20 +112,20 @@ export class MockToolCallService {
                             title: 'Mandatory Verification Checks',
                             options: [
                                 {
-                                    label: 'Confirm end-to-end smoke tests across authentication, billing, and critical user workflow completion paths, including negative-path retries, permission-boundary checks, and cross-environment parity validation for each route that historically generated incident tickets during prior releases',
-                                    description: 'User journey validation.'
+                                    label: 'Smoke test coverage',
+                                    description: 'Confirm end-to-end smoke tests across authentication, billing, and critical user workflow completion paths, including negative-path retries, permission-boundary checks, and cross-environment parity validation for each route that historically generated incident tickets during prior releases.'
                                 },
                                 {
-                                    label: 'Validate observability baselines including latency percentiles, error rate thresholds, service dependency health, dashboard annotation readiness, and alert-routing integrity so every on-call rotation receives correctly classified signals without missing context during escalation handoff',
-                                    description: 'Monitoring readiness check.'
+                                    label: 'Observability baselines',
+                                    description: 'Validate observability baselines including latency percentiles, error rate thresholds, service dependency health, dashboard annotation readiness, and alert-routing integrity so every on-call rotation receives correctly classified signals without missing context during escalation handoff.'
                                 },
                                 {
-                                    label: 'Review migration readiness for schema changes, backward compatibility constraints, rollback script execution timing, lock contention impact windows, and data integrity checkpoints that prove no irreversible state mutation occurs before all verification gates are complete',
-                                    description: 'Data safety and rollback check.'
+                                    label: 'Migration readiness',
+                                    description: 'Review migration readiness for schema changes, backward compatibility constraints, rollback script execution timing, lock contention impact windows, and data integrity checkpoints that prove no irreversible state mutation occurs before all verification gates are complete.'
                                 },
                                 {
-                                    label: 'Publish support handoff notes with incident contacts, escalation policy, customer communication templates, and troubleshooting runbooks that include symptom-to-action mapping for known edge cases likely to surface immediately after a phased production rollout',
-                                    description: 'Operations handoff readiness.'
+                                    label: 'Support handoff notes',
+                                    description: 'Publish support handoff notes with incident contacts, escalation policy, customer communication templates, and troubleshooting runbooks that include symptom-to-action mapping for known edge cases likely to surface immediately after a phased production rollout.'
                                 }
                             ],
                             multiSelect: true,
@@ -134,16 +134,16 @@ export class MockToolCallService {
                             title: 'Post-Release Communication Strategy',
                             options: [
                                 {
-                                    label: 'Send targeted in-product announcement with feature highlights, known limitations, follow-up timeline, support escalation guidance, and clearly scoped statements about what changed now versus what will be delivered in subsequent release waves to avoid expectation mismatch',
-                                    description: 'In-product message to active users.'
+                                    label: 'In-product announcement',
+                                    description: 'Send targeted in-product announcement with feature highlights, known limitations, follow-up timeline, support escalation guidance, and clearly scoped statements about what changed now versus what will be delivered in subsequent release waves to avoid expectation mismatch.'
                                 },
                                 {
-                                    label: 'Distribute external release bulletin to enterprise contacts with service-level impact statement, integration change summary, governance note, and migration recommendations that help technical account managers brief customer operations teams before they encounter behavior changes in production',
-                                    description: 'Formal enterprise communication.'
+                                    label: 'Enterprise bulletin',
+                                    description: 'Distribute external release bulletin to enterprise contacts with service-level impact statement, integration change summary, governance note, and migration recommendations that help technical account managers brief customer operations teams before they encounter behavior changes in production.'
                                 },
                                 {
-                                    label: 'Keep the release silent and monitor telemetry for twenty-four hours before broad communication, while logging anomaly trends, validating customer support ticket volume, and confirming that no high-severity incident patterns emerge that would require coordinated rollback messaging',
-                                    description: 'Observe first, announce later.'
+                                    label: 'Silent observation window',
+                                    description: 'Keep the release silent and monitor telemetry for twenty-four hours before broad communication, while logging anomaly trends, validating customer support ticket volume, and confirming that no high-severity incident patterns emerge that would require coordinated rollback messaging.'
                                 }
                             ],
                             multiSelect: false,

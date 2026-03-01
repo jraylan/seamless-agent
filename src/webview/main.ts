@@ -1096,8 +1096,11 @@ function applyAskUserOptionsLayoutMode(): void {
         // Update attachments display
         updateAttachmentsDisplay();
 
-        // Focus the textarea for immediate typing
-        responseInput?.focus();
+        // Only focus textarea if the webview already has focus (user is looking at the panel).
+        // This prevents stealing focus from Copilot Chat or editor (issue #94).
+        if (document.hasFocus()) {
+            responseInput?.focus();
+        }
     }
 
     /**
@@ -1250,36 +1253,47 @@ function applyAskUserOptionsLayoutMode(): void {
             // Indicator element (left side, fixed)
             const indicatorEl = el('span', { className: 'option-btn-indicator' });
             
-            // Description element (side-by-side with label, fixed, no scroll)
-            const descEl = opt.description 
+            // Description is primary (long-form, scrollable). Label stays compact metadata.
+            const descEl = opt.description
                 ? el('span', { className: 'option-btn-description', text: opt.description })
                 : null;
-            
-            // Label element (side-by-side with description, scrollable)
+
             const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
             
-            // Tooltip (shows on hover)
-            const tooltip = opt.description 
-                ? el('span', { className: 'option-btn-tooltip', text: opt.description })
-                : null;
+            // Tooltip (single reliable custom tooltip for both description + label)
+            const tooltip = opt.description
+                ? el(
+                    'span',
+                    { className: 'option-btn-tooltip' },
+                    el('span', { className: 'option-btn-tooltip-description', text: opt.description }),
+                    el('span', { className: 'option-btn-tooltip-label', text: opt.label })
+                )
+                : el(
+                    'span',
+                    { className: 'option-btn-tooltip' },
+                    el('span', { className: 'option-btn-tooltip-label option-btn-tooltip-label-only', text: opt.label })
+                );
 
             const btnChildren: ElementChild[] = [indicatorEl];
             
-            if (descEl) btnChildren.push(descEl);
-            btnChildren.push(labelEl);
-            if (tooltip) btnChildren.push(tooltip);
+            if (descEl) {
+                btnChildren.push(descEl);
+                btnChildren.push(labelEl);
+            } else {
+                btnChildren.push(labelEl);
+            }
+            btnChildren.push(tooltip);
 
-            // Set button title to show full description on hover - single line break, no empty line
-            const btnTitle = opt.description ? `${opt.label}\n${opt.description}` : opt.label;
             const classNames = 'option-btn'
                 + (isSelected ? ' selected' : '')
                 + (readOnly ? ' readonly' : '')
+                + (!descEl ? ' label-only' : '')
                 + (isMultiSelect ? ' multi-select' : ' single-select');
             const btn = el('button', {
                 className: classNames,
                 attrs: {
                     type: 'button',
-                    title: btnTitle,
+                    'aria-label': opt.description ? `${opt.description}. ${opt.label}` : opt.label,
                     'aria-pressed': String(isSelected),
                     ...(readOnly ? { disabled: '' } : {})
                 }

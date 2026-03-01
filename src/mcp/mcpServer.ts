@@ -36,6 +36,10 @@ export class McpServerManager {
             });
 
             // Register ask_user tool
+            const askUserOptionLabelSchema = z.string()
+                .max(120, "Option label must be 120 characters or less. Keep 'label' concise and move long explanatory text to 'description'.")
+                .describe("Short option title shown in the button. Keep it concise (ideally single line and <=120 chars); put longer details in description.");
+
             this.mcpServer.registerTool(
                 "ask_user",
                 {
@@ -47,8 +51,8 @@ export class McpServerManager {
                             z.array(z.union([
                                 z.string(),
                                 z.object({
-                                    label: z.string(),
-                                    description: z.string().optional()
+                                    label: askUserOptionLabelSchema,
+                                    description: z.string().optional().describe("Optional detailed context; use this for longer explanatory text")
                                 })
                             ])),
                             z.array(z.object({
@@ -56,13 +60,13 @@ export class McpServerManager {
                                 options: z.array(z.union([
                                     z.string(),
                                     z.object({
-                                        label: z.string(),
-                                        description: z.string().optional()
+                                        label: askUserOptionLabelSchema,
+                                        description: z.string().optional().describe("Optional detailed context; use this for longer explanatory text")
                                     })
                                 ])),
                                 multiSelect: z.boolean().optional()
                             }))
-                        ]).optional().describe("Optional predefined answer options")
+                        ]).optional().describe("Optional predefined answer options. For object options, keep 'label' short and place longer details in 'description'.")
                     })
                 },
                 async (args: any, { signal }: { signal?: AbortSignal }) => {
