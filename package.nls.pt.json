@@ -64,6 +64,8 @@
   "config.storageContext.title": "Contexto de Armazenamento",
   "config.historyTimeDisplay.title": "Exibição de Tempo no Histórico",
   "config.historyTimeDisplay.description": "Escolha como os horários aparecem no histórico: relativo, absoluto (ISO 8601) ou híbrido (relativo até 7 dias, ISO após).",
+  "config.enableToolDebug.title": "Ativar Depuração de Ferramentas",
+  "config.enableToolDebug.description": "Exibe uma aba de depuração para testar chamadas de ferramentas simuladas sem iniciar uma conversa real.",
   "planReview.button.acknowledge": "Confirmar",
   "planReview.button.continue": "Continuar",
   "planReview.button.done": "Concluído",
