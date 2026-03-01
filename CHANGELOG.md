@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.28](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.27...seamless-agent-v0.1.28) (2026-03-01)
+
+
+### Bug Fixes
+
+* add missing translation strings ([26fdcd2](https://github.com/jraylan/seamless-agent/commit/26fdcd2052481e88ce8564e616f89dff3ca6b1f3))
+
 ## [0.1.27](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.26...seamless-agent-v0.1.27) (2026-02-28)
 
 
