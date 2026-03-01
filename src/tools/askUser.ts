@@ -122,8 +122,6 @@ async function askViaWebview(
 async function askViaVSCode(question: string, title: string): Promise<{ responded: boolean; response: string }> {
     const buttonText = strings.respond;
 
-    await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
-
     const selection = await vscode.window.showWarningMessage(
         `${strings.confirmationRequired}: ${question}`,
         { modal: false },

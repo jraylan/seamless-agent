@@ -1096,8 +1096,11 @@ function applyAskUserOptionsLayoutMode(): void {
         // Update attachments display
         updateAttachmentsDisplay();
 
-        // Focus the textarea for immediate typing
-        responseInput?.focus();
+        // Only focus textarea if the webview already has focus (user is looking at the panel).
+        // This prevents stealing focus from Copilot Chat or editor (issue #94).
+        if (document.hasFocus()) {
+            responseInput?.focus();
+        }
     }
 
     /**
