@@ -580,6 +580,11 @@ body[data-ask-user-options-layout="compact"] .option-btn-description::-webkit-sc
     border-color: var(--vscode-button-background, #0078d4);
 }
 
+/* Hide custom tooltip when native VS Code tooltip mode is active */
+body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
+    display: none !important;
+}
+
 /* Tooltip for full description on hover */
 .option-btn-tooltip {
     position: absolute;

@@ -173,6 +173,7 @@ declare global {
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
             askUserOptionsLayout: 'expanded' | 'compact';
+            askUserOptionsTooltip: 'native' | 'custom';
             enableToolDebug: boolean;
         };
     }
@@ -200,6 +201,22 @@ function normalizeAskUserOptionsLayout(value: unknown): AskUserOptionsLayout {
 function applyAskUserOptionsLayoutMode(): void {
     const mode = normalizeAskUserOptionsLayout(window.__CONFIG__?.askUserOptionsLayout);
     document.body.dataset.askUserOptionsLayout = mode;
+}
+
+type AskUserOptionsTooltip = 'native' | 'custom';
+
+function normalizeAskUserOptionsTooltip(value: unknown): AskUserOptionsTooltip {
+    return value === 'custom' ? 'custom' : 'native';
+}
+
+function applyAskUserOptionsTooltipMode(): void {
+    const mode = normalizeAskUserOptionsTooltip(window.__CONFIG__?.askUserOptionsTooltip);
+    document.body.dataset.askUserOptionsTooltip = mode;
+    const isNative = mode === 'native';
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.option-btn[data-native-tooltip]'));
+    for (const btn of buttons) {
+        btn.title = isNative ? (btn.dataset.nativeTooltip ?? '') : '';
+    }
 }
 
 
@@ -252,6 +269,7 @@ function applyAskUserOptionsLayoutMode(): void {
 
     // Apply option layout mode early so all rendered buttons follow the selected setting.
     applyAskUserOptionsLayoutMode();
+    applyAskUserOptionsTooltipMode();
 
     // Initialize input history manager
     const inputHistoryManager = new InputHistoryManager(
@@ -1274,6 +1292,12 @@ function applyAskUserOptionsLayoutMode(): void {
                     el('span', { className: 'option-btn-tooltip-label option-btn-tooltip-label-only', text: opt.label })
                 );
 
+            // Native tooltip text mirrors custom tooltip content (plain text, double-line gap between description and label)
+            const nativeTooltipText = opt.description
+                ? `${opt.description}\n\n${opt.label}`
+                : opt.label;
+            const isNativeMode = normalizeAskUserOptionsTooltip(window.__CONFIG__?.askUserOptionsTooltip) === 'native';
+
             const btnChildren: ElementChild[] = [indicatorEl];
             
             if (descEl) {
@@ -1291,8 +1315,10 @@ function applyAskUserOptionsLayoutMode(): void {
                 + (isMultiSelect ? ' multi-select' : ' single-select');
             const btn = el('button', {
                 className: classNames,
+                title: isNativeMode ? nativeTooltipText : '',
                 attrs: {
                     type: 'button',
+                    'data-native-tooltip': nativeTooltipText,
                     'aria-label': opt.description ? `${opt.description}. ${opt.label}` : opt.label,
                     'aria-pressed': String(isSelected),
                     ...(readOnly ? { disabled: '' } : {})
@@ -3396,6 +3422,9 @@ function applyAskUserOptionsLayoutMode(): void {
                 } else if (message.key === 'askUserOptionsLayout') {
                     window.__CONFIG__.askUserOptionsLayout = normalizeAskUserOptionsLayout(message.value);
                     applyAskUserOptionsLayoutMode();
+                } else if (message.key === 'askUserOptionsTooltip') {
+                    window.__CONFIG__.askUserOptionsTooltip = normalizeAskUserOptionsTooltip(message.value);
+                    applyAskUserOptionsTooltipMode();
                 }
                 break;
         }

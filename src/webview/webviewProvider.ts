@@ -140,6 +140,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     value: askUserOptionsLayout,
                 } as ToWebviewMessage);
             }
+
+            if (event.affectsConfiguration('seamless-agent.askUserOptionsTooltip')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const rawTooltip = config.get<string>('askUserOptionsTooltip', 'native');
+                const askUserOptionsTooltip = ['native', 'custom'].includes(rawTooltip)
+                    ? rawTooltip
+                    : 'native';
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'askUserOptionsTooltip',
+                    value: askUserOptionsTooltip,
+                } as ToWebviewMessage);
+            }
         }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
@@ -1449,6 +1462,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const askUserOptionsLayout = ['expanded', 'compact'].includes(rawAskUserOptionsLayout)
             ? rawAskUserOptionsLayout
             : 'compact';
+        const rawAskUserOptionsTooltip = config.get<string>('askUserOptionsTooltip', 'native');
+        const askUserOptionsTooltip = ['native', 'custom'].includes(rawAskUserOptionsTooltip)
+            ? rawAskUserOptionsTooltip
+            : 'native';
         const enableToolDebug = config.get<boolean>('enableToolDebug', false);
 
         // Replace placeholders
@@ -1524,6 +1541,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{batchSelectedCount}}': strings.batchSelectedCount,
             '{{historyTimeDisplay}}': historyTimeDisplay,
             '{{askUserOptionsLayout}}': askUserOptionsLayout,
+            '{{askUserOptionsTooltip}}': askUserOptionsTooltip,
             '{{orTypeYourOwn}}': strings.orTypeYourOwn,
             // Settings button
             '{{settings}}': strings.settings,

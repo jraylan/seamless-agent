@@ -64,6 +64,8 @@
   "config.askUserAppendText.description": "Text to automatically append to every response when using the `askUser` feature.",
   "config.askUserOptionsLayout.title": "`ask_user` Options Layout",
   "config.askUserOptionsLayout.description": "Controls how `ask_user` option buttons are displayed in the Agent Console. `Compact` keeps each option on one line and truncates long text. `Expanded` shows a multi-line layout with dedicated areas for label and description.",
+  "config.askUserOptionsTooltip.title": "`ask_user` Options Tooltip Style",
+  "config.askUserOptionsTooltip.description": "Controls the tooltip style for `ask_user` option buttons. `Native` uses the VS Code native tooltip which can overflow beyond narrow sidebar widths (default). `Custom` uses the built-in inline tooltip constrained to sidebar width.",
   "config.ignoreCommonPaths.description": "When enabled, ignores well-known build, cache, and dependency folders (node_modules, dist, .git, etc.) when searching for files.",
   "config.ignoreCommonPaths.title": "Ignore Common Paths",
   "config.additionalIgnoredPaths.description": "Additional glob patterns for paths to ignore when searching for files. Use `**` for recursive matching. Example: `**/logs/**`, `**/*.log`",

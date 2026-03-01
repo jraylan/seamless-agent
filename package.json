@@ -144,6 +144,16 @@
           "title": "%config.askUserOptionsLayout.title%",
           "markdownDescription": "%config.askUserOptionsLayout.description%"
         },
+        "seamless-agent.askUserOptionsTooltip": {
+          "type": "string",
+          "enum": [
+            "native",
+            "custom"
+          ],
+          "default": "native",
+          "title": "%config.askUserOptionsTooltip.title%",
+          "markdownDescription": "%config.askUserOptionsTooltip.description%"
+        },
         "seamless-agent.enableToolDebug": {
           "type": "boolean",
           "default": false,
