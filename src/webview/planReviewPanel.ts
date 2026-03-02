@@ -174,6 +174,28 @@ export class PlanReviewPanel {
     }
 
     /**
+     * Programmatically approve a pending plan review (used by Auto-Pilot).
+     * Resolves the waiting `showWithOptions` promise with an approved result.
+     */
+    public static approve(panelId: string): boolean {
+        const resolver = PlanReviewPanel._pendingResolvers.get(panelId);
+        if (!resolver) return false;
+
+        const panel = PlanReviewPanel._panels.get(panelId);
+
+        // Resolve as approved BEFORE disposing the panel — the dispose handler
+        // would otherwise overwrite this result with { action: 'closed' }.
+        resolver({ approved: true, requiredRevisions: [], action: 'approved' });
+        PlanReviewPanel._pendingResolvers.delete(panelId);
+
+        if (panel) {
+            panel._closedByAgent = true;
+            panel._panel.dispose();
+        }
+        return true;
+    }
+
+    /**
      * Check if there is a live agent still waiting for this review's result.
      * Returns false after VS Code restart (resolvers are in-memory only).
      */

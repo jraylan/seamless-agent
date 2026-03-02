@@ -45,10 +45,16 @@ export async function planReview(
     // Refresh the webview to show the pending plan in the list
     provider.refreshHome();
 
+    // Auto-Pilot: auto-approve plan review if enabled
+    provider.scheduleApproval(interactionId, () => {
+        PlanReviewPanel.approve(interactionId);
+    });
+
     // Register cancellation handler - if agent stops, mark as cancelled
     const cancellationDisposable = token.onCancellationRequested(() => {
         Logger.log('planReview cancelled by agent, closing:', interactionId);
 
+        provider.cancelScheduled(interactionId);
         storage.updateInteraction(interactionId, { status: 'closed' });
         // Also close the panel if it's open
         PlanReviewPanel.closeIfOpen(interactionId);
@@ -70,6 +76,8 @@ export async function planReview(
         // Show the plan review panel
         const result = await PlanReviewPanel.showWithOptions(context.extensionUri, options);
 
+        // Cancel any pending auto-approval timer (user acted before it fired)
+        provider.cancelScheduled(interactionId);
 
         const interactionState = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
             ? result.action : 'closed';

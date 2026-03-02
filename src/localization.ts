@@ -187,4 +187,24 @@ export const strings = {
 
     // Errors
     get noSuchInteraction() { return localize('error.noSuchInteraction'); },
+
+    // Timeout & lifecycle
+    get requestTimedOut() { return localize('timeout.requestTimedOut'); },
+    get requestPendingReminder() { return localize('timeout.pendingReminder'); },
+    get requestsPendingBatch() { return localize('timeout.pendingReminderBatch'); },
+    get elapsedTime() { return localize('timeout.elapsedTime'); },
+
+    // Auto-Pilot
+    get autoPilotAdd() { return localize('autoPilot.add'); },
+    get autoPilotAddPlaceholder() { return localize('autoPilot.addPlaceholder'); },
+    get autoPilotWhenDone() { return localize('autoPilot.whenDone'); },
+    get autoPilotLoop() { return localize('autoPilot.loop'); },
+    get autoPilotStop() { return localize('autoPilot.stop'); },
+    get autoPilotRepeatLast() { return localize('autoPilot.repeatLast'); },
+    get autoPilotActive() { return localize('autoPilot.active'); },
+    get autoPilotStopped() { return localize('autoPilot.stopped'); },
+    get autoPilotNoResponses() { return localize('autoPilot.noResponses'); },
+    get autoPilotAutoResponded() { return localize('autoPilot.autoResponded'); },
+    get autoPilotLabel() { return localize('autoPilot.label'); },
+    get autoPilotToggle() { return localize('autoPilot.toggle'); },
 };

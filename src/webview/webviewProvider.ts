@@ -21,9 +21,11 @@ import {
     UserResponseResult,
     AskUserOptions,
     PlanReviewResult,
+    AutoPilotConfig,
 } from "./types";
 import { truncate } from './utils';
 import { Logger } from '../logging';
+import { AutoRespondManager } from '../tools/autoRespond';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -52,6 +54,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
 
+    // Auto-Pilot manager (set from extension.ts after construction)
+    private _autoRespond: AutoRespondManager | null = null;
+
     constructor(private readonly _context: vscode.ExtensionContext) {
         // Use the singleton instance that was initialized in extension.ts
         this._chatHistoryStorage = getChatHistoryStorage();
@@ -63,6 +68,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public getChatHistoryStorage(): ChatHistoryStorage {
         return this._chatHistoryStorage;
+    }
+
+    /**
+     * Attach the AutoRespondManager so the provider can auto-respond
+     * to incoming requests when Auto-Pilot is enabled.
+     */
+    public setAutoRespondManager(manager: AutoRespondManager): void {
+        this._autoRespond = manager;
+        // Forward config changes to the webview; track disposable to avoid leaks
+        const sub = manager.onDidChange(config => {
+            this._postAutoPilotConfig(config);
+        });
+        this._disposables.push(sub);
     }
 
     private get _extensionUri(): vscode.Uri {
@@ -288,6 +306,29 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             if (!this._view?.visible) {
                 this._showNotification();
             }
+
+            // Auto-Pilot: schedule auto-response if enabled
+            if (this._autoRespond) {
+                this._autoRespond.scheduleResponse(req, (autoResponse) => {
+                    const pending = this._pendingRequests.get(req);
+                    if (pending) {
+                        this._resolveRequest(req, {
+                            responded: true,
+                            response: autoResponse,
+                            attachments: [],
+                        });
+                        // Notify webview of auto-response for visual feedback
+                        // responseIndex was captured inside the timer callback in scheduleResponse
+                        // (after _nextResponse advances the index), so read it at trigger-time
+                        this._view?.webview.postMessage({
+                            type: 'autoPilotTriggered',
+                            requestId: req,
+                            responseText: autoResponse,
+                            responseIndex: this._autoRespond!.getConfig().currentIndex - 1,
+                        } as ToWebviewMessage);
+                    }
+                });
+            }
         });
     }
 
@@ -298,6 +339,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     public cancelRequest(requestId: string, reason: string = strings.cancelled): boolean {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return false;
+
+        // Cancel any scheduled auto-response
+        this._autoRespond?.cancelScheduled(requestId);
 
         pending.resolve({
             responded: false, response: reason, attachments: []
@@ -419,6 +463,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         // Update badge with total pending count (requests + plan reviews)
         const totalPending = pendingRequests.length + pendingPlanReviews.length;
         this._setBadge(totalPending);
+
+        // Sync auto-pilot state to webview
+        if (this._autoRespond) {
+            this._postAutoPilotConfig(this._autoRespond.getConfig());
+        }
     }
 
     /**
@@ -438,6 +487,47 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             tab
         };
         this._view?.webview.postMessage(message);
+    }
+
+    /**
+     * Post elapsed-time updates to the webview for live display.
+     * Called periodically by the RequestTimeoutManager.
+     */
+    public postElapsedTimeUpdates(updates: Array<{ id: string; elapsedMs: number }>): void {
+        if (!this._view) return;
+        const message: ToWebviewMessage = {
+            type: 'elapsedTimeUpdate',
+            updates,
+        };
+        this._view.webview.postMessage(message);
+    }
+
+    /**
+     * Schedule an auto-approval for a plan review (Auto-Pilot).
+     * Returns true if a timer was scheduled.
+     */
+    public scheduleApproval(interactionId: string, approve: () => void): boolean {
+        if (!this._autoRespond) return false;
+        return this._autoRespond.scheduleApproval(interactionId, approve);
+    }
+
+    /**
+     * Cancel a scheduled auto-response or auto-approval (e.g. if the user acts first).
+     */
+    public cancelScheduled(requestId: string): void {
+        this._autoRespond?.cancelScheduled(requestId);
+    }
+
+    /**
+     * Post auto-pilot configuration to the webview for UI sync.
+     */
+    private _postAutoPilotConfig(config: AutoPilotConfig): void {
+        if (!this._view) return;
+        const message: ToWebviewMessage = {
+            type: 'updateAutoPilot',
+            config,
+        };
+        this._view.webview.postMessage(message);
     }
 
     /**
@@ -549,6 +639,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 break;
             case 'openSettings':
                 vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jraylan.seamless-agent');
+                break;
+            case 'toggleAutoPilot':
+                this._autoRespond?.setEnabled(message.enabled);
+                break;
+            case 'updateAutoPilotResponses':
+                this._autoRespond?.setResponses(message.responses);
+                break;
+            case 'setAutoPilotExhaustedBehavior':
+                this._autoRespond?.setExhaustedBehavior(message.behavior);
                 break;
         }
     }
@@ -1122,6 +1221,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
 
         if (pending) {
+            // Cancel any scheduled auto-response
+            this._autoRespond?.cancelScheduled(requestId);
+
             // Create interaction record and add to history (keeps full attachment info)
             createInteraction(requestId,
                 pending.item.question,
@@ -1557,6 +1659,19 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
             '{{enableToolDebug}}': String(enableToolDebug),
+            // Auto-Pilot
+            '{{autoPilotAdd}}': strings.autoPilotAdd,
+            '{{autoPilotAddPlaceholder}}': strings.autoPilotAddPlaceholder,
+            '{{autoPilotWhenDone}}': strings.autoPilotWhenDone,
+            '{{autoPilotLoop}}': strings.autoPilotLoop,
+            '{{autoPilotStop}}': strings.autoPilotStop,
+            '{{autoPilotRepeatLast}}': strings.autoPilotRepeatLast,
+            '{{autoPilotActive}}': strings.autoPilotActive,
+            '{{autoPilotStopped}}': strings.autoPilotStopped,
+            '{{autoPilotNoResponses}}': strings.autoPilotNoResponses,
+            '{{autoPilotAutoResponded}}': strings.autoPilotAutoResponded,
+            '{{autoPilotLabel}}': strings.autoPilotLabel,
+            '{{autoPilotToggle}}': strings.autoPilotToggle,
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

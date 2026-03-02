@@ -1,3 +1,11 @@
+// Auto-Pilot configuration
+export interface AutoPilotConfig {
+    enabled: boolean;
+    responses: string[];
+    currentIndex: number;
+    exhaustedBehavior: 'loop' | 'stop' | 'repeatLast';
+}
+
 // Comment structure for feedback
 export interface RequiredPlanRevisions {
     revisedPart: string;
@@ -166,6 +174,20 @@ export type ToWebviewMessage = | {
         value: boolean | string | number;
     }
     | {
+        type: 'elapsedTimeUpdate';
+        updates: Array<{ id: string; elapsedMs: number }>;
+    }
+    | {
+        type: 'updateAutoPilot';
+        config: AutoPilotConfig;
+    }
+    | {
+        type: 'autoPilotTriggered';
+        requestId: string;
+        responseText: string;
+        responseIndex: number;
+    }
+    | {
         type: 'clear'
     };
 
@@ -300,6 +322,18 @@ export type FromWebviewMessage = | {
     }
     | {
         type: 'openSettings'
+    }
+    | {
+        type: 'toggleAutoPilot';
+        enabled: boolean;
+    }
+    | {
+        type: 'updateAutoPilotResponses';
+        responses: string[];
+    }
+    | {
+        type: 'setAutoPilotExhaustedBehavior';
+        behavior: 'loop' | 'stop' | 'repeatLast';
     };
 
 

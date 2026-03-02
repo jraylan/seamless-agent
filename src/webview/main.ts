@@ -169,6 +169,17 @@ declare global {
             debugMockAskUserMultiStepLongText: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
+            // Auto-Pilot
+            autoPilotAdd: string;
+            autoPilotAddPlaceholder: string;
+            autoPilotWhenDone: string;
+            autoPilotLoop: string;
+            autoPilotStop: string;
+            autoPilotRepeatLast: string;
+            autoPilotActive: string;
+            autoPilotStopped: string;
+            autoPilotNoResponses: string;
+            autoPilotAutoResponded: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
@@ -296,6 +307,22 @@ function applyAskUserOptionsTooltipMode(): void {
     const batchDeleteBtn = document.getElementById('batch-delete-btn');
     const batchCancelBtn = document.getElementById('batch-cancel-btn');
     const historyClearBtn = document.getElementById('history-clear-btn');
+
+    // Auto-Pilot DOM references
+    const autoPilotBar = document.getElementById('autopilot-bar');
+    const autoPilotHeader = document.getElementById('autopilot-header');
+    const autoPilotToggle = document.getElementById('autopilot-toggle') as HTMLInputElement | null;
+    const autoPilotStatus = document.getElementById('autopilot-status');
+    const autoPilotConfig = document.getElementById('autopilot-config');
+    const autoPilotResponses = document.getElementById('autopilot-responses');
+    const autoPilotNewInput = document.getElementById('autopilot-new-response') as HTMLInputElement | null;
+    const autoPilotAddBtn = document.getElementById('autopilot-add-btn');
+    const autoPilotExhausted = document.getElementById('autopilot-exhausted') as HTMLSelectElement | null;
+
+    /** Local snapshot of the auto-pilot config for rendering. */
+    let autoPilotState: { enabled: boolean; responses: string[]; currentIndex: number; exhaustedBehavior: string } = {
+        enabled: false, responses: [], currentIndex: 0, exhaustedBehavior: 'loop',
+    };
 
     // Batch selection state
     let batchSelectMode = false;
@@ -2440,6 +2467,20 @@ function applyAskUserOptionsTooltipMode(): void {
         return date.toISOString().slice(0, 10);
     }
 
+    /**
+     * Format elapsed milliseconds into a human-readable string (e.g. "2m 30s", "1h 5m").
+     */
+    function formatElapsed(ms: number): string {
+        const totalSeconds = Math.floor(ms / 1000);
+        if (totalSeconds < 60) return `${totalSeconds}s`;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        if (minutes < 60) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        const remainMin = minutes % 60;
+        return remainMin > 0 ? `${hours}h ${remainMin}m` : `${hours}h`;
+    }
+
     function formatTime(timestamp: number): string {
         const strings = window.__STRINGS__;
         const mode = window.__CONFIG__?.historyTimeDisplay || 'hybrid';
@@ -3219,6 +3260,181 @@ function applyAskUserOptionsTooltipMode(): void {
     });
 
 
+    // ── Auto-Pilot UI ─────────────────────────────────────────
+
+    /** Render the auto-pilot response list and sync UI state. */
+    function renderAutoPilot(): void {
+        if (!autoPilotBar || !autoPilotResponses) return;
+        const S = window.__STRINGS__;
+        const { enabled, responses, currentIndex, exhaustedBehavior } = autoPilotState;
+
+        // Toggle active class on bar
+        if (enabled && responses.length > 0) {
+            autoPilotBar.classList.add('active');
+        } else {
+            autoPilotBar.classList.remove('active');
+        }
+
+        // Sync toggle
+        if (autoPilotToggle) {
+            autoPilotToggle.checked = enabled;
+        }
+
+        // Status text
+        if (autoPilotStatus) {
+            if (enabled && responses.length > 0) {
+                const active = S?.autoPilotActive || 'Active {0}/{1}';
+                autoPilotStatus.textContent = active
+                    .replace('{0}', String(Math.min(currentIndex + 1, responses.length)))
+                    .replace('{1}', String(responses.length));
+            } else if (enabled && responses.length === 0) {
+                autoPilotStatus.textContent = S?.autoPilotNoResponses || 'Add responses to enable';
+            } else {
+                autoPilotStatus.textContent = '';
+            }
+        }
+
+        // Sync exhausted select
+        if (autoPilotExhausted) {
+            autoPilotExhausted.value = exhaustedBehavior;
+        }
+
+        // Render response items
+        clearChildren(autoPilotResponses);
+
+        if (responses.length === 0) {
+            const emptyEl = el('div', {
+                className: 'autopilot-empty',
+                text: S?.autoPilotNoResponses || 'Add responses to enable',
+            });
+            autoPilotResponses.appendChild(emptyEl);
+            return;
+        }
+
+        responses.forEach((text, idx) => {
+            const isActive = enabled && idx === currentIndex;
+
+            const item = el('div', {
+                className: `autopilot-response-item${isActive ? ' active-response' : ''}`,
+            });
+
+            const indexEl = el('span', {
+                className: 'autopilot-response-index',
+                text: String(idx + 1),
+            });
+
+            const textEl = el('span', {
+                className: 'autopilot-response-text',
+                text: text,
+                attrs: { title: text },
+            });
+
+            const actions = el('div', { className: 'autopilot-response-actions' });
+
+            // Move up
+            if (idx > 0) {
+                const upBtn = el('button', {
+                    className: 'autopilot-icon-btn',
+                    attrs: { type: 'button', title: '↑' },
+                }, codicon('arrow-up'));
+                upBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const newResponses = [...autoPilotState.responses];
+                    [newResponses[idx - 1], newResponses[idx]] = [newResponses[idx], newResponses[idx - 1]];
+                    autoPilotState.responses = newResponses;
+                    vscode.postMessage({ type: 'updateAutoPilotResponses', responses: newResponses });
+                    renderAutoPilot();
+                });
+                actions.appendChild(upBtn);
+            }
+
+            // Move down
+            if (idx < responses.length - 1) {
+                const downBtn = el('button', {
+                    className: 'autopilot-icon-btn',
+                    attrs: { type: 'button', title: '↓' },
+                }, codicon('arrow-down'));
+                downBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const newResponses = [...autoPilotState.responses];
+                    [newResponses[idx], newResponses[idx + 1]] = [newResponses[idx + 1], newResponses[idx]];
+                    autoPilotState.responses = newResponses;
+                    vscode.postMessage({ type: 'updateAutoPilotResponses', responses: newResponses });
+                    renderAutoPilot();
+                });
+                actions.appendChild(downBtn);
+            }
+
+            // Delete
+            const delBtn = el('button', {
+                className: 'autopilot-icon-btn danger',
+                attrs: { type: 'button', title: S?.remove || 'Remove' },
+            }, codicon('close'));
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newResponses = autoPilotState.responses.filter((_, i) => i !== idx);
+                autoPilotState.responses = newResponses;
+                vscode.postMessage({ type: 'updateAutoPilotResponses', responses: newResponses });
+                renderAutoPilot();
+            });
+            actions.appendChild(delBtn);
+
+            appendChildren(item, indexEl, textEl, actions);
+            autoPilotResponses.appendChild(item);
+        });
+    }
+
+    /** Initialize auto-pilot event handlers. */
+    function initAutoPilot(): void {
+        // Toggle checkbox
+        if (autoPilotToggle) {
+            autoPilotToggle.addEventListener('change', () => {
+                autoPilotState.enabled = autoPilotToggle.checked;
+                vscode.postMessage({ type: 'toggleAutoPilot', enabled: autoPilotToggle.checked });
+                renderAutoPilot();
+            });
+        }
+
+        // Click header to expand/collapse config
+        if (autoPilotHeader && autoPilotConfig) {
+            autoPilotHeader.addEventListener('click', (e) => {
+                // Don't toggle config when clicking the switch itself
+                const target = e.target as HTMLElement;
+                if (target.closest('.autopilot-switch')) return;
+                autoPilotConfig.classList.toggle('hidden');
+            });
+        }
+
+        // Add response
+        const addResponse = () => {
+            if (!autoPilotNewInput) return;
+            const text = autoPilotNewInput.value.trim();
+            if (!text) return;
+            autoPilotState.responses.push(text);
+            autoPilotNewInput.value = '';
+            vscode.postMessage({ type: 'updateAutoPilotResponses', responses: [...autoPilotState.responses] });
+            renderAutoPilot();
+        };
+
+        autoPilotAddBtn?.addEventListener('click', addResponse);
+        autoPilotNewInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addResponse();
+            }
+        });
+
+        // Exhausted behavior select
+        autoPilotExhausted?.addEventListener('change', () => {
+            const value = autoPilotExhausted.value as 'loop' | 'stop' | 'repeatLast';
+            autoPilotState.exhaustedBehavior = value;
+            vscode.postMessage({ type: 'setAutoPilotExhaustedBehavior', behavior: value });
+        });
+
+        // Initial render
+        renderAutoPilot();
+    }
+
     function updateDebugTab(): void {
         if (window.__CONFIG__?.enableToolDebug)
             return initDebugTab();
@@ -3427,6 +3643,52 @@ function applyAskUserOptionsTooltipMode(): void {
                     applyAskUserOptionsTooltipMode();
                 }
                 break;
+            case 'elapsedTimeUpdate':
+                // Update elapsed time badges on pending items
+                if (message.updates && Array.isArray(message.updates)) {
+                    for (const { id, elapsedMs } of message.updates) {
+                        // Find all list items matching this id (in both pending lists)
+                        const items = document.querySelectorAll(`.list-item[data-id="${id}"]`);
+                        items.forEach((item) => {
+                            let badge = item.querySelector('.elapsed-badge') as HTMLElement | null;
+                            if (!badge) {
+                                // Create badge next to the time element
+                                const meta = item.querySelector('.list-item-meta');
+                                if (meta) {
+                                    badge = el('span', { className: 'elapsed-badge' });
+                                    badge.appendChild(codicon('clock'));
+                                    const textNode = document.createTextNode('');
+                                    badge.appendChild(textNode);
+                                    meta.appendChild(badge);
+                                }
+                            }
+                            if (badge) {
+                                const textNode = badge.lastChild;
+                                if (textNode) {
+                                    textNode.textContent = ' ' + formatElapsed(elapsedMs);
+                                }
+                            }
+                        });
+                    }
+                }
+                break;
+            case 'updateAutoPilot':
+                // Sync auto-pilot config from extension
+                if (message.config) {
+                    autoPilotState = { ...message.config };
+                    renderAutoPilot();
+                }
+                break;
+            case 'autoPilotTriggered':
+                // Flash the auto-responded item in the list
+                if (message.requestId) {
+                    const items = document.querySelectorAll(`.list-item[data-id="${message.requestId}"]`);
+                    items.forEach((item) => {
+                        item.classList.add('auto-responded');
+                        setTimeout(() => item.classList.remove('auto-responded'), 700);
+                    });
+                }
+                break;
         }
     });
 
@@ -3450,6 +3712,9 @@ function applyAskUserOptionsTooltipMode(): void {
 
     // Initialize debug tab if enabled
     updateDebugTab();
+
+    // Initialize auto-pilot UI
+    initAutoPilot();
 
 })();
 

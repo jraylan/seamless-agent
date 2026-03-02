@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { registerNativeTools } from './tools';
 import { AgentInteractionProvider } from './webview/webviewProvider';
 import { initializeChatHistoryStorage, getChatHistoryStorage } from './storage/chatHistoryStorage';
+import { RequestTimeoutManager } from './tools/requestTimeout';
+import { AutoRespondManager } from './tools/autoRespond';
 import { strings } from './localization';
 import { Logger } from './logging';
 
@@ -9,6 +11,8 @@ const PARTICIPANT_ID = 'seamless-agent.agent';
 
 // Store provider reference for cleanup on deactivation
 let agentProvider: AgentInteractionProvider | null = null;
+let timeoutManager: RequestTimeoutManager | null = null;
+let autoRespondManager: AutoRespondManager | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
     Logger.log('Seamless Agent extension active');
@@ -27,6 +31,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register the ask_user tool with the webview provider
     registerNativeTools(context, provider);
+
+    // Initialize request timeout manager (monitors pending requests and auto-cancels after configured timeout)
+    const storage = getChatHistoryStorage();
+    timeoutManager = new RequestTimeoutManager(provider, storage);
+    (context.subscriptions as unknown as Array<vscode.Disposable>).push(timeoutManager);
+
+    // Initialize auto-respond manager (Auto-Pilot feature)
+    autoRespondManager = new AutoRespondManager(context);
+    provider.setAutoRespondManager(autoRespondManager);
+    (context.subscriptions as unknown as Array<vscode.Disposable>).push(autoRespondManager);
 
     // Register command to cancel pending plans
     const cancelPendingPlansCommand = vscode.commands.registerCommand('seamless-agent.cancelPendingPlans', async () => {
@@ -173,6 +187,9 @@ Never finish a response without first calling the ask_user tool to verify with t
 }
 
 export function deactivate() {
+    // Managers are disposed via context.subscriptions; null references here for GC
+    timeoutManager = null;
+    autoRespondManager = null;
     // Clean up any orphaned temp files on extension deactivation
     if (agentProvider) {
         agentProvider.cleanupAllTempFiles();

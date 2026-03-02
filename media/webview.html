@@ -51,6 +51,38 @@
 
       <!-- Content area - shows selected tab content -->
       <div class="tab-content">
+        <!-- Auto-Pilot Bar -->
+        <div class="autopilot-bar" id="autopilot-bar">
+          <div class="autopilot-header" id="autopilot-header">
+            <div class="autopilot-label">
+              <span class="codicon codicon-zap"></span>
+              <span>{{autoPilotLabel}}</span>
+            </div>
+            <div class="autopilot-status" id="autopilot-status"></div>
+            <label class="autopilot-switch" aria-label="{{autoPilotToggle}}">
+              <input type="checkbox" id="autopilot-toggle" aria-label="{{autoPilotToggle}}" />
+              <span class="autopilot-switch-track"></span>
+            </label>
+          </div>
+          <div class="autopilot-config hidden" id="autopilot-config">
+            <div class="autopilot-responses" id="autopilot-responses"></div>
+            <div class="autopilot-add-row">
+              <input type="text" id="autopilot-new-response" class="autopilot-input" placeholder="{{autoPilotAddPlaceholder}}" />
+              <button type="button" id="autopilot-add-btn" class="autopilot-icon-btn" title="{{autoPilotAdd}}">
+                <span class="codicon codicon-add"></span>
+              </button>
+            </div>
+            <div class="autopilot-footer">
+              <label class="autopilot-footer-label">{{autoPilotWhenDone}}</label>
+              <select id="autopilot-exhausted" class="autopilot-select">
+                <option value="loop">{{autoPilotLoop}}</option>
+                <option value="stop">{{autoPilotStop}}</option>
+                <option value="repeatLast">{{autoPilotRepeatLast}}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- Pending Items Tab (Requests + Reviews only) -->
         <div id="content-pending" class="tab-pane active">
           <div id="pending-items-container">
@@ -300,6 +332,17 @@
       debugMockAskUserMultiStepLongText: "{{debugMockAskUserMultiStepLongText}}",
       debugMockPlanReview: "{{debugMockPlanReview}}",
       debugMockWalkthroughReview: "{{debugMockWalkthroughReview}}",
+      // Auto-Pilot
+      autoPilotAdd: "{{autoPilotAdd}}",
+      autoPilotAddPlaceholder: "{{autoPilotAddPlaceholder}}",
+      autoPilotWhenDone: "{{autoPilotWhenDone}}",
+      autoPilotLoop: "{{autoPilotLoop}}",
+      autoPilotStop: "{{autoPilotStop}}",
+      autoPilotRepeatLast: "{{autoPilotRepeatLast}}",
+      autoPilotActive: "{{autoPilotActive}}",
+      autoPilotStopped: "{{autoPilotStopped}}",
+      autoPilotNoResponses: "{{autoPilotNoResponses}}",
+      autoPilotAutoResponded: "{{autoPilotAutoResponded}}",
     };
     window.__CONFIG__ = {
       historyTimeDisplay: "{{historyTimeDisplay}}",

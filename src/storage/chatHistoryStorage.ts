@@ -135,6 +135,9 @@ export class ChatHistoryStorage {
             interactions.push(interaction);
         }
 
+        // Auto-prune oldest completed interactions if over the limit
+        this.autoPrune(interactions);
+
         this.storage.update(STORAGE_KEYS.INTERACTIONS, interactions);
     }
 
@@ -266,6 +269,42 @@ export class ChatHistoryStorage {
     // ========================
     // Utility Methods
     // ========================
+
+    /**
+     * Auto-prune oldest completed interactions when over the configured limit.
+     * Pending interactions are never pruned.
+     * Mutates the array in place.
+     */
+    private autoPrune(interactions: StoredInteraction[]): void {
+        const maxItems = this.getMaxHistoryItems();
+        if (maxItems <= 0) return; // 0 = unlimited
+
+        // Count completed (non-pending) interactions
+        const completed = interactions.filter(i => i.status !== 'pending');
+        if (completed.length <= maxItems) return;
+
+        // Sort completed by timestamp ascending (oldest first)
+        completed.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Determine how many to remove
+        const excess = completed.length - maxItems;
+        const toRemove = new Set(completed.slice(0, excess).map(i => i.id));
+
+        // Remove in place (iterate backwards to safely splice)
+        for (let idx = interactions.length - 1; idx >= 0; idx--) {
+            if (toRemove.has(interactions[idx].id)) {
+                interactions.splice(idx, 1);
+            }
+        }
+    }
+
+    /**
+     * Get the configured maximum number of history items.
+     * Returns 0 if unlimited.
+     */
+    private getMaxHistoryItems(): number {
+        return this.config.get<number>('maxHistoryItems', 200);
+    }
 
     /**
      * Generate a unique ID with a prefix

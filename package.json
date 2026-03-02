@@ -159,6 +159,20 @@
           "default": false,
           "title": "%config.enableToolDebug.title%",
           "markdownDescription": "%config.enableToolDebug.description%"
+        },
+        "seamless-agent.requestTimeoutMinutes": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "title": "%config.requestTimeoutMinutes.title%",
+          "markdownDescription": "%config.requestTimeoutMinutes.description%"
+        },
+        "seamless-agent.maxHistoryItems": {
+          "type": "number",
+          "default": 200,
+          "minimum": 0,
+          "title": "%config.maxHistoryItems.title%",
+          "markdownDescription": "%config.maxHistoryItems.description%"
         }
       }
     },

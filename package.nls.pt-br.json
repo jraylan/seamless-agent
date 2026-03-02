@@ -126,5 +126,21 @@
   "confirm.deleteSelected": "Tem certeza que deseja excluir {0} itens selecionados?",
   "console.orTypeYourOwn": "Ou digite sua própria resposta abaixo",
   "response.selectedOptions": "Opções selecionadas:",
-  "response.additionalResponse": "Resposta adicional:"
+  "response.additionalResponse": "Resposta adicional:",
+  "timeout.requestTimedOut": "Solicitação expirada — nenhuma resposta recebida.",
+  "timeout.pendingReminder": "Uma solicitação está aguardando há {0} minuto(s).",
+  "timeout.pendingReminderBatch": "{0} solicitações estão pendentes. A mais antiga aguarda há {1} minuto(s).",
+  "timeout.elapsedTime": "{0} decorrido(s)",
+  "autoPilot.add": "Adicionar resposta",
+  "autoPilot.addPlaceholder": "Digite uma resposta para envio automático…",
+  "autoPilot.whenDone": "Ao terminar:",
+  "autoPilot.loop": "Repetir",
+  "autoPilot.stop": "Parar",
+  "autoPilot.repeatLast": "Repetir última",
+  "autoPilot.active": "Ativo {0}/{1}",
+  "autoPilot.stopped": "Parado",
+  "autoPilot.noResponses": "Adicione respostas para ativar",
+  "autoPilot.autoResponded": "Respondido automaticamente",
+  "autoPilot.label": "Piloto Automático",
+  "autoPilot.toggle": "Ativar/desativar Piloto Automático"
 }
