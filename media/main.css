@@ -653,15 +653,17 @@ body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-top: 8px;
-    padding: 0;
-    animation: quickActionsIn 0.2s ease-out;
+    margin-top: 10px;
+}
+
+.quick-actions-container.hidden {
+    display: none;
 }
 
 @keyframes quickActionsIn {
     from {
         opacity: 0;
-        transform: translateY(4px);
+        transform: translateY(5px);
     }
     to {
         opacity: 1;
@@ -669,80 +671,139 @@ body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
     }
 }
 
-.quick-actions-container.hidden {
-    display: none;
-}
-
+/* Each row animates in independently when it becomes visible */
 .quick-actions-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
 }
 
-.quick-actions-row.hidden {
-    display: none;
-}
-
+.quick-actions-row.hidden,
 .quick-actions-row:empty {
     display: none;
 }
 
+.quick-actions-row:not(.hidden):not(:empty) {
+    animation: quickActionsIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Separator between default and parsed rows ── */
+
+.quick-actions-sep {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.55;
+    margin: 1px 0;
+}
+
+.quick-actions-sep.hidden {
+    display: none;
+}
+
+.quick-actions-sep::before,
+.quick-actions-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+}
+
+.quick-actions-sep-text {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+/* ── Button base ── */
+
 .quick-action-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 12px;
-    border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border));
+    gap: 5px;
+    height: 24px;
+    padding: 0 11px;
     border-radius: 100px;
-    background-color: transparent;
-    color: var(--vscode-foreground);
+    border: 1px solid transparent;
     font-family: var(--vscode-font-family);
     font-size: calc(var(--vscode-font-size) - 1px);
-    line-height: 1.4;
+    line-height: 1;
     cursor: pointer;
-    white-space: nowrap;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     user-select: none;
-}
-
-.quick-action-btn:hover {
-    background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
-    border-color: var(--vscode-focusBorder);
-}
-
-.quick-action-btn:active {
-    background-color: var(--vscode-button-secondaryBackground, var(--vscode-list-activeSelectionBackground));
-    transform: scale(0.97);
-    transition: transform 0.08s ease;
+    flex-shrink: 0;
+    max-width: 250px;
+    transition: background 0.12s ease, border-color 0.12s ease,
+                opacity 0.1s ease, transform 0.08s ease;
 }
 
 .quick-action-btn:focus-visible {
     outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: 1px;
+    outline-offset: 2px;
 }
 
-.quick-action-btn .codicon {
-    font-size: 12px;
-    opacity: 0.7;
+/* Text span — handles overflow gracefully */
+.quick-action-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
 }
 
-/* Parsed numbered option buttons get a subtle number badge */
-.quick-action-btn .quick-action-number {
+/* ── Default quick-reply buttons (filled, secondary-button style) ── */
+
+.quick-action-btn.default {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border-color: var(--vscode-button-secondaryBackground);
+}
+
+.quick-action-btn.default:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+    border-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* ── Parsed numbered option buttons (outlined, transparent) ── */
+
+.quick-action-btn.parsed {
+    background: transparent;
+    color: var(--vscode-foreground);
+    border-color: var(--vscode-input-border);
+    padding: 0 9px;
+}
+
+.quick-action-btn.parsed:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-focusBorder);
+}
+
+/* Pressed state for both */
+.quick-action-btn:active {
+    transform: scale(0.94);
+    transition: transform 0.05s ease;
+}
+
+/* ── Number badge inside parsed buttons ── */
+
+.quick-action-number {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
     border-radius: 50%;
-    background-color: var(--vscode-badge-background);
+    background: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 700;
     flex-shrink: 0;
+    line-height: 1;
+    letter-spacing: 0;
 }
 
 /* Response section - fixed at bottom */

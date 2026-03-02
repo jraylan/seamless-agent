@@ -269,6 +269,7 @@ function applyAskUserOptionsTooltipMode(): void {
     const optionsContainer = document.getElementById('options-container');
     const quickActionsContainer = document.getElementById('quick-actions-container');
     const quickActionsDefault = document.getElementById('quick-actions-default');
+    const quickActionsSep = document.getElementById('quick-actions-sep');
     const quickActionsParsed = document.getElementById('quick-actions-parsed');
 
     // Apply option layout mode early so all rendered buttons follow the selected setting.
@@ -2341,66 +2342,81 @@ function applyAskUserOptionsTooltipMode(): void {
 
     /**
      * Render quick-action buttons for the current question.
-     * Shows default quick actions + any parsed numbered items from the question.
+     * Default row: configurable one-click reply labels (always shown).
+     * Parsed row: numbered items extracted from the question text (when no structured options).
      */
     function renderQuickActions(question: string, hasOptions: boolean): void {
         if (!quickActionsContainer || !quickActionsDefault || !quickActionsParsed) return;
 
-        // Clear previous buttons
         clearChildren(quickActionsDefault);
         clearChildren(quickActionsParsed);
 
-        // If the question already has structured options from the agent, skip parsed items
-        // (to avoid duplicate buttons when agent uses the options parameter)
+        // Skip parsed items when the agent already supplied structured options
+        // to avoid showing two sets of choice buttons simultaneously.
         const parsedItems = hasOptions ? [] : parseNumberedItems(question);
 
-        // Get default quick actions from config
-        const defaults = window.__CONFIG__?.quickActionDefaults || ['Yes, continue'];
+        const defaults: string[] = Array.isArray(window.__CONFIG__?.quickActionDefaults)
+            ? window.__CONFIG__.quickActionDefaults
+            : ['Yes, continue'];
 
-        // Render default quick-action buttons
-        if (defaults.length > 0) {
-            for (const label of defaults) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'quick-action-btn';
-                btn.textContent = label;
-                btn.title = label;
-                btn.addEventListener('click', () => submitQuickAction(label));
-                quickActionsDefault.appendChild(btn);
-            }
-            quickActionsDefault.classList.remove('hidden');
-        } else {
-            quickActionsDefault.classList.add('hidden');
+        // ── Default quick-reply buttons ──
+        for (const label of defaults) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quick-action-btn default';
+            btn.title = label;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'quick-action-text';
+            textSpan.textContent = label;
+            btn.appendChild(textSpan);
+
+            btn.addEventListener('click', () => {
+                // Brief visual feedback before submitting
+                btn.style.opacity = '0.5';
+                btn.style.transform = 'scale(0.94)';
+                btn.style.pointerEvents = 'none';
+                setTimeout(() => submitQuickAction(label), 110);
+            });
+            quickActionsDefault.appendChild(btn);
         }
 
-        // Render parsed numbered items
-        if (parsedItems.length > 0) {
-            for (const item of parsedItems) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'quick-action-btn';
-                btn.title = item.text;
+        quickActionsDefault.classList.toggle('hidden', defaults.length === 0);
 
-                const numBadge = document.createElement('span');
-                numBadge.className = 'quick-action-number';
-                numBadge.textContent = String(item.number);
-                btn.appendChild(numBadge);
+        // Show separator only when both rows have content
+        quickActionsSep?.classList.toggle('hidden', defaults.length === 0 || parsedItems.length === 0);
 
-                const textSpan = document.createElement('span');
-                textSpan.textContent = item.text;
-                btn.appendChild(textSpan);
+        // ── Parsed numbered-option buttons ──
+        for (const item of parsedItems) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quick-action-btn parsed';
+            btn.title = item.text;
 
-                btn.addEventListener('click', () => submitQuickAction(String(item.number)));
-                quickActionsParsed.appendChild(btn);
-            }
-            quickActionsParsed.classList.remove('hidden');
-        } else {
-            quickActionsParsed.classList.add('hidden');
+            const numBadge = document.createElement('span');
+            numBadge.className = 'quick-action-number';
+            numBadge.setAttribute('aria-hidden', 'true');
+            numBadge.textContent = String(item.number);
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'quick-action-text';
+            textSpan.textContent = item.text;
+
+            btn.appendChild(numBadge);
+            btn.appendChild(textSpan);
+
+            // Send the full label text so the response is readable in chat history
+            btn.addEventListener('click', () => {
+                btn.style.opacity = '0.5';
+                btn.style.transform = 'scale(0.94)';
+                btn.style.pointerEvents = 'none';
+                setTimeout(() => submitQuickAction(item.text), 110);
+            });
+            quickActionsParsed.appendChild(btn);
         }
 
-        // Show container if there's anything to show
-        const hasContent = defaults.length > 0 || parsedItems.length > 0;
-        quickActionsContainer.classList.toggle('hidden', !hasContent);
+        quickActionsParsed.classList.toggle('hidden', parsedItems.length === 0);
+        quickActionsContainer.classList.toggle('hidden', defaults.length === 0 && parsedItems.length === 0);
     }
 
     /**
