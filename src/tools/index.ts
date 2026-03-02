@@ -55,13 +55,18 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Invalid input';
                 const retryGuidance = "Retry with corrected ask_user options shape: keep 'label' concise and move long explanatory text to 'description'.";
-                return new vscode.LanguageModelToolResult([
+                const errorParts: (vscode.LanguageModelTextPart)[] = [
                     new vscode.LanguageModelTextPart(JSON.stringify({
                         responded: false,
                         response: `Validation error: ${errorMessage}. ${retryGuidance}`,
                         attachments: []
                     }))
-                ]);
+                ];
+                const errorAppendText = vscode.workspace.getConfiguration('seamless-agent').get<string>('askUserAppendText', '');
+                if (errorAppendText) {
+                    errorParts.push(new vscode.LanguageModelTextPart(errorAppendText));
+                }
+                return new vscode.LanguageModelToolResult(errorParts);
             }
 
             // Build result with attachments
@@ -109,6 +114,12 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
                         resultParts.push(part);
                     }
                 }
+            }
+
+            // Append user-configured text as a separate tool result part
+            const appendText = vscode.workspace.getConfiguration('seamless-agent').get<string>('askUserAppendText', '');
+            if (appendText) {
+                resultParts.push(new vscode.LanguageModelTextPart(appendText));
             }
 
             // Return result to the AI with both text and image parts
