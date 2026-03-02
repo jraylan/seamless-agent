@@ -144,8 +144,25 @@
         </div>
       </fieldset>
 
+      <!-- Quick-action buttons - shown above response input -->
+      <div id="quick-actions-container" class="quick-actions-container hidden">
+        <div class="quick-actions-header">
+          <button type="button" id="quick-actions-toggle" class="quick-actions-toggle"
+                  aria-label="Toggle quick actions" aria-expanded="true">
+            <span class="codicon codicon-chevron-down"></span>
+          </button>
+        </div>
+        <div id="quick-actions-content" class="quick-actions-content">
+          <div id="quick-actions-default" class="quick-actions-row"></div>
+          <div id="quick-actions-sep" class="quick-actions-sep hidden">
+            <span class="quick-actions-sep-text">options</span>
+          </div>
+          <div id="quick-actions-parsed" class="quick-actions-row hidden"></div>
+          <div id="quick-actions-send" class="quick-actions-row hidden"></div>
+        </div>
+      </div>
+
       <div class="response-section">
-        <label class="response-label" for="response-input">{{yourResponse}}</label>
 
         <!-- Autocomplete dropdown - positioned above input container -->
         <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden">
@@ -306,6 +323,8 @@
       askUserOptionsLayout: "{{askUserOptionsLayout}}",
       askUserOptionsTooltip: "{{askUserOptionsTooltip}}",
       enableToolDebug: "{{enableToolDebug}}" === "true",
+      quickActionDefaults: {{quickActionDefaults}},
+      showQuickActions: "{{showQuickActions}}" === "true",
     };
   </script>
   <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
