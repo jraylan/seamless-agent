@@ -78,6 +78,8 @@
   "config.enableToolDebug.description": "Show a debug tab in the webview for testing mock tool calls without starting a real conversation.",
   "config.quickActionDefaults.title": "Quick Action Defaults",
   "config.quickActionDefaults.description": "Default quick-action buttons shown above the response input when answering agent questions. Each item becomes a clickable pill button for one-click responses. Set to an empty array to disable.",
+  "config.showQuickActions.title": "Show Quick Actions",
+  "config.showQuickActions.description": "Show the quick-action buttons above the response input. When disabled, the quick-action panel is hidden entirely. You can also collapse it per-session using the chevron button.",
   "planReview.button.acknowledge": "Acknowledge",
   "planReview.button.continue": "Continue",
   "planReview.button.done": "Done",

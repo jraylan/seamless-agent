@@ -299,7 +299,8 @@ export type FromWebviewMessage = | {
         mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview';
     }
     | {
-        type: 'openSettings'
+        type: 'openSettings';
+        query?: string;
     };
 
 

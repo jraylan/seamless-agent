@@ -176,6 +176,7 @@ declare global {
             askUserOptionsTooltip: 'native' | 'custom';
             enableToolDebug: boolean;
             quickActionDefaults: string[];
+            showQuickActions: boolean;
         };
     }
 }
@@ -271,6 +272,17 @@ function applyAskUserOptionsTooltipMode(): void {
     const quickActionsDefault = document.getElementById('quick-actions-default');
     const quickActionsSep = document.getElementById('quick-actions-sep');
     const quickActionsParsed = document.getElementById('quick-actions-parsed');
+    const quickActionsSend = document.getElementById('quick-actions-send');
+
+    // Session-level collapsed state (persists across question re-renders)
+    let quickActionsCollapsed = false;
+    document.getElementById('quick-actions-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        quickActionsCollapsed = !quickActionsCollapsed;
+        quickActionsContainer?.classList.toggle('collapsed', quickActionsCollapsed);
+        const toggleEl = document.getElementById('quick-actions-toggle');
+        if (toggleEl) toggleEl.setAttribute('aria-expanded', String(!quickActionsCollapsed));
+    });
 
     // Apply option layout mode early so all rendered buttons follow the selected setting.
     applyAskUserOptionsLayoutMode();
@@ -2298,11 +2310,13 @@ function applyAskUserOptionsTooltipMode(): void {
     // ================================
 
     /**
-     * Parse numbered items from question text.
-     * Matches patterns like "1. Option text", "2) Option text", "1- Option text"
-     * Only parses if there are at least 2 consecutive numbered items.
+     * Parse list items from question text into groups.
+     * Handles numeric (1. 2. 3.) and alphabetic (A. B. C. / a) b) c)) prefixes.
+     * Also handles parenthetical: (1) (A).
+     * Returns an array of groups; each group is an array of ≥2 items.
+     * Multiple groups occur when numbered/lettered lists are separated by non-list lines.
      */
-    function parseNumberedItems(text: string): { number: number; text: string }[] {
+    function parseListItems(text: string): { prefix: string; text: string }[][] {
         // Strip markdown formatting for cleaner parsing
         const cleaned = text
             .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -2310,34 +2324,58 @@ function applyAskUserOptionsTooltipMode(): void {
             .replace(/`([^`]+)`/g, '$1');
 
         const lines = cleaned.split('\n');
-        const items: { number: number; text: string; lineIndex: number }[] = [];
+        const items: { prefix: string; text: string; lineIndex: number }[] = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const match = lines[i].match(/^\s*(\d+)\s*[.):\-]\s+(.+)/);
+            // Matches: "1. text" | "1) text" | "A. text" | "A) text" | "a. text" | "(1) text" | "(A) text"
+            const match = lines[i].match(/^\s*(?:\(([A-Za-z0-9]+)\)|([A-Za-z])[\.\):\-]|(\d+)[\.\):\-])\s+(.{1,200})/);
             if (match) {
-                const num = parseInt(match[1], 10);
-                const itemText = match[2].trim();
-                if (itemText.length > 0 && itemText.length <= 200) {
-                    items.push({ number: num, text: itemText, lineIndex: i });
+                const raw = match[1] || match[2] || match[3] || '';
+                const prefix = raw.toUpperCase();
+                const itemText = match[4].trim();
+                if (itemText.length > 0) {
+                    items.push({ prefix, text: itemText, lineIndex: i });
                 }
             }
         }
 
-        // Only return if we found at least 2 items and they appear somewhat consecutive
         if (items.length < 2) return [];
 
-        // Check that items are reasonably consecutive (no more than 3 blank lines between them)
-        let consecutive = true;
+        // Split into groups using smart boundary detection:
+        // 1. Prefix type changes (numeric ↔ alpha)
+        // 2. Line gap > 4
+        // 3. Any non-blank content line between two items (signals a section header)
+        const groups: { prefix: string; text: string }[][] = [];
+        let currentGroup: { prefix: string; text: string }[] = [
+            { prefix: items[0].prefix, text: items[0].text }
+        ];
+
+        const isNumericPrefix = (p: string) => /^\d+$/.test(p);
+
         for (let i = 1; i < items.length; i++) {
-            if (items[i].lineIndex - items[i - 1].lineIndex > 4) {
-                consecutive = false;
-                break;
+            const lineGap = items[i].lineIndex - items[i - 1].lineIndex;
+            const typeChanged = isNumericPrefix(items[i].prefix) !== isNumericPrefix(items[i - 1].prefix);
+
+            let hasIntermediateContent = false;
+            for (let li = items[i - 1].lineIndex + 1; li < items[i].lineIndex; li++) {
+                if (lines[li].trim().length > 0) {
+                    hasIntermediateContent = true;
+                    break;
+                }
+            }
+
+            const isGroupBreak = typeChanged || lineGap > 4 || (lineGap >= 2 && hasIntermediateContent);
+
+            if (isGroupBreak) {
+                if (currentGroup.length >= 2) groups.push(currentGroup);
+                currentGroup = [{ prefix: items[i].prefix, text: items[i].text }];
+            } else {
+                currentGroup.push({ prefix: items[i].prefix, text: items[i].text });
             }
         }
+        if (currentGroup.length >= 2) groups.push(currentGroup);
 
-        if (!consecutive) return [];
-
-        return items.map(({ number, text: t }) => ({ number, text: t }));
+        return groups;
     }
 
     /**
@@ -2347,23 +2385,42 @@ function applyAskUserOptionsTooltipMode(): void {
      */
     function renderQuickActions(question: string, hasOptions: boolean): void {
         if (!quickActionsContainer || !quickActionsDefault || !quickActionsParsed) return;
+        if (window.__CONFIG__?.showQuickActions === false) {
+            quickActionsContainer.classList.add('hidden');
+            return;
+        }
 
         clearChildren(quickActionsDefault);
         clearChildren(quickActionsParsed);
+        if (quickActionsSend) {
+            clearChildren(quickActionsSend);
+            quickActionsSend.classList.add('hidden');
+        }
 
         // Skip parsed items when the agent already supplied structured options
         // to avoid showing two sets of choice buttons simultaneously.
-        const parsedItems = hasOptions ? [] : parseNumberedItems(question);
+        const parsedGroups: { prefix: string; text: string }[][] = hasOptions ? [] : parseListItems(question);
+        const parsedItems: { prefix: string; text: string }[] = parsedGroups.flat();
 
         const defaults: string[] = Array.isArray(window.__CONFIG__?.quickActionDefaults)
             ? window.__CONFIG__.quickActionDefaults
-            : ['Yes, continue'];
+            : ['Continue', 'Stop', 'Rethink this'];
+
+        // Determine color class for default buttons by intent
+        function getDefaultBtnColor(label: string): string {
+            const l = label.toLowerCase();
+            if (/\b(stop|no\b|cancel|decline|refuse|abort|quit|end|reject|never|don't)/.test(l)) return 'red';
+            if (/\b(wait|hold|think|rethink|not sure|maybe|reconsider|slow|pause|hmm)/.test(l)) return 'amber';
+            return '';
+        }
 
         // ── Default quick-reply buttons ──
         for (const label of defaults) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'quick-action-btn default';
+            const colorClass = getDefaultBtnColor(label);
+            btn.className = `quick-action-btn default${colorClass ? ' ' + colorClass : ''}`;
+            btn.setAttribute('aria-label', label);
             btn.title = label;
 
             const textSpan = document.createElement('span');
@@ -2381,42 +2438,169 @@ function applyAskUserOptionsTooltipMode(): void {
             quickActionsDefault.appendChild(btn);
         }
 
+        // ── Manage button — gear icon fades in on hover ──
+        const manageBtn = document.createElement('button');
+        manageBtn.type = 'button';
+        manageBtn.className = 'quick-actions-manage-btn';
+        manageBtn.setAttribute('aria-label', 'Manage quick actions');
+        manageBtn.title = 'Manage quick actions';
+        const gearIcon = document.createElement('span');
+        gearIcon.className = 'codicon codicon-settings-gear';
+        gearIcon.setAttribute('aria-hidden', 'true');
+        manageBtn.appendChild(gearIcon);
+        manageBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'openSettings', query: 'seamless-agent.quickActionDefaults' });
+        });
+        quickActionsDefault.appendChild(manageBtn);
+
         quickActionsDefault.classList.toggle('hidden', defaults.length === 0);
 
         // Show separator only when both rows have content
         quickActionsSep?.classList.toggle('hidden', defaults.length === 0 || parsedItems.length === 0);
 
-        // ── Parsed numbered-option buttons ──
-        for (const item of parsedItems) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'quick-action-btn parsed';
-            btn.title = item.text;
+        // ── Parsed option buttons — one flex row per group ──
+        let sendBtn: HTMLButtonElement | null = null;
 
-            const numBadge = document.createElement('span');
-            numBadge.className = 'quick-action-number';
-            numBadge.setAttribute('aria-hidden', 'true');
-            numBadge.textContent = String(item.number);
+        function updateSendRow(): void {
+            if (!quickActionsSend || !quickActionsParsed) return;
+            const selected = Array.from(
+                quickActionsParsed.querySelectorAll<HTMLButtonElement>('.quick-action-btn.parsed:not(.all-above).selected')
+            );
+            if (selected.length === 0) {
+                quickActionsSend.classList.add('hidden');
+                return;
+            }
+            const labels = selected
+                .map(b => b.textContent?.trim() ?? '')
+                .filter(Boolean);
+            if (sendBtn) {
+                const countSpan = sendBtn.querySelector<HTMLElement>('.send-count');
+                if (countSpan) countSpan.textContent = `Implement ${labels.join(', ')}`;
+                sendBtn.title = `Implement: ${selected.map(b => b.getAttribute('aria-label') ?? '').join('; ')}`;
+            }
+            quickActionsSend.classList.remove('hidden');
+        }
 
-            const textSpan = document.createElement('span');
-            textSpan.className = 'quick-action-text';
-            textSpan.textContent = item.text;
+        for (let gi = 0; gi < parsedGroups.length; gi++) {
+            const group = parsedGroups[gi];
 
-            btn.appendChild(numBadge);
-            btn.appendChild(textSpan);
+            // Thin line between groups (not before the first)
+            if (gi > 0) {
+                const subsep = document.createElement('div');
+                subsep.className = 'quick-actions-subsep';
+                quickActionsParsed.appendChild(subsep);
+            }
 
-            // Send the full label text so the response is readable in chat history
-            btn.addEventListener('click', () => {
-                btn.style.opacity = '0.5';
-                btn.style.transform = 'scale(0.94)';
-                btn.style.pointerEvents = 'none';
-                setTimeout(() => submitQuickAction(item.text), 110);
+            const groupRow = document.createElement('div');
+            groupRow.className = 'quick-actions-group';
+            quickActionsParsed.appendChild(groupRow);
+
+            const groupBtns: HTMLButtonElement[] = [];
+
+            for (const item of group) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'quick-action-btn parsed';
+                btn.setAttribute('aria-label', item.text);
+                btn.textContent = item.prefix;
+                groupBtns.push(btn);
+
+                btn.addEventListener('click', () => {
+                    const isSelected = btn.classList.toggle('selected');
+                    if (isSelected) {
+                        btn.style.transform = 'scale(1.05)';
+                        setTimeout(() => { btn.style.transform = ''; }, 120);
+                    }
+                    // Sync "All of the above" checked state for this group
+                    syncAllBtn();
+                    updateSendRow();
+                });
+                groupRow.appendChild(btn);
+            }
+
+            // "All of the above" for this group — toggles all items in the group
+            let allBtn: HTMLButtonElement | null = null;
+
+            function syncAllBtn(): void {
+                if (!allBtn) return;
+                const allSelected = groupBtns.every(b => b.classList.contains('selected'));
+                allBtn.classList.toggle('selected', allSelected);
+                allBtn.setAttribute('aria-pressed', String(allSelected));
+            }
+
+            if (group.length >= 2) {
+                allBtn = document.createElement('button');
+                allBtn.type = 'button';
+                allBtn.className = 'quick-action-btn parsed all-above';
+                allBtn.title = 'Select all in this group';
+                allBtn.setAttribute('aria-pressed', 'false');
+
+                const icon = document.createElement('span');
+                icon.className = 'codicon codicon-check-all';
+                icon.setAttribute('aria-hidden', 'true');
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'quick-action-text';
+                textSpan.textContent = 'All of the above';
+
+                allBtn.appendChild(icon);
+                allBtn.appendChild(textSpan);
+
+                allBtn.addEventListener('click', () => {
+                    const anyUnselected = groupBtns.some(b => !b.classList.contains('selected'));
+                    // If any are unselected → select all; if all selected → deselect all
+                    for (const b of groupBtns) {
+                        b.classList.toggle('selected', anyUnselected);
+                        b.setAttribute('aria-pressed', String(anyUnselected));
+                    }
+                    syncAllBtn();
+                    updateSendRow();
+                });
+                groupRow.appendChild(allBtn);
+            }
+        }
+
+        // ── Send-selected button (appears when any option is toggled on) ──
+        if (parsedItems.length > 0 && quickActionsSend) {
+            sendBtn = document.createElement('button');
+            sendBtn.type = 'button';
+            sendBtn.className = 'quick-action-btn quick-action-send';
+            sendBtn.setAttribute('aria-live', 'polite');
+
+            const sendIcon = document.createElement('span');
+            sendIcon.className = 'codicon codicon-send';
+            sendIcon.setAttribute('aria-hidden', 'true');
+
+            const sendCountSpan = document.createElement('span');
+            sendCountSpan.className = 'send-count quick-action-text';
+            sendCountSpan.textContent = 'Implement selected';
+
+            sendBtn.appendChild(sendIcon);
+            sendBtn.appendChild(sendCountSpan);
+
+            sendBtn.addEventListener('click', () => {
+                if (!quickActionsParsed) return;
+                const selected = Array.from(
+                    quickActionsParsed.querySelectorAll<HTMLButtonElement>('.quick-action-btn.parsed:not(.all-above).selected')
+                );
+                if (selected.length === 0) return;
+                const texts = selected.map(b => b.getAttribute('aria-label') ?? '');
+                const text = selected.length === parsedItems.length
+                    ? `Implement all of the above:\n${texts.map(t => `- ${t}`).join('\n')}`
+                    : selected.length === 1
+                        ? `Implement: ${texts[0]}`
+                        : `Implement:\n${texts.map(t => `- ${t}`).join('\n')}`;
+                sendBtn!.style.opacity = '0.5';
+                sendBtn!.style.transform = 'scale(0.94)';
+                sendBtn!.style.pointerEvents = 'none';
+                setTimeout(() => submitQuickAction(text), 110);
             });
-            quickActionsParsed.appendChild(btn);
+            quickActionsSend.appendChild(sendBtn);
         }
 
         quickActionsParsed.classList.toggle('hidden', parsedItems.length === 0);
         quickActionsContainer.classList.toggle('hidden', defaults.length === 0 && parsedItems.length === 0);
+        quickActionsContainer.classList.toggle('collapsed', quickActionsCollapsed);
     }
 
     /**
@@ -3587,7 +3771,12 @@ function applyAskUserOptionsTooltipMode(): void {
                     window.__CONFIG__.askUserOptionsTooltip = normalizeAskUserOptionsTooltip(message.value);
                     applyAskUserOptionsTooltipMode();
                 } else if (message.key === 'quickActionDefaults') {
-                    window.__CONFIG__.quickActionDefaults = Array.isArray(message.value) ? message.value : ['Yes, continue'];
+                    window.__CONFIG__.quickActionDefaults = Array.isArray(message.value) ? message.value : ['Continue', 'Stop', 'Rethink this'];
+                } else if (message.key === 'showQuickActions') {
+                    window.__CONFIG__.showQuickActions = !!message.value;
+                    if (!window.__CONFIG__.showQuickActions) {
+                        quickActionsContainer?.classList.add('hidden');
+                    }
                 }
                 break;
         }

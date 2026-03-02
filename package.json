@@ -165,9 +165,15 @@
           "items": {
             "type": "string"
           },
-          "default": ["Yes, continue"],
+          "default": ["Continue", "Stop", "Rethink this"],
           "title": "%config.quickActionDefaults.title%",
           "markdownDescription": "%config.quickActionDefaults.description%"
+        },
+        "seamless-agent.showQuickActions": {
+          "type": "boolean",
+          "default": true,
+          "title": "%config.showQuickActions.title%",
+          "markdownDescription": "%config.showQuickActions.description%"
         }
       }
     },
