@@ -93,12 +93,19 @@ export class McpServerManager {
                         tokenSource.token
                     );
 
+                    const appendText = vscode.workspace.getConfiguration('seamless-agent').get<string>('askUserAppendText', '');
+
                     return {
                         content: [
                             {
-                                type: "text",
+                                type: "text" as const,
                                 text: JSON.stringify(result)
-                            }
+                            },
+                            // Append user-configured text as a separate content part
+                            ...(appendText ? [{
+                                type: "text" as const,
+                                text: appendText
+                            }] : [])
                         ]
                     };
                 }

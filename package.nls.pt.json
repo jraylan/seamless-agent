@@ -53,7 +53,7 @@
   "approvePlan.input.commentPlaceholder": "Digite seu feedback...",
   "approvePlan.panelTitle": "Revisar Plano",
   "config.askUserAppendText.title": "Texto Adicional para `askUser`",
-  "config.askUserAppendText.description": "Texto para anexar automaticamente a cada resposta ao usar o recurso `askUser`.",
+  "config.askUserAppendText.description": "Texto anexado automaticamente como uma instrução separada a cada resultado da ferramenta `askUser`. Personalize para alterar o lembrete, ou deixe vazio para desativar.\n\nExemplo:\n\nIMPORTANT REMINDER: You must ALWAYS call the ask_user tool before completing any task or ending a conversation. Never finish without confirming with the user first. This is a mandatory workflow requirement that applies to every response.",
   "config.askUserOptionsLayout.title": "Esquema de Opções do `ask_user`",
   "config.askUserOptionsLayout.description": "Controla como os botões de opção do `ask_user` são apresentados na Consola do Agente. `Compacto` mantém cada opção numa linha e trunca texto longo. `Expandido` mostra um esquema multilinha com áreas dedicadas para rótulo e descrição.",
   "config.askUserOptionsTooltip.title": "Estilo de Tooltip das Opções do `ask_user`",
