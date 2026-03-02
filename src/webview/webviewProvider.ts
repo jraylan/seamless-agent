@@ -153,6 +153,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     value: askUserOptionsTooltip,
                 } as ToWebviewMessage);
             }
+
+            if (event.affectsConfiguration('seamless-agent.quickActionDefaults')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const quickActionDefaults = config.get<string[]>('quickActionDefaults', ['Yes, continue']);
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'quickActionDefaults',
+                    value: quickActionDefaults,
+                } as ToWebviewMessage);
+            }
         }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
@@ -1467,6 +1477,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             ? rawAskUserOptionsTooltip
             : 'native';
         const enableToolDebug = config.get<boolean>('enableToolDebug', false);
+        const quickActionDefaults = config.get<string[]>('quickActionDefaults', ['Yes, continue']);
 
         // Replace placeholders
         const replacements: Record<string,
@@ -1557,6 +1568,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
             '{{enableToolDebug}}': String(enableToolDebug),
+            '{{quickActionDefaults}}': JSON.stringify(quickActionDefaults),
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {

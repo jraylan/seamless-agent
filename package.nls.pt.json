@@ -68,6 +68,8 @@
   "config.historyTimeDisplay.description": "Escolha como os horários aparecem no histórico: relativo, absoluto (ISO 8601) ou híbrido (relativo até 7 dias, ISO após).",
   "config.enableToolDebug.title": "Ativar Depuração de Ferramentas",
   "config.enableToolDebug.description": "Exibe uma aba de depuração para testar chamadas de ferramentas simuladas sem iniciar uma conversa real.",
+  "config.quickActionDefaults.title": "Ações Rápidas Predefinidas",
+  "config.quickActionDefaults.description": "Botões de ação rápida predefinidos exibidos acima da entrada de resposta ao responder perguntas do agente. Cada item torna-se um botão clicável para respostas com um clique. Defina como um array vazio para desativar.",
   "planReview.button.acknowledge": "Confirmar",
   "planReview.button.continue": "Continuar",
   "planReview.button.done": "Concluído",

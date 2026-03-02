@@ -644,6 +644,107 @@ body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
     /* Hide separator to save space */
 }
 
+/* =============================================
+   Quick-action buttons (above response input)
+   ============================================= */
+
+.quick-actions-container {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 0;
+    animation: quickActionsIn 0.2s ease-out;
+}
+
+@keyframes quickActionsIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.quick-actions-container.hidden {
+    display: none;
+}
+
+.quick-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.quick-actions-row.hidden {
+    display: none;
+}
+
+.quick-actions-row:empty {
+    display: none;
+}
+
+.quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-input-border));
+    border-radius: 100px;
+    background-color: transparent;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: calc(var(--vscode-font-size) - 1px);
+    line-height: 1.4;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.quick-action-btn:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+    border-color: var(--vscode-focusBorder);
+}
+
+.quick-action-btn:active {
+    background-color: var(--vscode-button-secondaryBackground, var(--vscode-list-activeSelectionBackground));
+    transform: scale(0.97);
+    transition: transform 0.08s ease;
+}
+
+.quick-action-btn:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 1px;
+}
+
+.quick-action-btn .codicon {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* Parsed numbered option buttons get a subtle number badge */
+.quick-action-btn .quick-action-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
 /* Response section - fixed at bottom */
 .response-section {
     flex-shrink: 0;

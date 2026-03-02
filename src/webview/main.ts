@@ -175,6 +175,7 @@ declare global {
             askUserOptionsLayout: 'expanded' | 'compact';
             askUserOptionsTooltip: 'native' | 'custom';
             enableToolDebug: boolean;
+            quickActionDefaults: string[];
         };
     }
 }
@@ -266,6 +267,9 @@ function applyAskUserOptionsTooltipMode(): void {
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+    const quickActionsContainer = document.getElementById('quick-actions-container');
+    const quickActionsDefault = document.getElementById('quick-actions-default');
+    const quickActionsParsed = document.getElementById('quick-actions-parsed');
 
     // Apply option layout mode early so all rendered buttons follow the selected setting.
     applyAskUserOptionsLayoutMode();
@@ -1101,6 +1105,9 @@ function applyAskUserOptionsTooltipMode(): void {
 
         // Render option buttons if provided
         renderOptions(options, multiSelect);
+
+        // Render quick-action buttons (default + parsed numbered items)
+        renderQuickActions(question, !!(options && options.length > 0));
 
         // Hide ALL other views
         homeView?.classList.add('hidden');
@@ -2285,6 +2292,144 @@ function applyAskUserOptionsTooltipMode(): void {
         updateChipsDisplay();
     }
 
+    // ================================
+    // Quick-action buttons
+    // ================================
+
+    /**
+     * Parse numbered items from question text.
+     * Matches patterns like "1. Option text", "2) Option text", "1- Option text"
+     * Only parses if there are at least 2 consecutive numbered items.
+     */
+    function parseNumberedItems(text: string): { number: number; text: string }[] {
+        // Strip markdown formatting for cleaner parsing
+        const cleaned = text
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/`([^`]+)`/g, '$1');
+
+        const lines = cleaned.split('\n');
+        const items: { number: number; text: string; lineIndex: number }[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const match = lines[i].match(/^\s*(\d+)\s*[.):\-]\s+(.+)/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                const itemText = match[2].trim();
+                if (itemText.length > 0 && itemText.length <= 200) {
+                    items.push({ number: num, text: itemText, lineIndex: i });
+                }
+            }
+        }
+
+        // Only return if we found at least 2 items and they appear somewhat consecutive
+        if (items.length < 2) return [];
+
+        // Check that items are reasonably consecutive (no more than 3 blank lines between them)
+        let consecutive = true;
+        for (let i = 1; i < items.length; i++) {
+            if (items[i].lineIndex - items[i - 1].lineIndex > 4) {
+                consecutive = false;
+                break;
+            }
+        }
+
+        if (!consecutive) return [];
+
+        return items.map(({ number, text: t }) => ({ number, text: t }));
+    }
+
+    /**
+     * Render quick-action buttons for the current question.
+     * Shows default quick actions + any parsed numbered items from the question.
+     */
+    function renderQuickActions(question: string, hasOptions: boolean): void {
+        if (!quickActionsContainer || !quickActionsDefault || !quickActionsParsed) return;
+
+        // Clear previous buttons
+        clearChildren(quickActionsDefault);
+        clearChildren(quickActionsParsed);
+
+        // If the question already has structured options from the agent, skip parsed items
+        // (to avoid duplicate buttons when agent uses the options parameter)
+        const parsedItems = hasOptions ? [] : parseNumberedItems(question);
+
+        // Get default quick actions from config
+        const defaults = window.__CONFIG__?.quickActionDefaults || ['Yes, continue'];
+
+        // Render default quick-action buttons
+        if (defaults.length > 0) {
+            for (const label of defaults) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'quick-action-btn';
+                btn.textContent = label;
+                btn.title = label;
+                btn.addEventListener('click', () => submitQuickAction(label));
+                quickActionsDefault.appendChild(btn);
+            }
+            quickActionsDefault.classList.remove('hidden');
+        } else {
+            quickActionsDefault.classList.add('hidden');
+        }
+
+        // Render parsed numbered items
+        if (parsedItems.length > 0) {
+            for (const item of parsedItems) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'quick-action-btn';
+                btn.title = item.text;
+
+                const numBadge = document.createElement('span');
+                numBadge.className = 'quick-action-number';
+                numBadge.textContent = String(item.number);
+                btn.appendChild(numBadge);
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = item.text;
+                btn.appendChild(textSpan);
+
+                btn.addEventListener('click', () => submitQuickAction(String(item.number)));
+                quickActionsParsed.appendChild(btn);
+            }
+            quickActionsParsed.classList.remove('hidden');
+        } else {
+            quickActionsParsed.classList.add('hidden');
+        }
+
+        // Show container if there's anything to show
+        const hasContent = defaults.length > 0 || parsedItems.length > 0;
+        quickActionsContainer.classList.toggle('hidden', !hasContent);
+    }
+
+    /**
+     * Submit a quick-action response immediately.
+     */
+    function submitQuickAction(text: string): void {
+        if (!currentRequestId) return;
+
+        // Save to input history
+        inputHistoryManager.addToHistory(text);
+        resetRequestState();
+
+        vscode.postMessage({
+            type: 'submit',
+            response: text,
+            requestId: currentRequestId,
+            attachments: currentAttachments,
+        });
+
+        draftResponses.delete(currentRequestId);
+        currentAttachments = [];
+
+        // Reset stepper if active
+        if (activeOptionsStepper) {
+            activeOptionsStepper.destroy();
+            activeOptionsStepper = null;
+        }
+    }
+
     /**
      * Reset request state: clears input history navigation, and optionally attachments and autocomplete
      * @param options.attachments - Whether to also clear attachments (default: false)
@@ -3425,6 +3570,8 @@ function applyAskUserOptionsTooltipMode(): void {
                 } else if (message.key === 'askUserOptionsTooltip') {
                     window.__CONFIG__.askUserOptionsTooltip = normalizeAskUserOptionsTooltip(message.value);
                     applyAskUserOptionsTooltipMode();
+                } else if (message.key === 'quickActionDefaults') {
+                    window.__CONFIG__.quickActionDefaults = Array.isArray(message.value) ? message.value : ['Yes, continue'];
                 }
                 break;
         }

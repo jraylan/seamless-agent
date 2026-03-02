@@ -76,6 +76,8 @@
   "config.historyTimeDisplay.description": "Choose how timestamps are shown in history items: relative, absolute (ISO 8601), or hybrid (relative under 7 days, ISO after).",
   "config.enableToolDebug.title": "Enable Tool Debug",
   "config.enableToolDebug.description": "Show a debug tab in the webview for testing mock tool calls without starting a real conversation.",
+  "config.quickActionDefaults.title": "Quick Action Defaults",
+  "config.quickActionDefaults.description": "Default quick-action buttons shown above the response input when answering agent questions. Each item becomes a clickable pill button for one-click responses. Set to an empty array to disable.",
   "planReview.button.acknowledge": "Acknowledge",
   "planReview.button.continue": "Continue",
   "planReview.button.done": "Done",

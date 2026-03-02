@@ -144,6 +144,12 @@
         </div>
       </fieldset>
 
+      <!-- Quick-action buttons - shown above response input -->
+      <div id="quick-actions-container" class="quick-actions-container hidden">
+        <div id="quick-actions-default" class="quick-actions-row"></div>
+        <div id="quick-actions-parsed" class="quick-actions-row hidden"></div>
+      </div>
+
       <div class="response-section">
         <label class="response-label" for="response-input">{{yourResponse}}</label>
 
@@ -306,6 +312,7 @@
       askUserOptionsLayout: "{{askUserOptionsLayout}}",
       askUserOptionsTooltip: "{{askUserOptionsTooltip}}",
       enableToolDebug: "{{enableToolDebug}}" === "true",
+      quickActionDefaults: {{quickActionDefaults}},
     };
   </script>
   <script nonce="{{nonce}}" src="{{scriptUri}}"></script>

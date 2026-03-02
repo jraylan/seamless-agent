@@ -159,6 +159,15 @@
           "default": false,
           "title": "%config.enableToolDebug.title%",
           "markdownDescription": "%config.enableToolDebug.description%"
+        },
+        "seamless-agent.quickActionDefaults": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["Yes, continue"],
+          "title": "%config.quickActionDefaults.title%",
+          "markdownDescription": "%config.quickActionDefaults.description%"
         }
       }
     },

@@ -163,7 +163,7 @@ export type ToWebviewMessage = | {
     | {
         type: 'updateConfig';
         key: string;
-        value: boolean | string | number;
+        value: boolean | string | number | string[];
     }
     | {
         type: 'clear'
