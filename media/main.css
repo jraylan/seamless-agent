@@ -36,7 +36,7 @@ body {
     font-size: var(--vscode-font-size);
     font-weight: var(--vscode-font-weight);
     color: var(--vscode-foreground);
-    background-color: var(--vscode-panel-background);
+    background-color: transparent;
     line-height: 1.5;
 }
 
@@ -375,7 +375,7 @@ body {
     gap: 6px;
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid transparent;
+    border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.35));
     border-radius: 4px;
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
