@@ -9,6 +9,7 @@ export * from './schemas';
 // Re-export tool functions
 export { askUser } from './askUser';
 export { planReview, planReviewApproval, walkthroughReview } from './planReview';
+export { openWhiteboard } from './openWhiteboard';
 
 // Re-export utils
 export * from './utils';
@@ -16,16 +17,20 @@ export * from './utils';
 // Import for internal use
 import { askUser } from './askUser';
 import { planReviewApproval, walkthroughReview } from './planReview';
+import { openWhiteboard } from './openWhiteboard';
 import { readFileAsBuffer, getImageMimeType, validateImageMagicNumber } from './utils';
+import { createWhiteboardLanguageModelResultParts } from './whiteboardToolResult';
 import {
     AskUserInput,
     ApprovePlanInput,
     PlanReviewInput,
     WalkthroughReviewInput,
+    WhiteboardInput,
     parseAskUserInput,
     parseApprovePlanInput,
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
+    parseWhiteboardInput,
 } from './schemas';
 import { Logger } from '../logging';
 
@@ -198,6 +203,38 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         }
     });
 
+    // Register the open_whiteboard tool (standalone whiteboard)
+    const openWhiteboardTool = vscode.lm.registerTool('open_whiteboard', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<WhiteboardInput>, token: vscode.CancellationToken) {
+            let params: WhiteboardInput;
+            try {
+                params = parseWhiteboardInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        submitted: false,
+                        canvases: [],
+                        interactionId: '',
+                        error: `Validation error: ${errorMessage}`
+                    }))
+                ]);
+            }
+
+            const result = await openWhiteboard(params, context, provider, token);
+            const resultParts = await createWhiteboardLanguageModelResultParts(result);
+
+            return new vscode.LanguageModelToolResult(resultParts.map((part) =>
+                new vscode.LanguageModelTextPart(part.value)
+            ));
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || 'Open whiteboard'
+            };
+        },
+    });
+
     // Register the walkthrough_review tool (explicit: walkthrough review mode)
     const walkthroughReviewTool = vscode.lm.registerTool('walkthrough_review', {
         async invoke(options: vscode.LanguageModelToolInvocationOptions<WalkthroughReviewInput>, token: vscode.CancellationToken) {
@@ -237,6 +274,7 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         confirmationTool,
         approvePlanTool,
         planReviewTool,
+        openWhiteboardTool,
         walkthroughReviewTool
     );
 
