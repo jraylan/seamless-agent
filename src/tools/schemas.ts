@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { RequiredPlanRevisions, PlanReviewMode } from '../webview/types';
+import type { RequiredPlanRevisions, WhiteboardReviewAction, WhiteboardSubmittedCanvas } from '../webview/types';
+import { normalizeAndValidateLoadableFabricState } from '../whiteboard/seededCanvas';
+import type { WhiteboardSceneSummary } from '../whiteboard/sceneSummary';
+import {
+    DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
+    DEFAULT_WHITEBOARD_CANVAS_WIDTH,
+} from '../whiteboard/canvasState';
 
 // ================================
 // Input Schemas with Zod Validation
@@ -99,6 +105,219 @@ export const WalkthroughReviewInputSchema = z.object({
         .describe('Optional chat session ID for grouping reviews. Auto-generated if not provided.')
 });
 
+
+const WHITEBOARD_X_RANGE_MESSAGE = `Seed coordinate x must be within the whiteboard width (0-${DEFAULT_WHITEBOARD_CANVAS_WIDTH})`;
+const WHITEBOARD_Y_RANGE_MESSAGE = `Seed coordinate y must be within the whiteboard height (0-${DEFAULT_WHITEBOARD_CANVAS_HEIGHT})`;
+const WHITEBOARD_STROKE_WIDTH_MESSAGE = 'Seed element strokeWidth must be between 1 and 64';
+const WHITEBOARD_Z_INDEX_MESSAGE = 'Seed element zIndex must be between 0 and 10000';
+const WHITEBOARD_ROTATION_MESSAGE = 'Seed element rotation must be between -360 and 360 degrees';
+
+const WhiteboardSeedXSchema = z.number()
+    .finite()
+    .min(0, WHITEBOARD_X_RANGE_MESSAGE)
+    .max(DEFAULT_WHITEBOARD_CANVAS_WIDTH, WHITEBOARD_X_RANGE_MESSAGE)
+    .describe('Horizontal position in the default 1600px-wide whiteboard canvas.');
+
+const WhiteboardSeedYSchema = z.number()
+    .finite()
+    .min(0, WHITEBOARD_Y_RANGE_MESSAGE)
+    .max(DEFAULT_WHITEBOARD_CANVAS_HEIGHT, WHITEBOARD_Y_RANGE_MESSAGE)
+    .describe('Vertical position in the default 900px-tall whiteboard canvas.');
+
+const WhiteboardSeedPointSchema = z.object({
+    x: WhiteboardSeedXSchema,
+    y: WhiteboardSeedYSchema,
+});
+
+const WhiteboardSeedElementBaseSchema = z.object({
+    id: z.string()
+        .optional()
+        .describe('Optional stable object id. Omit to let Seamless Agent generate one.'),
+    strokeColor: z.string()
+        .optional()
+        .describe('Optional stroke/outline color such as "#2563eb".'),
+    fillColor: z.string()
+        .optional()
+        .describe('Optional fill color such as "rgba(37,99,235,0.18)".'),
+    strokeWidth: z.number()
+        .min(1, WHITEBOARD_STROKE_WIDTH_MESSAGE)
+        .max(64, WHITEBOARD_STROKE_WIDTH_MESSAGE)
+        .optional()
+        .describe('Optional stroke width. Defaults to 2.'),
+    zIndex: z.number()
+        .int(WHITEBOARD_Z_INDEX_MESSAGE)
+        .min(0, WHITEBOARD_Z_INDEX_MESSAGE)
+        .max(10000, WHITEBOARD_Z_INDEX_MESSAGE)
+        .optional()
+        .describe('Optional stacking order hint. Lower values render behind higher values.'),
+    rotation: z.number()
+        .min(-360, WHITEBOARD_ROTATION_MESSAGE)
+        .max(360, WHITEBOARD_ROTATION_MESSAGE)
+        .optional()
+        .describe('Optional clockwise rotation in degrees.'),
+    opacity: z.number()
+        .min(0, 'Seed element opacity must be at least 0')
+        .max(1, 'Seed element opacity must be at most 1')
+        .optional()
+        .describe('Optional opacity between 0 and 1. Defaults to 1.'),
+});
+
+const WhiteboardSeedRectangleSchema = WhiteboardSeedElementBaseSchema.extend({
+    type: z.literal('rectangle'),
+    x: WhiteboardSeedXSchema,
+    y: WhiteboardSeedYSchema,
+    width: z.number().positive('Rectangle width must be greater than zero'),
+    height: z.number().positive('Rectangle height must be greater than zero'),
+    rx: z.number().min(0, 'Rectangle rx must be at least 0').optional(),
+    ry: z.number().min(0, 'Rectangle ry must be at least 0').optional(),
+});
+
+const WhiteboardSeedCircleSchema = WhiteboardSeedElementBaseSchema.extend({
+    type: z.literal('circle'),
+    x: WhiteboardSeedXSchema,
+    y: WhiteboardSeedYSchema,
+    radius: z.number().positive('Circle radius must be greater than zero'),
+});
+
+const WhiteboardSeedTriangleSchema = WhiteboardSeedElementBaseSchema.extend({
+    type: z.literal('triangle'),
+    x: WhiteboardSeedXSchema,
+    y: WhiteboardSeedYSchema,
+    width: z.number().positive('Triangle width must be greater than zero'),
+    height: z.number().positive('Triangle height must be greater than zero'),
+});
+
+const WhiteboardSeedLineSchema = WhiteboardSeedElementBaseSchema.extend({
+    type: z.literal('line'),
+    start: WhiteboardSeedPointSchema,
+    end: WhiteboardSeedPointSchema,
+});
+
+const WhiteboardSeedTextSchema = WhiteboardSeedElementBaseSchema.extend({
+    type: z.literal('text'),
+    x: WhiteboardSeedXSchema,
+    y: WhiteboardSeedYSchema,
+    text: z.string().min(1, 'Seed text cannot be empty'),
+    color: z.string()
+        .optional()
+        .describe('Optional text color such as "#111827". Defaults to a dark neutral.'),
+    fontSize: z.number()
+        .positive('Text fontSize must be greater than zero')
+        .optional()
+        .describe('Optional text size. Defaults to 24.'),
+    fontWeight: z.number()
+        .int('Seed text fontWeight must be between 100 and 900')
+        .min(100, 'Seed text fontWeight must be between 100 and 900')
+        .max(900, 'Seed text fontWeight must be between 100 and 900')
+        .optional()
+        .describe('Optional text weight from 100 to 900.'),
+    fontStyle: z.enum(['normal', 'italic', 'oblique'])
+        .optional()
+        .describe('Optional text style.'),
+    textAlign: z.enum(['left', 'center', 'right', 'justify'])
+        .optional()
+        .describe('Optional text alignment.'),
+    fontFamily: z.string()
+        .optional()
+        .describe('Optional font family. Defaults to "sans-serif".'),
+});
+
+const WhiteboardSeedElementSchema = z.discriminatedUnion('type', [
+    WhiteboardSeedRectangleSchema,
+    WhiteboardSeedCircleSchema,
+    WhiteboardSeedTriangleSchema,
+    WhiteboardSeedLineSchema,
+    WhiteboardSeedTextSchema,
+]);
+
+const WhiteboardInitialCanvasSchema = z.object({
+    name: z.string()
+        .min(1, 'Canvas name cannot be empty')
+        .describe('Display name for the pre-populated canvas.'),
+    fabricState: z.string()
+        .min(1, 'Canvas fabricState cannot be empty')
+        .optional()
+        .describe('Advanced path for reopening sessions: serialized Fabric.js JSON. If provided, it must be valid JSON with an objects array. Prefer seedElements for new agent-authored starter sketches.'),
+    seedElements: z.array(WhiteboardSeedElementSchema)
+        .min(1, 'Canvas seedElements cannot be empty')
+        .optional()
+        .describe('Preferred agent-friendly path for simple starter sketches. Provide basic shapes/text and Seamless Agent will convert them into Fabric.js canvas content.')
+}).superRefine((canvas, ctx) => {
+    const hasFabricState = typeof canvas.fabricState === 'string';
+    const hasSeedElements = Array.isArray(canvas.seedElements);
+
+    if (!hasFabricState && !hasSeedElements) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['seedElements'],
+            message: 'Canvas must include either fabricState or seedElements',
+        });
+        return;
+    }
+
+    if (hasFabricState && hasSeedElements) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['seedElements'],
+            message: 'Canvas cannot include both fabricState and seedElements',
+        });
+        return;
+    }
+
+    const fabricState = hasFabricState ? canvas.fabricState : undefined;
+    if (fabricState && fabricState.length > 0) {
+        try {
+            normalizeAndValidateLoadableFabricState(fabricState);
+        } catch (error) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['fabricState'],
+                message: error instanceof Error ? error.message : 'Canvas fabricState must be valid JSON with an objects array',
+            });
+        }
+    }
+});
+
+export const WHITEBOARD_EXPLICIT_BLANK_MESSAGE = 'Provide initialCanvases for starter content, or set blankCanvas to true to intentionally open an empty whiteboard';
+
+export const WHITEBOARD_AMBIGUOUS_BLANK_MESSAGE = 'blankCanvas cannot be true when initialCanvases are provided';
+
+/**
+ * Schema for open_whiteboard tool input
+ */
+export const WhiteboardInputSchema = z.object({
+    context: z.string()
+        .optional()
+        .describe('Optional context/instructions for the whiteboard session.'),
+    title: z.string()
+        .optional()
+        .describe('Optional title for the whiteboard panel.'),
+    blankCanvas: z.boolean()
+        .optional()
+        .describe('Set to true only when you intentionally open an empty whiteboard. If omitted or false, provide initialCanvases with starter content.'),
+    initialCanvases: z.array(WhiteboardInitialCanvasSchema)
+        .optional()
+        .describe('Optional pre-populated canvases. Prefer seedElements for agent-authored starter sketches; use fabricState for reopening/advanced callers.')
+}).superRefine((input, ctx) => {
+    const hasInitialCanvases = Array.isArray(input.initialCanvases) && input.initialCanvases.length > 0;
+
+    if (!hasInitialCanvases && input.blankCanvas !== true) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['blankCanvas'],
+            message: WHITEBOARD_EXPLICIT_BLANK_MESSAGE,
+        });
+    }
+
+    if (hasInitialCanvases && input.blankCanvas === true) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['blankCanvas'],
+            message: WHITEBOARD_AMBIGUOUS_BLANK_MESSAGE,
+        });
+    }
+});
+
 // ================================
 // TypeScript Types (derived from schemas)
 // ================================
@@ -107,6 +326,7 @@ export type AskUserInput = z.infer<typeof AskUserInputSchema>;
 export type ApprovePlanInput = z.infer<typeof ApprovePlanInputSchema>;
 export type PlanReviewInput = z.infer<typeof PlanReviewInputSchema>;
 export type WalkthroughReviewInput = z.infer<typeof WalkthroughReviewInputSchema>;
+export type WhiteboardInput = z.infer<typeof WhiteboardInputSchema>;
 
 // ================================
 // Result Interfaces
@@ -136,6 +356,19 @@ export interface PlanReviewToolResult {
     status: 'approved' | 'recreateWithChanges' | 'cancelled' | 'acknowledged';
     requiredRevisions: RequiredPlanRevisions[];
     reviewId: string;
+}
+
+
+/**
+ * Result structure for open_whiteboard tool
+ */
+export interface WhiteboardToolResult {
+    submitted: boolean;
+    action: WhiteboardReviewAction;
+    instruction: string;
+    canvases: WhiteboardSubmittedCanvas[];
+    interactionId: string;
+    sceneSummary: WhiteboardSceneSummary;
 }
 
 // ================================
@@ -168,6 +401,14 @@ export function parsePlanReviewInput(input: unknown): PlanReviewInput {
  */
 export function parseWalkthroughReviewInput(input: unknown): WalkthroughReviewInput {
     return WalkthroughReviewInputSchema.parse(input);
+}
+
+
+/**
+ * Validates and parses open_whiteboard input, throwing on validation errors
+ */
+export function parseWhiteboardInput(input: unknown): WhiteboardInput {
+    return WhiteboardInputSchema.parse(input);
 }
 
 /**

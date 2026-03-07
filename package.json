@@ -347,6 +347,390 @@
         }
       },
       {
+        "name": "open_whiteboard",
+        "tags": [
+          "whiteboard",
+          "diagramming",
+          "visual-context",
+          "user-interaction",
+          "seamless-agent"
+        ],
+        "toolReferenceName": "openWhiteboard",
+        "displayName": "Open Whiteboard",
+        "modelDescription": "Open a standalone whiteboard so the user can sketch, annotate, or submit visual context back to the agent. Treat this as a coordinate scene graph tool, not an image generation tool: seed content with initialCanvases[].seedElements using explicit positions/sizes, and rely on the returned sceneSummary for text-based reasoning over coordinates and labels. The result includes an explicit action: `approved` means use the submitted sketch as confirmed user input, while `recreateWithChanges` means the user requested revisions and you MUST address the annotated feedback and call open_whiteboard again with an updated sketch before concluding. For agent-authored starter content, prefer initialCanvases[].seedElements because Seamless Agent converts simple shapes/text into reliable whiteboard drawings. Reserve initialCanvases[].fabricState for advanced/reopen flows. If you intentionally want an empty board, set blankCanvas to true. Otherwise, provide initialCanvases so the extension does not silently open a blank board when starter content was expected.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-color)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "Optional context or instructions for the whiteboard session"
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional title for the whiteboard panel"
+            },
+            "blankCanvas": {
+              "type": "boolean",
+              "description": "Set to true only when you intentionally open an empty whiteboard. If omitted or false, provide initialCanvases with starter content."
+            },
+            "initialCanvases": {
+              "type": "array",
+              "description": "Provide starter canvases for seeded or reopened sessions. Required unless blankCanvas is true.",
+              "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the pre-populated canvas"
+                    },
+                    "fabricState": {
+                      "type": "string",
+                      "description": "Advanced path for reopening sessions: serialized Fabric.js JSON. It must be valid JSON with an objects array. Prefer seedElements for new agent-authored starter sketches."
+                    },
+                    "seedElements": {
+                      "type": "array",
+                      "description": "Preferred agent-friendly path for coordinate-first starter sketches. Provide basic shapes/text with explicit positions and Seamless Agent will convert them into Fabric.js canvas content.",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "rectangle"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Optional stable object id"
+                              },
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "number"
+                              },
+                              "height": {
+                                "type": "number"
+                              },
+                              "strokeColor": {
+                                "type": "string",
+                                "description": "Optional outline color such as '#2563eb'"
+                              },
+                              "fillColor": {
+                                "type": "string",
+                                "description": "Optional fill color such as 'rgba(37,99,235,0.18)'"
+                              },
+                              "strokeWidth": {
+                                "type": "number"
+                              },
+                              "zIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Optional stacking order hint. Lower values render behind higher values."
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360,
+                                "description": "Optional clockwise rotation in degrees."
+                              },
+                              "opacity": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "circle"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Optional stable object id"
+                              },
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "radius": {
+                                "type": "number"
+                              },
+                              "strokeColor": {
+                                "type": "string"
+                              },
+                              "fillColor": {
+                                "type": "string"
+                              },
+                              "strokeWidth": {
+                                "type": "number"
+                              },
+                              "zIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Optional stacking order hint. Lower values render behind higher values."
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360,
+                                "description": "Optional clockwise rotation in degrees."
+                              },
+                              "opacity": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "x",
+                              "y",
+                              "radius"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "triangle"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Optional stable object id"
+                              },
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "number"
+                              },
+                              "height": {
+                                "type": "number"
+                              },
+                              "strokeColor": {
+                                "type": "string"
+                              },
+                              "fillColor": {
+                                "type": "string"
+                              },
+                              "strokeWidth": {
+                                "type": "number"
+                              },
+                              "zIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Optional stacking order hint. Lower values render behind higher values."
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360,
+                                "description": "Optional clockwise rotation in degrees."
+                              },
+                              "opacity": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "line"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Optional stable object id"
+                              },
+                              "start": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ]
+                              },
+                              "end": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ]
+                              },
+                              "strokeColor": {
+                                "type": "string"
+                              },
+                              "strokeWidth": {
+                                "type": "number"
+                              },
+                              "zIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Optional stacking order hint. Lower values render behind higher values."
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360,
+                                "description": "Optional clockwise rotation in degrees."
+                              },
+                              "opacity": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "start",
+                              "end"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Optional stable object id"
+                              },
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "text": {
+                                "type": "string",
+                                "description": "Text to place on the canvas"
+                              },
+                              "color": {
+                                "type": "string",
+                                "description": "Optional text color such as '#111827'"
+                              },
+                              "fontSize": {
+                                "type": "number"
+                              },
+                              "fontWeight": {
+                                "type": "integer",
+                                "minimum": 100,
+                                "maximum": 900,
+                                "description": "Optional text weight from 100 to 900."
+                              },
+                              "fontStyle": {
+                                "type": "string",
+                                "enum": [
+                                  "normal",
+                                  "italic",
+                                  "oblique"
+                                ],
+                                "description": "Optional text style."
+                              },
+                              "textAlign": {
+                                "type": "string",
+                                "enum": [
+                                  "left",
+                                  "center",
+                                  "right",
+                                  "justify"
+                                ],
+                                "description": "Optional text alignment."
+                              },
+                              "fontFamily": {
+                                "type": "string"
+                              },
+                              "zIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Optional stacking order hint. Lower values render behind higher values."
+                              },
+                              "rotation": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360,
+                                "description": "Optional clockwise rotation in degrees."
+                              },
+                              "opacity": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "x",
+                              "y",
+                              "text"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                }
+              }
+          }
+        }
+      },
+      {
         "name": "walkthrough_review",
         "tags": [
           "planning",
@@ -434,6 +818,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@vscode/codicons": "^0.0.43",
+    "fabric": "^6.9.1",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "zod": "^4.1.13"

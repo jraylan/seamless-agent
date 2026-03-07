@@ -1,9 +1,49 @@
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Logger } from '../../logging';
 import type { PlanReviewResult } from '../types';
 import type { AgentInteractionProvider } from '../webviewProvider';
 
 
 export class MockToolCallService {
+
+    private static loadWhiteboardDebugPayload(webviewProvider: AgentInteractionProvider, fileName: string): any {
+        const filePath = path.join(webviewProvider.getContext().extensionUri.fsPath, fileName);
+        Logger.log('[Debug Mock] loading whiteboard payload:', filePath);
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+
+    private static async openDebugWhiteboard(
+        webviewProvider: AgentInteractionProvider,
+        tokenSource: vscode.CancellationTokenSource,
+        payload: any,
+        label: string,
+    ): Promise<void> {
+        const { openWhiteboard } = await import('../../tools/openWhiteboard');
+        Logger.log('[Debug Mock] opening whiteboard payload:', {
+            label,
+            title: payload?.title,
+            canvasCount: Array.isArray(payload?.initialCanvases) ? payload.initialCanvases.length : 0,
+            elementCounts: Array.isArray(payload?.initialCanvases)
+                ? payload.initialCanvases.map((canvas: any) => Array.isArray(canvas?.seedElements) ? canvas.seedElements.length : 0)
+                : [],
+        });
+
+        return openWhiteboard(
+            payload,
+            webviewProvider.getContext(),
+            webviewProvider,
+            tokenSource.token,
+            { isDebug: true }
+        ).then(result => {
+            Logger.log(`[Debug Mock] ${label} result:`, result);
+        }).catch((err: any) => {
+            Logger.error(`[Debug Mock] ${label} error:`, err);
+        }).finally(() => {
+            tokenSource.dispose();
+        });
+    }
 
     public static async mockToolCall(mockType: string, webviewProvider: AgentInteractionProvider): Promise<void> {
         const storage = webviewProvider.getChatHistoryStorage();
@@ -193,6 +233,95 @@ export class MockToolCallService {
                     webviewProvider.switchTab('pending');
                     Logger.error('[Debug Mock] planReview error:', err);
                 });
+                break;
+            }
+
+            case 'whiteboard': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                void this.openDebugWhiteboard(
+                    webviewProvider,
+                    tokenSource,
+                    {
+                        title: 'Debug: Whiteboard',
+                        context: 'Sketch a deployment diagram or annotate the placeholder canvases.',
+                        initialCanvases: [
+                            {
+                                name: 'System diagram',
+                                seedElements: [
+                                    {
+                                        type: 'rectangle',
+                                        x: 80,
+                                        y: 80,
+                                        width: 260,
+                                        height: 140,
+                                        strokeColor: '#2563eb',
+                                        fillColor: 'rgba(37,99,235,0.15)',
+                                    },
+                                    {
+                                        type: 'text',
+                                        x: 120,
+                                        y: 135,
+                                        text: 'API',
+                                        color: '#1e3a8a',
+                                        fontSize: 30,
+                                    },
+                                    {
+                                        type: 'line',
+                                        start: { x: 340, y: 150 },
+                                        end: { x: 540, y: 150 },
+                                        strokeColor: '#f97316',
+                                        strokeWidth: 6,
+                                    },
+                                    {
+                                        type: 'circle',
+                                        x: 650,
+                                        y: 150,
+                                        radius: 70,
+                                        strokeColor: '#dc2626',
+                                        fillColor: 'rgba(220,38,38,0.15)',
+                                    }
+                                ]
+                            },
+                            {
+                                name: 'Notes',
+                                seedElements: [
+                                    {
+                                        type: 'triangle',
+                                        x: 100,
+                                        y: 120,
+                                        width: 180,
+                                        height: 150,
+                                        strokeColor: '#16a34a',
+                                        fillColor: 'rgba(22,163,74,0.18)',
+                                    },
+                                    {
+                                        type: 'text',
+                                        x: 70,
+                                        y: 320,
+                                        text: 'Add notes here',
+                                        color: '#111827',
+                                        fontSize: 26,
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    'whiteboard',
+                );
+                break;
+            }
+
+            case 'whiteboardTest1': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'whiteboard_input test 1.json');
+                void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest1');
+                break;
+            }
+
+            case 'whiteboardTest2': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'whiteboard_input test 2.json');
+                void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest2');
                 break;
             }
 

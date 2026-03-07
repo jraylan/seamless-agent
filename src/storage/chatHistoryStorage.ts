@@ -1,6 +1,16 @@
 import * as vscode from 'vscode';
-import type { RequiredPlanRevisions, StoredInteraction } from '../webview/types';
+import {
+    isCompletedStoredInteraction,
+    isPendingStoredInteraction,
+    type RequiredPlanRevisions,
+    type StoredInteraction,
+    type WhiteboardCanvas,
+    type WhiteboardSession,
+    type WhiteboardSessionStatus,
+    type WhiteboardSubmittedCanvas,
+} from '../webview/types';
 import { getStorageContext } from '../config/storage';
+import { Logger } from '../logging';
 
 /**
  * Storage keys for global state
@@ -8,6 +18,32 @@ import { getStorageContext } from '../config/storage';
 const STORAGE_KEYS = {
     INTERACTIONS: 'seamless-agent.interactions',
 };
+
+const DEFAULT_WHITEBOARD_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_STORAGE_QUOTA_BYTES = 100 * 1024 * 1024;
+const DEFAULT_STORAGE_QUOTA_THRESHOLD = 0.9;
+
+export interface ChatHistoryStorageOptions {
+    now?: () => number;
+    whiteboardSessionMaxAgeMs?: number;
+    maxStorageBytes?: number;
+    quotaCleanupThreshold?: number;
+}
+
+export class StorageQuotaExceededError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'StorageQuotaExceededError';
+    }
+}
+
+
+/**
+ * Whiteboard sessions should be stored on StoredInteraction.whiteboardSession so
+ * session-scoped canvases follow the same workspace/global storage lifecycle as
+ * ask_user and plan_review interactions. Dedicated whiteboard save/update helpers
+ * will build on this shared interaction record in a later task.
+ */
 
 /**
  * Manages persistence of interactions
@@ -17,10 +53,17 @@ const STORAGE_KEYS = {
 export class ChatHistoryStorage {
     private context: vscode.ExtensionContext;
     private config: vscode.WorkspaceConfiguration;
+    private readonly options: Required<ChatHistoryStorageOptions>;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, options: ChatHistoryStorageOptions = {}) {
         this.context = context;
         this.config = vscode.workspace.getConfiguration('seamless-agent');
+        this.options = {
+            now: options.now ?? (() => Date.now()),
+            whiteboardSessionMaxAgeMs: options.whiteboardSessionMaxAgeMs ?? DEFAULT_WHITEBOARD_SESSION_MAX_AGE_MS,
+            maxStorageBytes: options.maxStorageBytes ?? DEFAULT_STORAGE_QUOTA_BYTES,
+            quotaCleanupThreshold: options.quotaCleanupThreshold ?? DEFAULT_STORAGE_QUOTA_THRESHOLD,
+        };
     }
 
     // ========================
@@ -39,7 +82,7 @@ export class ChatHistoryStorage {
      * Get all interactions, sorted by timestamp (most recent first)
      */
     getAllInteractions(): StoredInteraction[] {
-        const interactions = this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
+        const interactions = [...this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, [])];
         return interactions.sort((a, b) => b.timestamp - a.timestamp);
     }
 
@@ -57,7 +100,7 @@ export class ChatHistoryStorage {
      **/
     getPendingInteraction(interactionId: string): StoredInteraction | undefined {
         const interaction = this.getInteraction(interactionId);
-        if (interaction?.status === 'pending') {
+        if (interaction && isPendingStoredInteraction(interaction)) {
             return interaction;
         }
     }
@@ -123,10 +166,47 @@ export class ChatHistoryStorage {
     }
 
     /**
+     * Save a new whiteboard interaction
+     */
+    saveWhiteboardInteraction(data: {
+        title?: string;
+        context?: string;
+        canvases?: WhiteboardCanvas[];
+        activeCanvasId?: string;
+        status?: WhiteboardSessionStatus;
+        submittedAt?: number;
+        submittedCanvases?: WhiteboardSubmittedCanvas[];
+        isDebug?: boolean;
+    }): string {
+        const interactionId = this.generateId('wb');
+        const interaction: StoredInteraction = {
+            id: interactionId,
+            type: 'whiteboard',
+            timestamp: Date.now(),
+            title: data.title,
+            isDebug: data.isDebug,
+            whiteboardSession: {
+                id: interactionId,
+                interactionId,
+                context: data.context,
+                title: data.title,
+                canvases: data.canvases || [],
+                activeCanvasId: data.activeCanvasId,
+                status: data.status || 'pending',
+                submittedAt: data.submittedAt,
+                submittedCanvases: data.submittedCanvases,
+            },
+        };
+
+        this.saveInteraction(interaction);
+        return interactionId;
+    }
+
+    /**
      * Save an interaction to storage
      */
     private saveInteraction(interaction: StoredInteraction): void {
-        const interactions = this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, []);
+        const interactions = [...this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, [])];
         const existingIndex = interactions.findIndex(i => i.id === interaction.id);
 
         if (existingIndex >= 0) {
@@ -135,7 +215,7 @@ export class ChatHistoryStorage {
             interactions.push(interaction);
         }
 
-        this.storage.update(STORAGE_KEYS.INTERACTIONS, interactions);
+        this.storage.update(STORAGE_KEYS.INTERACTIONS, this.prepareInteractionsForStorage(interactions));
     }
 
     /**
@@ -146,6 +226,76 @@ export class ChatHistoryStorage {
         if (interaction) {
             const updated = { ...interaction, ...updates };
             this.saveInteraction(updated);
+        }
+    }
+
+    /**
+     * Update an existing whiteboard interaction by merging whiteboard session fields.
+     */
+    updateWhiteboardInteraction(interactionId: string, updates: {
+        title?: string;
+        whiteboardSession?: Partial<NonNullable<StoredInteraction['whiteboardSession']>>;
+    }): void {
+        const interaction = this.getInteraction(interactionId);
+        if (!interaction) {
+            Logger.warn(`Cannot update missing whiteboard interaction: ${interactionId}`);
+            return;
+        }
+
+        if (interaction.type !== 'whiteboard') {
+            Logger.warn(`Cannot update non-whiteboard interaction as whiteboard: ${interactionId}`);
+            return;
+        }
+
+        const updatedSession = updates.whiteboardSession
+            ? {
+                ...(interaction.whiteboardSession || {
+                    id: interactionId,
+                    interactionId,
+                    canvases: [],
+                    status: 'pending' as const,
+                }),
+                ...updates.whiteboardSession,
+            }
+            : interaction.whiteboardSession;
+
+        this.saveInteraction({
+            ...interaction,
+            ...(updates.title !== undefined ? { title: updates.title } : {}),
+            ...(updatedSession ? { whiteboardSession: updatedSession } : {}),
+        });
+    }
+
+    /**
+     * Get a whiteboard session by interaction ID.
+     */
+    getWhiteboardSession(interactionId: string): WhiteboardSession | undefined {
+        const interaction = this.getInteraction(interactionId);
+        if (!interaction || interaction.type !== 'whiteboard') {
+            return undefined;
+        }
+
+        return interaction.whiteboardSession;
+    }
+
+    /**
+     * Update the stored whiteboard session for a whiteboard interaction.
+     */
+    updateWhiteboardSession(interactionId: string, updates: Partial<WhiteboardSession>): void {
+        this.updateWhiteboardInteraction(interactionId, {
+            whiteboardSession: updates,
+        });
+    }
+
+    /**
+     * Remove stale whiteboard sessions that were abandoned and never submitted.
+     */
+    cleanupOldWhiteboardSessions(): void {
+        const interactions = [...this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, [])];
+        const cleanedInteractions = this.pruneOldWhiteboardSessions(interactions);
+
+        if (cleanedInteractions.length !== interactions.length) {
+            this.storage.update(STORAGE_KEYS.INTERACTIONS, cleanedInteractions);
         }
     }
 
@@ -173,7 +323,7 @@ export class ChatHistoryStorage {
     clearAll(): void {
         const allInteractions = this.getAllInteractions();
         // Keep only pending interactions - they should only be cancelled via command
-        const pendingInteractions = allInteractions.filter(i => i.status === 'pending');
+        const pendingInteractions = allInteractions.filter(isPendingStoredInteraction);
         this.storage.update(STORAGE_KEYS.INTERACTIONS, pendingInteractions);
     }
 
@@ -190,17 +340,25 @@ export class ChatHistoryStorage {
     }
 
     /**
+     * Get all pending whiteboard interactions.
+     */
+    getPendingWhiteboards(): StoredInteraction[] {
+        return this.getAllInteractions()
+            .filter(i => i.type === 'whiteboard' && isPendingStoredInteraction(i));
+    }
+
+    /**
      * Get all completed interactions (not pending)
      */
     getCompletedInteractions(): StoredInteraction[] {
         return this.getAllInteractions()
-            .filter(i => i.type === 'ask_user' || (i.type === 'plan_review' && i.status !== 'pending'));
+            .filter(isCompletedStoredInteraction);
     }
 
     /**
      * Get interactions by type
      */
-    getInteractionsByType(type: 'ask_user' | 'plan_review'): StoredInteraction[] {
+    getInteractionsByType(type: 'ask_user' | 'plan_review' | 'whiteboard'): StoredInteraction[] {
         return this.getAllInteractions().filter(i => i.type === type);
     }
 
@@ -283,15 +441,80 @@ export class ChatHistoryStorage {
             pendingReviews: this.getPendingPlanReviews().length,
         };
     }
+
+    private prepareInteractionsForStorage(interactions: StoredInteraction[]): StoredInteraction[] {
+        const totalSize = this.getSerializedSize(interactions);
+        if (totalSize <= this.getQuotaCleanupThresholdBytes()) {
+            return interactions;
+        }
+
+        const cleanedInteractions = this.pruneOldWhiteboardSessions(interactions);
+        const removedCount = interactions.length - cleanedInteractions.length;
+
+        if (removedCount > 0) {
+            Logger.warn(
+                `Whiteboard storage quota threshold reached (${totalSize} bytes); cleaned ${removedCount} stale session(s).`
+            );
+        } else {
+            Logger.warn(
+                `Whiteboard storage quota threshold reached (${totalSize} bytes); no stale whiteboard sessions were eligible for cleanup.`
+            );
+        }
+
+        const cleanedSize = this.getSerializedSize(cleanedInteractions);
+        if (cleanedSize > this.options.maxStorageBytes) {
+            const message = `Whiteboard storage quota exceeded (${cleanedSize} bytes after cleanup; limit ${this.options.maxStorageBytes}); refusing to persist oversized payload.`;
+            Logger.error(message);
+            throw new StorageQuotaExceededError(message);
+        }
+
+        return cleanedInteractions;
+    }
+
+    private pruneOldWhiteboardSessions(interactions: StoredInteraction[]): StoredInteraction[] {
+        const staleBefore = this.options.now() - this.options.whiteboardSessionMaxAgeMs;
+        return interactions.filter((interaction) => !this.shouldCleanupWhiteboardInteraction(interaction, staleBefore));
+    }
+
+    private shouldCleanupWhiteboardInteraction(interaction: StoredInteraction, staleBefore: number): boolean {
+        if (interaction.type !== 'whiteboard') {
+            return false;
+        }
+
+        if (interaction.timestamp >= staleBefore) {
+            return false;
+        }
+
+        const session = interaction.whiteboardSession;
+        if (!session) {
+            return true;
+        }
+
+        if (session.status === 'approved' || session.status === 'recreateWithChanges' || session.status === 'cancelled') {
+            return false;
+        }
+
+        return (session.submittedCanvases?.length ?? 0) === 0;
+    }
+
+    private getQuotaCleanupThresholdBytes(): number {
+        return Math.floor(this.options.maxStorageBytes * this.options.quotaCleanupThreshold);
+    }
+
+    private getSerializedSize(interactions: StoredInteraction[]): number {
+        return JSON.stringify(interactions).length;
+    }
 }
 
 // Singleton instance
 let storageInstance: ChatHistoryStorage | undefined;
+let extensionContextInstance: vscode.ExtensionContext | undefined;
 
 /**
  * Initialize the storage with extension context
  */
 export function initializeChatHistoryStorage(context: vscode.ExtensionContext): ChatHistoryStorage {
+    extensionContextInstance = context;
     storageInstance = new ChatHistoryStorage(context);
     return storageInstance;
 }
@@ -304,4 +527,11 @@ export function getChatHistoryStorage(): ChatHistoryStorage {
         throw new Error('ChatHistoryStorage not initialized. Call initializeChatHistoryStorage first.');
     }
     return storageInstance;
+}
+
+export function getExtensionContext(): vscode.ExtensionContext {
+    if (!extensionContextInstance) {
+        throw new Error('Extension context not initialized. Call initializeChatHistoryStorage first.');
+    }
+    return extensionContextInstance;
 }

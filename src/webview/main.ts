@@ -143,6 +143,17 @@ declare global {
             historyFilterAll: string;
             historyFilterAskUser: string;
             historyFilterPlanReview: string;
+            historyFilterWhiteboard: string;
+            whiteboard: string;
+            openWhiteboard: string;
+            whiteboardSubmitted: string;
+            detailWhiteboard: string;
+            detailWhiteboardContext: string;
+            detailWhiteboardCanvases: string;
+            detailWhiteboardSubmittedCanvases: string;
+            detailWhiteboardNoCanvases: string;
+            detailWhiteboardSession: string;
+            detailWhiteboardStatus: string;
             // Batch selection
             batchSelectMode: string;
             batchExitSelectMode: string;
@@ -163,12 +174,15 @@ declare global {
             debugSectionAskUser: string;
             debugSectionPlanReview: string;
             debugSectionWalkthroughReview: string;
+            debugSectionWhiteboard: string;
             debugMockAskUser: string;
             debugMockAskUserOptions: string;
             debugMockAskUserMultiStep: string;
             debugMockAskUserMultiStepLongText: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
+            debugMockWhiteboard: string;
+            submitted: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
@@ -190,6 +204,10 @@ import type {
     StoredInteraction,
     VSCodeAPI,
 } from './types';
+import {
+    buildPendingStoredInteractionEntries,
+    buildUnifiedHistoryEntries,
+} from './interactionListModels';
 import { truncate, getLogger } from './utils';
 
 type AskUserOptionsLayout = 'expanded' | 'compact';
@@ -408,6 +426,10 @@ function applyAskUserOptionsTooltipMode(): void {
 
                 else if (filter === 'plan_review') {
                     show = type === 'plan_review';
+                }
+
+                else if (filter === 'whiteboard') {
+                    show = type === 'whiteboard';
                 }
 
                 (item as HTMLElement).style.display = show ? '' : 'none';
@@ -730,6 +752,10 @@ function applyAskUserOptionsTooltipMode(): void {
                     vscode.postMessage({
                         type: 'openPlanReviewPanel', interactionId: id
                     });
+                } else if (type === 'whiteboard') {
+                    vscode.postMessage({
+                        type: 'openWhiteboardPanel', interactionId: id
+                    });
                 } else {
                     vscode.postMessage({
                         type: 'selectInteraction', interactionId: id
@@ -783,9 +809,11 @@ function applyAskUserOptionsTooltipMode(): void {
                 vscode.postMessage({
                     type: 'openPlanReviewPanel', interactionId: id
                 });
-            }
-
-            else {
+            } else if (type === 'whiteboard') {
+                vscode.postMessage({
+                    type: 'openWhiteboardPanel', interactionId: id
+                });
+            } else {
                 vscode.postMessage({
                     type: 'selectInteraction', interactionId: id
                 });
@@ -1763,12 +1791,19 @@ function applyAskUserOptionsTooltipMode(): void {
     }
 
     /**
-     * Render pending plan reviews in the home view
-     */
-    function renderPendingReviews(reviews: StoredInteraction[]): void {
+      * Render pending stored interactions in the home view.
+      */
+    function renderPendingStoredInteractions(interactions: StoredInteraction[]): void {
         if (!pendingReviewsList) return;
 
-        if (reviews.length === 0) {
+        const entries = buildPendingStoredInteractionEntries(interactions || [], {
+            defaultTitle: window.__STRINGS__?.whiteboard || 'Whiteboard',
+            pendingPreview: window.__STRINGS__?.detailWhiteboardSession || 'Pending whiteboard',
+            historyPreview: window.__STRINGS__?.whiteboard || 'Whiteboard',
+            submittedPreview: window.__STRINGS__?.whiteboardSubmitted || 'Whiteboard submitted',
+        });
+
+        if (entries.length === 0) {
             clearChildren(pendingReviewsList);
             updatePendingPlaceholder();
             updateHomeToolbarBadgesFromDom();
@@ -1777,36 +1812,36 @@ function applyAskUserOptionsTooltipMode(): void {
 
         clearChildren(pendingReviewsList);
 
-        for (const review of reviews) {
+        for (const entry of entries) {
+            const isPlanReview = entry.type === 'plan_review';
             const item = el('div', {
                 className: 'list-item',
-                attrs: { 'data-id': review.id, tabindex: '0' }
+                attrs: { 'data-id': entry.id, 'data-type': entry.type, tabindex: '0' }
             });
 
-            const typeIcon = codicon('file-text');
+            const typeIcon = codicon(isPlanReview ? 'file-text' : 'symbol-color');
 
             // Header: title + meta
             const header = el('div', { className: 'list-item-header' });
             const titleWrapper = el('div', { className: 'list-item-title-wrapper' });
-            const title = el('div', { className: 'list-item-title', text: review.title || 'Plan Review' });
+            const title = el('div', { className: 'list-item-title', text: entry.title });
             titleWrapper.appendChild(title);
 
             const meta = el('div', { className: 'list-item-meta' });
-            const status = review.status || 'pending';
-            const statusBadge = el('span', { className: `status-badge status-${status}`, text: getStatusLabel(review.status) });
-            const time = el('span', { className: 'list-item-time', text: formatTime(review.timestamp) });
+            const statusBadge = el('span', { className: `status-badge status-${entry.status}`, text: getStatusLabel(entry.status) });
+            const time = el('span', { className: 'list-item-time', text: formatTime(entry.timestamp) });
             appendChildren(meta, statusBadge, time);
 
             const deleteBtn = el('button', {
                 className: 'list-item-delete',
                 title: window.__STRINGS__.close || 'Close',
-                attrs: { type: 'button', 'data-id': review.id }
+                attrs: { type: 'button', 'data-id': entry.id }
             }, codicon('circle-slash'));
 
             appendChildren(header, titleWrapper, meta, deleteBtn);
 
             // Preview
-            const preview = el('div', { className: 'list-item-preview', text: truncate(review.plan || '', 100) });
+            const preview = el('div', { className: 'list-item-preview', text: truncate(entry.preview || '', 100) });
 
             // Content wrapper
             const contentWrapper = el('div', { className: 'list-item-content' });
@@ -1815,14 +1850,20 @@ function applyAskUserOptionsTooltipMode(): void {
             appendChildren(item, typeIcon, contentWrapper);
 
             item.addEventListener('click', () => {
-                vscode.postMessage({ type: 'openPlanReviewPanel', interactionId: review.id });
+                vscode.postMessage({
+                    type: isPlanReview ? 'openPlanReviewPanel' : 'openWhiteboardPanel',
+                    interactionId: entry.id
+                });
             });
 
             item.addEventListener('keydown', (e: Event) => {
                 const keyEvent = e as KeyboardEvent;
                 if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
                 e.preventDefault();
-                vscode.postMessage({ type: 'openPlanReviewPanel', interactionId: review.id });
+                vscode.postMessage({
+                    type: isPlanReview ? 'openPlanReviewPanel' : 'openWhiteboardPanel',
+                    interactionId: entry.id
+                });
             });
 
             pendingReviewsList.appendChild(item);
@@ -1834,42 +1875,16 @@ function applyAskUserOptionsTooltipMode(): void {
     }
 
     /**
-     * Render unified history (ask_user + plan_review), sorted by timestamp desc.
-     */
+      * Render unified history (ask_user + plan_review + whiteboard), sorted by timestamp desc.
+      */
     function renderUnifiedHistory(interactions: StoredInteraction[]): void {
         if (!historyList) return;
-
-        type UnifiedEntry = {
-            id: string;
-            type: 'ask_user' | 'plan_review';
-            timestamp: number;
-            title: string;
-            preview: string;
-            status?: string;
-            isDebug?: boolean;
-        };
-
-        const entries: UnifiedEntry[] = [];
-
-        for (const interaction of interactions || []) {
-            const isPlanReview = interaction.type === 'plan_review';
-
-            const title = isPlanReview ? (interaction.title || 'Plan Review') : (interaction.agentName ?? interaction.question ?? 'Ask User');
-            const preview = isPlanReview ? truncate(interaction.plan || '', 80) : truncate(interaction.question || '', 80);
-
-            entries.push({
-                id: interaction.id,
-                type: interaction.type,
-                timestamp: interaction.timestamp,
-                title,
-                preview,
-                status: interaction.status,
-                isDebug: interaction.isDebug,
-            });
-        }
-
-        // Sort newest first, regardless of type
-        entries.sort((a, b) => b.timestamp - a.timestamp);
+        const entries = buildUnifiedHistoryEntries(interactions || [], {
+            defaultTitle: window.__STRINGS__?.whiteboard || 'Whiteboard',
+            pendingPreview: window.__STRINGS__?.detailWhiteboardSession || 'Pending whiteboard',
+            historyPreview: window.__STRINGS__?.whiteboard || 'Whiteboard',
+            submittedPreview: window.__STRINGS__?.whiteboardSubmitted || 'Whiteboard submitted',
+        });
 
         clearChildren(historyList);
 
@@ -1886,7 +1901,8 @@ function applyAskUserOptionsTooltipMode(): void {
 
         for (const entry of entries) {
             const isPlanReview = entry.type === 'plan_review';
-            const icon = isPlanReview ? 'file-text' : 'comment';
+            const isWhiteboard = entry.type === 'whiteboard';
+            const icon = isPlanReview ? 'file-text' : (isWhiteboard ? 'symbol-color' : 'comment');
             const typeIcon = codicon(icon);
             const statusClass = entry.status || 'pending';
 
@@ -1910,7 +1926,7 @@ function applyAskUserOptionsTooltipMode(): void {
             // Meta: time + status badge (inline on first line)
             const meta = el('div', { className: 'list-item-meta' });
 
-            if (isPlanReview) {
+            if (isPlanReview || isWhiteboard) {
                 const statusBadge = el('span', {
                     className: `status-badge status-${statusClass}`,
                     text: getStatusLabel(entry.status)
@@ -1937,7 +1953,7 @@ function applyAskUserOptionsTooltipMode(): void {
             appendChildren(header, titleWrapper, meta, viewBtn, deleteBtn);
 
             // Second line: preview text
-            const preview = el('div', { className: 'list-item-preview', text: entry.preview });
+            const preview = el('div', { className: 'list-item-preview', text: truncate(entry.preview, 80) });
 
             // Wrapper for content rows
             const contentWrapper = el('div', { className: 'list-item-content' });
@@ -2012,7 +2028,9 @@ function applyAskUserOptionsTooltipMode(): void {
         if (headerTitle) {
             const title = interaction.type === 'plan_review'
                 ? (interaction.title || 'Plan Review')
-                : (interaction.agentName ? `${interaction.agentName}: Ask User` : 'Ask User');
+                : interaction.type === 'whiteboard'
+                    ? (interaction.title || interaction.whiteboardSession?.title || window.__STRINGS__?.whiteboard || 'Whiteboard')
+                    : (interaction.agentName ? `${interaction.agentName}: Ask User` : 'Ask User');
             headerTitle.textContent = title;
         }
 
@@ -2141,12 +2159,85 @@ function applyAskUserOptionsTooltipMode(): void {
                 );
             }
 
-            else {
-
+            else if (interaction.type === 'plan_review') {
                 // For plan_review, redirect to panel
                 vscode.postMessage({
                     type: 'openPlanReviewPanel', interactionId: interaction.id
                 });
+            } else {
+                const whiteboardLabel = window.__STRINGS__?.detailWhiteboard || window.__STRINGS__?.whiteboard || 'Whiteboard';
+                const contextLabel = window.__STRINGS__?.detailWhiteboardContext || 'Context';
+                const canvasesLabel = window.__STRINGS__?.detailWhiteboardCanvases || 'Canvases';
+                const submittedLabel = window.__STRINGS__?.detailWhiteboardSubmittedCanvases || 'Submitted canvases';
+                const statusLabel = window.__STRINGS__?.detailWhiteboardStatus || 'Status';
+                const noCanvasesLabel = window.__STRINGS__?.detailWhiteboardNoCanvases
+                    || `${window.__STRINGS__?.detailWhiteboardCanvases || window.__STRINGS__?.whiteboard || 'Whiteboard'} unavailable`;
+                const whiteboardSessionLabel = window.__STRINGS__?.detailWhiteboardSession || 'Whiteboard session';
+                const session = interaction.whiteboardSession;
+                const canvasNames = session?.canvases.map((canvas) => canvas.name) || [];
+                const submittedCanvases = session?.submittedCanvases || [];
+
+                const statusBlock = el('div', { className: 'detail-section detail-section-plain' },
+                    el('div', { className: 'detail-label' },
+                        codicon('pulse'),
+                        statusLabel
+                    ),
+                    el('div', { className: 'detail-content' }, getStatusLabel(session?.status))
+                );
+
+                const contextBlock = session?.context
+                    ? el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('note'),
+                            contextLabel
+                        ),
+                        el('div', { className: 'detail-content markdown-content', html: renderMarkdown(session.context) })
+                    )
+                    : tn('');
+
+                const canvasesBlock = el('div', { className: 'detail-section detail-section-plain' },
+                    el('div', { className: 'detail-label' },
+                        codicon('symbol-color'),
+                        canvasesLabel
+                    ),
+                    canvasNames.length > 0
+                        ? el('ul', { className: 'detail-list' },
+                            ...canvasNames.map((canvasName) => el('li', { text: canvasName }))
+                        )
+                        : el('div', { className: 'detail-content' }, noCanvasesLabel)
+                );
+
+                const submittedBlock = submittedCanvases.length > 0
+                    ? el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('check'),
+                            submittedLabel
+                        ),
+                        el('ul', { className: 'detail-list' },
+                            ...submittedCanvases.map((canvas) => el('li', { text: canvas.name }))
+                        )
+                    )
+                    : tn('');
+
+                detailContent.replaceChildren(
+                    el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('symbol-color'),
+                            whiteboardLabel
+                        ),
+                        el('div', {
+                            className: 'detail-content',
+                            text: interaction.title || session?.title || whiteboardSessionLabel
+                        })
+                    ),
+                    statusBlock,
+                    contextBlock,
+                    canvasesBlock,
+                    submittedBlock,
+                    el('div', { className: 'detail-meta' },
+                        el('span', { text: formatTime(interaction.timestamp) })
+                    )
+                );
             }
         }
     }
@@ -2157,7 +2248,7 @@ function applyAskUserOptionsTooltipMode(): void {
     function getStatusLabel(status?: string): string {
         switch (status) {
             case 'approved': return window.__STRINGS__?.approved || 'Approved';
-            case 'recreateWithChanges': return window.__STRINGS__?.rejected || 'Rejected';
+            case 'recreateWithChanges': return 'Request changes';
             case 'acknowledged': return window.__STRINGS__?.acknowledged || 'Acknowledged';
             case 'pending': return window.__STRINGS__?.pending || 'Pending';
             case 'cancelled': return window.__STRINGS__?.cancelled || 'Cancelled';
@@ -3258,7 +3349,7 @@ function applyAskUserOptionsTooltipMode(): void {
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview'; label: string; icon: string };
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3282,6 +3373,15 @@ function applyAskUserOptionsTooltipMode(): void {
                 title: S?.debugSectionWalkthroughReview || 'Walkthrough Review',
                 items: [
                     { mockType: 'walkthroughReview', label: S?.debugMockWalkthroughReview || 'Walkthrough Review', icon: 'book' },
+                ]
+            }
+,
+            {
+                title: S?.debugSectionWhiteboard || 'Whiteboard',
+                items: [
+                    { mockType: 'whiteboard', label: S?.debugMockWhiteboard || S?.openWhiteboard || S?.whiteboard || 'Whiteboard', icon: 'symbol-color' },
+                    { mockType: 'whiteboardTest1', label: 'Whiteboard Test 1', icon: 'beaker' },
+                    { mockType: 'whiteboardTest2', label: 'Whiteboard Test 2', icon: 'beaker-stop' },
                 ]
             }
         ];
@@ -3336,15 +3436,17 @@ function applyAskUserOptionsTooltipMode(): void {
                     showList(message.pendingRequests, message.selectedRequestId);
                 }
 
-                // Update pending plan reviews if provided
-                if (message.pendingPlanReviews) {
-                    renderPendingReviews(message.pendingPlanReviews);
-                }
+                renderPendingStoredInteractions([
+                    ...(message.pendingPlanReviews || []),
+                    ...(message.pendingWhiteboards || []),
+                ]);
 
                 // Update history interactions if provided
                 renderUnifiedHistory(message.historyInteractions || []);
-                // Auto-switch to pending tab if there are pending requests/reviews
-                const totalPending = (message.pendingRequests?.length || 0) + (message.pendingPlanReviews?.length || 0);
+                // Auto-switch to pending tab if there are pending requests/stored interactions
+                const totalPending = (message.pendingRequests?.length || 0)
+                    + (message.pendingPlanReviews?.length || 0)
+                    + (message.pendingWhiteboards?.length || 0);
 
                 if (totalPending > 0) {
                     switchTab('pending');

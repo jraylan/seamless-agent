@@ -1,0 +1,228 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+button,
+input,
+label {
+  font: inherit;
+}
+
+.whiteboard-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.whiteboard-header,
+.toolbar,
+.canvas-library,
+.whiteboard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.whiteboard-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.whiteboard-context {
+  margin: 4px 0 0;
+  color: var(--vscode-descriptionForeground);
+  white-space: pre-wrap;
+}
+
+.whiteboard-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+}
+
+.whiteboard-status[data-state='error'] {
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.toolbar,
+.canvas-library {
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  background: var(--vscode-sideBar-background);
+  flex-wrap: wrap;
+}
+
+.toolbar-group,
+.canvas-actions,
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tool-btn,
+.submit-btn,
+.canvas-tab {
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--vscode-button-secondaryBackground, transparent);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-btn:hover,
+.canvas-tab:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.tool-btn.active,
+.canvas-tab.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.tool-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submit-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.submit-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.submit-btn-secondary {
+  background: var(--vscode-button-secondaryBackground, transparent);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+}
+
+.submit-btn-secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+input[type='range'] {
+  width: 120px;
+}
+
+.canvas-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canvas-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-stage,
+.canvas-help {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+}
+
+.canvas-stage {
+  overflow: auto;
+  padding: 12px;
+}
+
+.whiteboard-hydration-error {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #f14c4c));
+  background: var(--vscode-inputValidation-errorBackground, rgba(241, 76, 76, 0.12));
+  color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #f14c4c));
+}
+
+.canvas-surface[data-state='error'] .canvas-stage {
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground, #f14c4c));
+}
+
+.canvas-surface[data-state='error'] #whiteboard-canvas,
+.canvas-surface[data-state='error'] .canvas-stage .canvas-container {
+  opacity: 0.45;
+}
+
+#whiteboard-canvas,
+.canvas-stage .canvas-container,
+.canvas-stage .canvas-container canvas {
+  max-width: 100%;
+}
+
+.canvas-stage .canvas-container {
+  display: inline-block;
+}
+
+#whiteboard-canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.25);
+}
+
+.canvas-help {
+  padding: 12px 16px;
+}
+
+.canvas-help h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.canvas-help ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.whiteboard-footer {
+  justify-content: flex-end;
+}
+
+@media (max-width: 1100px) {
+  .canvas-surface {
+    grid-template-columns: 1fr;
+  }
+}

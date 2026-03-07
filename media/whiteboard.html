@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src {{cspSource}} data: blob:; style-src {{cspSource}} 'unsafe-inline'; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <title>{{title}}</title>
+    <link href="{{styleUri}}" rel="stylesheet" />
+    <link href="{{codiconsUri}}" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="whiteboard-shell">
+      <header class="whiteboard-header">
+        <div>
+          <h1>{{title}}</h1>
+          <p id="whiteboard-context" class="whiteboard-context">Loading whiteboard context…</p>
+        </div>
+        <div id="whiteboard-status" class="whiteboard-status" data-state="info" role="status" aria-live="polite">Starting whiteboard…</div>
+      </header>
+
+      <section class="toolbar" aria-label="Whiteboard tools">
+        <div class="toolbar-group">
+          <button type="button" class="tool-btn" data-tool="select"><span class="codicon codicon-pointer"></span> Select</button>
+          <button type="button" class="tool-btn" data-tool="pen"><span class="codicon codicon-edit"></span> Pen</button>
+          <button type="button" class="tool-btn" data-tool="highlighter"><span class="codicon codicon-symbol-color"></span> Highlighter</button>
+          <button type="button" class="tool-btn" data-tool="rectangle"><span class="codicon codicon-blank"></span> Rectangle</button>
+          <button type="button" class="tool-btn" data-tool="circle"><span class="codicon codicon-circle-large-outline"></span> Circle</button>
+          <button type="button" class="tool-btn" data-tool="line"><span class="codicon codicon-remove"></span> Line</button>
+          <button type="button" class="tool-btn" data-tool="arrow"><span class="codicon codicon-arrow-right"></span> Arrow</button>
+          <button type="button" class="tool-btn" data-tool="text"><span class="codicon codicon-symbol-key"></span> Text</button>
+          <button type="button" class="tool-btn" data-tool="annotation"><span class="codicon codicon-comment"></span> Annotation</button>
+          <button type="button" class="tool-btn" data-tool="eraser"><span class="codicon codicon-clear-all"></span> Eraser</button>
+        </div>
+
+        <div class="toolbar-group toolbar-controls">
+          <label>Stroke <input id="stroke-color" type="color" value="#1f6feb" /></label>
+          <label>Fill <input id="fill-color" type="color" value="#ffffff" /></label>
+          <label>Width <input id="stroke-width" type="range" min="1" max="24" value="3" /></label>
+          <button id="undo-btn" type="button" class="tool-btn"><span class="codicon codicon-discard"></span> Undo</button>
+          <button id="redo-btn" type="button" class="tool-btn"><span class="codicon codicon-redo"></span> Redo</button>
+          <button id="clear-btn" type="button" class="tool-btn"><span class="codicon codicon-clear-all"></span> Clear</button>
+          <button id="import-image-btn" type="button" class="tool-btn"><span class="codicon codicon-device-camera"></span> Import image</button>
+          <input id="image-file-input" type="file" accept="image/*" hidden />
+        </div>
+      </section>
+
+      <section class="canvas-library">
+        <div id="canvas-tabs" class="canvas-tabs" role="tablist" aria-label="Whiteboard canvases"></div>
+        <div class="canvas-actions">
+          <button id="add-canvas-btn" type="button" class="tool-btn"><span class="codicon codicon-add"></span> New canvas</button>
+          <button id="delete-canvas-btn" type="button" class="tool-btn"><span class="codicon codicon-trash"></span> Delete canvas</button>
+        </div>
+      </section>
+
+      <main id="whiteboard-canvas-panel" class="canvas-surface" role="tabpanel">
+        <div class="canvas-stage">
+          <div id="whiteboard-hydration-error" class="whiteboard-hydration-error" role="alert" hidden></div>
+          <canvas id="whiteboard-canvas" width="1600" height="900" tabindex="0" aria-label="Whiteboard drawing surface"></canvas>
+        </div>
+        <aside class="canvas-help">
+          <h2>Tips</h2>
+          <ul>
+            <li>Draw with pen/highlighter or add shapes and text.</li>
+            <li>Drop or paste images directly onto the canvas.</li>
+            <li>Use multiple canvases to separate concepts.</li>
+            <li>Undo/redo works per canvas.</li>
+          </ul>
+        </aside>
+      </main>
+
+      <footer class="whiteboard-footer">
+        <button id="cancel-btn" type="button" class="tool-btn">Cancel</button>
+        <button id="request-changes-btn" type="button" class="submit-btn submit-btn-secondary">
+          <span class="codicon codicon-edit"></span>
+          <span>Request changes</span>
+        </button>
+        <button id="approve-btn" type="button" class="submit-btn">
+          <span class="codicon codicon-check"></span>
+          <span>Approve sketch</span>
+        </button>
+      </footer>
+    </div>
+
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+  </body>
+</html>

@@ -51,7 +51,7 @@
 
       <!-- Content area - shows selected tab content -->
       <div class="tab-content">
-        <!-- Pending Items Tab (Requests + Reviews only) -->
+        <!-- Pending Items Tab (Requests + pending stored interactions) -->
         <div id="content-pending" class="tab-pane active">
           <div id="pending-items-container">
             <p id="pending-placeholder" class="placeholder">
@@ -77,6 +77,10 @@
             <button class="filter-btn" data-filter="plan_review" title="{{historyFilterPlanReview}}"
               aria-label="{{historyFilterPlanReview}}">
               <span class="codicon codicon-file-text"></span>
+            </button>
+            <button class="filter-btn" data-filter="whiteboard" title="{{historyFilterWhiteboard}}"
+              aria-label="{{historyFilterWhiteboard}}">
+              <span class="codicon codicon-symbol-color"></span>
             </button>
             <div class="filter-bar-spacer"></div>
             <button id="history-clear-btn" class="filter-btn" title="{{clearHistory}}" aria-label="{{clearHistory}}">
@@ -281,6 +285,17 @@
       historyFilterAll: "{{historyFilterAll}}",
       historyFilterAskUser: "{{historyFilterAskUser}}",
       historyFilterPlanReview: "{{historyFilterPlanReview}}",
+      historyFilterWhiteboard: "{{historyFilterWhiteboard}}",
+      whiteboard: "{{whiteboard}}",
+      openWhiteboard: "{{openWhiteboard}}",
+      whiteboardSubmitted: "{{whiteboardSubmitted}}",
+      detailWhiteboard: "{{detailWhiteboard}}",
+      detailWhiteboardContext: "{{detailWhiteboardContext}}",
+      detailWhiteboardCanvases: "{{detailWhiteboardCanvases}}",
+      detailWhiteboardSubmittedCanvases: "{{detailWhiteboardSubmittedCanvases}}",
+      detailWhiteboardNoCanvases: "{{detailWhiteboardNoCanvases}}",
+      detailWhiteboardSession: "{{detailWhiteboardSession}}",
+      detailWhiteboardStatus: "{{detailWhiteboardStatus}}",
       // Batch selection
       batchSelectMode: "{{batchSelectMode}}",
       batchExitSelectMode: "{{batchExitSelectMode}}",
@@ -300,6 +315,9 @@
       debugMockAskUserMultiStepLongText: "{{debugMockAskUserMultiStepLongText}}",
       debugMockPlanReview: "{{debugMockPlanReview}}",
       debugMockWalkthroughReview: "{{debugMockWalkthroughReview}}",
+      debugSectionWhiteboard: "{{debugSectionWhiteboard}}",
+      debugMockWhiteboard: "{{debugMockWhiteboard}}",
+      submitted: "{{submitted}}",
     };
     window.__CONFIG__ = {
       historyTimeDisplay: "{{historyTimeDisplay}}",
