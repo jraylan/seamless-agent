@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.29](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.28...seamless-agent-v0.1.29) (2026-03-09)
+
+
+### Features
+
+* upgrade askUserAppendText to inject as separate tool result part ([#104](https://github.com/jraylan/seamless-agent/issues/104)) ([0794c64](https://github.com/jraylan/seamless-agent/commit/0794c64f98275b247a01fc6a71752d48db8f7204))
+
+
+### Bug Fixes
+
+* use transparent background for sidebar webview to match container theme ([#105](https://github.com/jraylan/seamless-agent/issues/105)) ([6f40f43](https://github.com/jraylan/seamless-agent/commit/6f40f4337e92292e0233e1b6ff753c5dad2ade28))
+
 ## [0.1.28](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.27...seamless-agent-v0.1.28) (2026-03-01)
 
 
