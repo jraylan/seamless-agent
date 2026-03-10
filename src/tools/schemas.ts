@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { RequiredPlanRevisions, WhiteboardReviewAction, WhiteboardSubmittedCanvas } from '../webview/types';
-import { normalizeAndValidateLoadableFabricState } from '../whiteboard/seededCanvas';
-import type { WhiteboardSceneSummary } from '../whiteboard/sceneSummary';
 import {
     DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
     DEFAULT_WHITEBOARD_CANVAS_WIDTH,
 } from '../whiteboard/canvasState';
+import type { A2UIIssue, A2UILevel, A2UIReport } from '../a2ui/engine';
+import { normalizeAndValidateLoadableFabricState } from '../whiteboard/seededCanvas';
+import type { RequiredPlanRevisions, WhiteboardReviewAction } from '../webview/types';
 
 // ================================
 // Input Schemas with Zod Validation
@@ -105,6 +105,16 @@ export const WalkthroughReviewInputSchema = z.object({
         .describe('Optional chat session ID for grouping reviews. Auto-generated if not provided.')
 });
 
+
+const WhiteboardImportImageSchema = z.object({
+    uri: z.string()
+        .min(1, 'Import image uri cannot be empty')
+        .describe('File URI of an image to import onto the canvas.'),
+    label: z.string()
+        .min(1, 'Import image label cannot be empty')
+        .optional()
+        .describe('Optional label for the imported image.'),
+});
 
 const WHITEBOARD_X_RANGE_MESSAGE = `Seed coordinate x must be within the whiteboard width (0-${DEFAULT_WHITEBOARD_CANVAS_WIDTH})`;
 const WHITEBOARD_Y_RANGE_MESSAGE = `Seed coordinate y must be within the whiteboard height (0-${DEFAULT_WHITEBOARD_CANVAS_HEIGHT})`;
@@ -241,7 +251,7 @@ const WhiteboardInitialCanvasSchema = z.object({
     seedElements: z.array(WhiteboardSeedElementSchema)
         .min(1, 'Canvas seedElements cannot be empty')
         .optional()
-        .describe('Preferred agent-friendly path for simple starter sketches. Provide basic shapes/text and Seamless Agent will convert them into Fabric.js canvas content.')
+        .describe('Preferred agent-friendly path for simple starter sketches. Provide basic shapes/text and Seamless Agent will convert them into Fabric.js canvas content.'),
 }).superRefine((canvas, ctx) => {
     const hasFabricState = typeof canvas.fabricState === 'string';
     const hasSeedElements = Array.isArray(canvas.seedElements);
@@ -264,10 +274,9 @@ const WhiteboardInitialCanvasSchema = z.object({
         return;
     }
 
-    const fabricState = hasFabricState ? canvas.fabricState : undefined;
-    if (fabricState && fabricState.length > 0) {
+    if (hasFabricState && canvas.fabricState) {
         try {
-            normalizeAndValidateLoadableFabricState(fabricState);
+            normalizeAndValidateLoadableFabricState(canvas.fabricState);
         } catch (error) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -278,44 +287,64 @@ const WhiteboardInitialCanvasSchema = z.object({
     }
 });
 
-export const WHITEBOARD_EXPLICIT_BLANK_MESSAGE = 'Provide initialCanvases for starter content, or set blankCanvas to true to intentionally open an empty whiteboard';
-
-export const WHITEBOARD_AMBIGUOUS_BLANK_MESSAGE = 'blankCanvas cannot be true when initialCanvases are provided';
-
 /**
  * Schema for open_whiteboard tool input
  */
 export const WhiteboardInputSchema = z.object({
     context: z.string()
         .optional()
-        .describe('Optional context/instructions for the whiteboard session.'),
+        .describe('Instructions for the user about what to draw or annotate.'),
     title: z.string()
         .optional()
-        .describe('Optional title for the whiteboard panel.'),
+        .describe('Title for the whiteboard panel.'),
     blankCanvas: z.boolean()
         .optional()
-        .describe('Set to true only when you intentionally open an empty whiteboard. If omitted or false, provide initialCanvases with starter content.'),
+        .default(true)
+        .describe('Open a blank canvas. Defaults to true.'),
     initialCanvases: z.array(WhiteboardInitialCanvasSchema)
         .optional()
-        .describe('Optional pre-populated canvases. Prefer seedElements for agent-authored starter sketches; use fabricState for reopening/advanced callers.')
-}).superRefine((input, ctx) => {
-    const hasInitialCanvases = Array.isArray(input.initialCanvases) && input.initialCanvases.length > 0;
+        .describe('Optional starter canvases. Use seedElements for coordinate-first starter sketches, or fabricState to reopen an existing canvas session.'),
+    importImages: z.array(WhiteboardImportImageSchema)
+        .optional()
+        .describe('Optional images to pre-load onto the canvas for the user to annotate.'),
+});
 
-    if (!hasInitialCanvases && input.blankCanvas !== true) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['blankCanvas'],
-            message: WHITEBOARD_EXPLICIT_BLANK_MESSAGE,
-        });
-    }
+// ================================
+// A2UI Schemas (render_ui tool)
+// ================================
 
-    if (hasInitialCanvases && input.blankCanvas === true) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['blankCanvas'],
-            message: WHITEBOARD_AMBIGUOUS_BLANK_MESSAGE,
-        });
-    }
+export const RenderUIInputSchema = z.object({
+    surfaceId: z.string()
+        .optional()
+        .describe('Optional unique surface identifier. Re-using the same id will update an existing panel.'),
+    title: z.string()
+        .optional()
+        .describe('Optional panel title displayed in the webview header.'),
+    components: z.array(
+        z.object({
+            id: z.string().min(1, 'Component id cannot be empty'),
+            component: z.record(z.string(), z.unknown())
+                .describe('Component definition. Must include a "type" field matching a supported catalog type.'),
+            parentId: z.string()
+                .optional()
+                .describe('ID of the parent component. Omit for root-level components.'),
+        }),
+    ).describe('Flat list of UI components with optional parent references.'),
+    dataModel: z.record(z.string(), z.unknown())
+        .optional()
+        .describe('Data model for $data.path binding resolution in component props.'),
+    enableA2UI: z.boolean()
+        .optional()
+        .default(false)
+        .describe('Enable the built-in A2UI validation and enhancement pass before rendering. Defaults to false.'),
+    a2uiLevel: z.enum(['basic', 'strict'])
+        .optional()
+        .default('basic')
+        .describe('A2UI processing level. Use strict for stronger validation and helper affordances.'),
+    waitForAction: z.boolean()
+        .optional()
+        .default(false)
+        .describe('If true, block until the user fires a Button action. If false (default), return immediately after rendering.'),
 });
 
 // ================================
@@ -326,7 +355,8 @@ export type AskUserInput = z.infer<typeof AskUserInputSchema>;
 export type ApprovePlanInput = z.infer<typeof ApprovePlanInputSchema>;
 export type PlanReviewInput = z.infer<typeof PlanReviewInputSchema>;
 export type WalkthroughReviewInput = z.infer<typeof WalkthroughReviewInputSchema>;
-export type WhiteboardInput = z.infer<typeof WhiteboardInputSchema>;
+export type WhiteboardInput = z.input<typeof WhiteboardInputSchema>;
+export type RenderUIInput = z.input<typeof RenderUIInputSchema>;
 
 // ================================
 // Result Interfaces
@@ -362,13 +392,39 @@ export interface PlanReviewToolResult {
 /**
  * Result structure for open_whiteboard tool
  */
+export interface WhiteboardExportedImage {
+    canvasId: string;
+    canvasName: string;
+    imageUri: string;
+    width: number;
+    height: number;
+}
+
 export interface WhiteboardToolResult {
     submitted: boolean;
     action: WhiteboardReviewAction;
     instruction: string;
-    canvases: WhiteboardSubmittedCanvas[];
+    images: WhiteboardExportedImage[];
     interactionId: string;
-    sceneSummary: WhiteboardSceneSummary;
+}
+
+/**
+ * Result structure for render_ui tool
+ */
+export interface RenderUIToolResult {
+    surfaceId: string;
+    rendered: boolean;
+    a2ui?: {
+        enabled: true;
+        level: A2UILevel;
+        score: number;
+        issues: A2UIIssue[];
+        appliedEnhancements: string[];
+    };
+    userAction?: {
+        name: string;
+        data: Record<string, unknown>;
+    };
 }
 
 // ================================
@@ -409,6 +465,13 @@ export function parseWalkthroughReviewInput(input: unknown): WalkthroughReviewIn
  */
 export function parseWhiteboardInput(input: unknown): WhiteboardInput {
     return WhiteboardInputSchema.parse(input);
+}
+
+/**
+ * Validates and parses render_ui input, throwing on validation errors
+ */
+export function parseRenderUIInput(input: unknown): RenderUIInput {
+    return RenderUIInputSchema.parse(input);
 }
 
 /**

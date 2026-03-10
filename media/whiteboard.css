@@ -189,17 +189,26 @@ input[type='range'] {
 }
 
 .canvas-stage .canvas-container {
-  display: inline-block;
+  display: block;
+  width: 100%;
+  height: auto !important;
+  aspect-ratio: var(--whiteboard-aspect-ratio, 16 / 9);
 }
 
 #whiteboard-canvas {
   display: block;
   width: 100%;
   max-width: 100%;
-  height: auto;
+  height: 100%;
+  aspect-ratio: var(--whiteboard-aspect-ratio, 16 / 9);
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.25);
+}
+
+.canvas-stage .canvas-container canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .canvas-help {

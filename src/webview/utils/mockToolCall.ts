@@ -9,7 +9,7 @@ import type { AgentInteractionProvider } from '../webviewProvider';
 export class MockToolCallService {
 
     private static loadWhiteboardDebugPayload(webviewProvider: AgentInteractionProvider, fileName: string): any {
-        const filePath = path.join(webviewProvider.getContext().extensionUri.fsPath, fileName);
+        const filePath = path.join(webviewProvider.getContext().extensionUri.fsPath, 'resources', 'debug', 'whiteboard', fileName);
         Logger.log('[Debug Mock] loading whiteboard payload:', filePath);
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
     }
@@ -243,68 +243,7 @@ export class MockToolCallService {
                     tokenSource,
                     {
                         title: 'Debug: Whiteboard',
-                        context: 'Sketch a deployment diagram or annotate the placeholder canvases.',
-                        initialCanvases: [
-                            {
-                                name: 'System diagram',
-                                seedElements: [
-                                    {
-                                        type: 'rectangle',
-                                        x: 80,
-                                        y: 80,
-                                        width: 260,
-                                        height: 140,
-                                        strokeColor: '#2563eb',
-                                        fillColor: 'rgba(37,99,235,0.15)',
-                                    },
-                                    {
-                                        type: 'text',
-                                        x: 120,
-                                        y: 135,
-                                        text: 'API',
-                                        color: '#1e3a8a',
-                                        fontSize: 30,
-                                    },
-                                    {
-                                        type: 'line',
-                                        start: { x: 340, y: 150 },
-                                        end: { x: 540, y: 150 },
-                                        strokeColor: '#f97316',
-                                        strokeWidth: 6,
-                                    },
-                                    {
-                                        type: 'circle',
-                                        x: 650,
-                                        y: 150,
-                                        radius: 70,
-                                        strokeColor: '#dc2626',
-                                        fillColor: 'rgba(220,38,38,0.15)',
-                                    }
-                                ]
-                            },
-                            {
-                                name: 'Notes',
-                                seedElements: [
-                                    {
-                                        type: 'triangle',
-                                        x: 100,
-                                        y: 120,
-                                        width: 180,
-                                        height: 150,
-                                        strokeColor: '#16a34a',
-                                        fillColor: 'rgba(22,163,74,0.18)',
-                                    },
-                                    {
-                                        type: 'text',
-                                        x: 70,
-                                        y: 320,
-                                        text: 'Add notes here',
-                                        color: '#111827',
-                                        fontSize: 26,
-                                    }
-                                ]
-                            }
-                        ]
+                        context: 'Sketch something on the canvas — for example, a system diagram with boxes for API, Database, and Client connected by arrows. When done, click Submit to return the drawing as an image.',
                     },
                     'whiteboard',
                 );
@@ -313,15 +252,128 @@ export class MockToolCallService {
 
             case 'whiteboardTest1': {
                 const tokenSource = new vscode.CancellationTokenSource();
-                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'whiteboard_input test 1.json');
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'test-1.json');
                 void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest1');
                 break;
             }
 
             case 'whiteboardTest2': {
                 const tokenSource = new vscode.CancellationTokenSource();
-                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'whiteboard_input test 2.json');
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'test-2.json');
                 void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest2');
+                break;
+            }
+
+            case 'renderUI': {
+                const { renderUI } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI info panel');
+                void renderUI(
+                    {
+                        surfaceId: 'debug-render-ui-info',
+                        title: 'Debug: Render UI - Release Dashboard',
+                        enableA2UI: true,
+                        a2uiLevel: 'strict',
+                        dataModel: {
+                            releaseName: 'Spring Cutover',
+                            owner: 'Platform Team',
+                            progress: 72,
+                            status: 'Ready for review',
+                        },
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: '$data.releaseName', level: 2 } } },
+                            { id: 'desc', parentId: 'col1', component: { type: 'Markdown', props: { content: 'This panel demonstrates **data binding**, badges, progress, markdown, and diagram source blocks inside `render_ui`.' } } },
+                            { id: 'row1', parentId: 'col1', component: { type: 'Row' } },
+                            { id: 'badge1', parentId: 'row1', component: { type: 'Badge', props: { label: 'Owner: $data.owner' } } },
+                            { id: 'badge2', parentId: 'row1', component: { type: 'Badge', props: { label: '$data.status' } } },
+                            { id: 'prog', parentId: 'col1', component: { type: 'ProgressBar', props: { label: 'Rollout Progress', value: '$data.progress', max: 100 } } },
+                            { id: 'dangerRow', parentId: 'col1', component: { type: 'Row' } },
+                            { id: 'deleteRelease', parentId: 'dangerRow', component: { type: 'Button', props: { label: 'Delete', action: 'delete_release', variant: 'danger' } } },
+                            { id: 'div2', parentId: 'col1', component: { type: 'Divider' } },
+                            { id: 'md', parentId: 'col1', component: { type: 'Markdown', props: { content: '## Checklist\n- Review migration notes\n- Confirm rollback owner\n- Publish support bulletin' } } },
+                            { id: 'diagram', parentId: 'col1', component: { type: 'MermaidDiagram', props: { label: 'Rollout Flow', content: 'flowchart LR\n  Plan --> Review\n  Review --> Deploy\n  Deploy --> Monitor' } } },
+                        ],
+                        waitForAction: false,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI info result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI info error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
+                });
+                break;
+            }
+
+            case 'renderUIForm': {
+                const { renderUI: renderUIFormFn } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI form panel');
+                void renderUIFormFn(
+                    {
+                        surfaceId: 'debug-render-ui-form',
+                        title: 'Debug: Render UI - Approval Form',
+                        enableA2UI: true,
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: 'Demo Approval Form', level: 2 } } },
+                            { id: 'desc', parentId: 'col1', component: { type: 'Markdown', props: { content: 'This panel demonstrates labeled form controls, object-valued select options, and returned `userAction.data`.' } } },
+                            { id: 'card1', parentId: 'col1', component: { type: 'Card' } },
+                            { id: 'name', parentId: 'card1', component: { type: 'TextField', props: { label: 'Approver Name', placeholder: 'Enter your name', required: true } } },
+                            { id: 'env', parentId: 'card1', component: { type: 'Select', props: { label: 'Deployment Target', placeholder: 'Choose an environment', required: true, options: [{ label: 'Staging', value: 'staging' }, { label: 'Production', value: 'production' }, { label: 'Rollback Drill', value: 'rollback' }] } } },
+                            { id: 'agree', parentId: 'card1', component: { type: 'Checkbox', props: { label: 'I verified the rollback checklist' } } },
+                            { id: 'submit', parentId: 'card1', component: { type: 'Button', props: { label: 'Submit Review', action: 'submit_form' } } },
+                        ],
+                        waitForAction: true,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI form result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI form error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
+                });
+                break;
+            }
+
+            case 'renderUIMarkdown': {
+                const { renderUI: renderUIMarkdownFn } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI markdown panel');
+                void renderUIMarkdownFn(
+                    {
+                        surfaceId: 'debug-render-ui-markdown',
+                        title: 'Debug: Render UI - Content Showcase',
+                        enableA2UI: true,
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: 'Markdown Showcase', level: 1 } } },
+                            { id: 'md1', parentId: 'col1', component: { type: 'Markdown', props: { content: '## Overview\n\nThis panel renders **Markdown** as formatted HTML and keeps `CodeBlock` and `MermaidDiagram` available for technical content.' } } },
+                            { id: 'code1', parentId: 'col1', component: { type: 'CodeBlock', props: { content: 'const result = await renderUI({\n  components,\n  waitForAction: true,\n});', language: 'typescript' } } },
+                            { id: 'div1', parentId: 'col1', component: { type: 'Divider' } },
+                            { id: 'diagram', parentId: 'col1', component: { type: 'MermaidDiagram', props: { label: 'Incident Escalation Flow', content: 'flowchart TD\n  UserReport --> Triage\n  Triage --> Fix\n  Fix --> Verify' } } },
+                            { id: 'md2', parentId: 'col1', component: { type: 'Markdown', props: { content: '> **Tip:** Use `Markdown` for rich formatted text, `CodeBlock` for code, and `MermaidDiagram` for source-controlled diagrams.' } } },
+                            { id: 'dismiss', parentId: 'col1', component: { type: 'Button', props: { label: 'Dismiss', action: 'dismiss' } } },
+                        ],
+                        waitForAction: true,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI markdown result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI markdown error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
+                });
                 break;
             }
 

@@ -357,7 +357,7 @@
         ],
         "toolReferenceName": "openWhiteboard",
         "displayName": "Open Whiteboard",
-        "modelDescription": "Open a standalone whiteboard so the user can sketch, annotate, or submit visual context back to the agent. Treat this as a coordinate scene graph tool, not an image generation tool: seed content with initialCanvases[].seedElements using explicit positions/sizes, and rely on the returned sceneSummary for text-based reasoning over coordinates and labels. The result includes an explicit action: `approved` means use the submitted sketch as confirmed user input, while `recreateWithChanges` means the user requested revisions and you MUST address the annotated feedback and call open_whiteboard again with an updated sketch before concluding. For agent-authored starter content, prefer initialCanvases[].seedElements because Seamless Agent converts simple shapes/text into reliable whiteboard drawings. Reserve initialCanvases[].fabricState for advanced/reopen flows. If you intentionally want an empty board, set blankCanvas to true. Otherwise, provide initialCanvases so the extension does not silently open a blank board when starter content was expected.",
+        "modelDescription": "Open a standalone whiteboard so the user can sketch or annotate visual context for the agent. This remains an image-first tool: the whiteboard returns exported PNG image URIs, and the model should reason over those images instead of coordinate metadata. Use blankCanvas for an empty board, importImages to preload screenshots or mockups for annotation, or initialCanvases with seedElements/fabricState when you need seeded starter content. The result includes an explicit action: `approved` means use the returned whiteboard images as confirmed user input, while `recreateWithChanges` means the user requested revisions and you MUST address the annotated feedback and call open_whiteboard again before concluding.",
         "canBeReferencedInPrompt": true,
         "icon": "$(symbol-color)",
         "inputSchema": {
@@ -365,368 +365,78 @@
           "properties": {
             "context": {
               "type": "string",
-              "description": "Optional context or instructions for the whiteboard session"
+              "description": "Instructions for the user about what to draw or annotate."
             },
             "title": {
               "type": "string",
-              "description": "Optional title for the whiteboard panel"
+              "description": "Title for the whiteboard panel."
             },
             "blankCanvas": {
               "type": "boolean",
-              "description": "Set to true only when you intentionally open an empty whiteboard. If omitted or false, provide initialCanvases with starter content."
+              "description": "Open a blank canvas. Defaults to true."
             },
             "initialCanvases": {
               "type": "array",
-              "description": "Provide starter canvases for seeded or reopened sessions. Required unless blankCanvas is true.",
+              "description": "Optional starter canvases. Use seedElements for coordinate-first starter sketches or fabricState to reopen an existing canvas session.",
               "items": {
                 "type": "object",
                 "properties": {
-                    "name": {
-                      "type": "string",
-                      "description": "Display name for the pre-populated canvas"
-                    },
-                    "fabricState": {
-                      "type": "string",
-                      "description": "Advanced path for reopening sessions: serialized Fabric.js JSON. It must be valid JSON with an objects array. Prefer seedElements for new agent-authored starter sketches."
-                    },
-                    "seedElements": {
-                      "type": "array",
-                      "description": "Preferred agent-friendly path for coordinate-first starter sketches. Provide basic shapes/text with explicit positions and Seamless Agent will convert them into Fabric.js canvas content.",
-                      "items": {
-                        "oneOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "rectangle"
-                                ]
-                              },
-                              "id": {
-                                "type": "string",
-                                "description": "Optional stable object id"
-                              },
-                              "x": {
-                                "type": "number"
-                              },
-                              "y": {
-                                "type": "number"
-                              },
-                              "width": {
-                                "type": "number"
-                              },
-                              "height": {
-                                "type": "number"
-                              },
-                              "strokeColor": {
-                                "type": "string",
-                                "description": "Optional outline color such as '#2563eb'"
-                              },
-                              "fillColor": {
-                                "type": "string",
-                                "description": "Optional fill color such as 'rgba(37,99,235,0.18)'"
-                              },
-                              "strokeWidth": {
-                                "type": "number"
-                              },
-                              "zIndex": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 10000,
-                                "description": "Optional stacking order hint. Lower values render behind higher values."
-                              },
-                              "rotation": {
-                                "type": "number",
-                                "minimum": -360,
-                                "maximum": 360,
-                                "description": "Optional clockwise rotation in degrees."
-                              },
-                              "opacity": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "x",
-                              "y",
-                              "width",
-                              "height"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "circle"
-                                ]
-                              },
-                              "id": {
-                                "type": "string",
-                                "description": "Optional stable object id"
-                              },
-                              "x": {
-                                "type": "number"
-                              },
-                              "y": {
-                                "type": "number"
-                              },
-                              "radius": {
-                                "type": "number"
-                              },
-                              "strokeColor": {
-                                "type": "string"
-                              },
-                              "fillColor": {
-                                "type": "string"
-                              },
-                              "strokeWidth": {
-                                "type": "number"
-                              },
-                              "zIndex": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 10000,
-                                "description": "Optional stacking order hint. Lower values render behind higher values."
-                              },
-                              "rotation": {
-                                "type": "number",
-                                "minimum": -360,
-                                "maximum": 360,
-                                "description": "Optional clockwise rotation in degrees."
-                              },
-                              "opacity": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "x",
-                              "y",
-                              "radius"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "triangle"
-                                ]
-                              },
-                              "id": {
-                                "type": "string",
-                                "description": "Optional stable object id"
-                              },
-                              "x": {
-                                "type": "number"
-                              },
-                              "y": {
-                                "type": "number"
-                              },
-                              "width": {
-                                "type": "number"
-                              },
-                              "height": {
-                                "type": "number"
-                              },
-                              "strokeColor": {
-                                "type": "string"
-                              },
-                              "fillColor": {
-                                "type": "string"
-                              },
-                              "strokeWidth": {
-                                "type": "number"
-                              },
-                              "zIndex": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 10000,
-                                "description": "Optional stacking order hint. Lower values render behind higher values."
-                              },
-                              "rotation": {
-                                "type": "number",
-                                "minimum": -360,
-                                "maximum": 360,
-                                "description": "Optional clockwise rotation in degrees."
-                              },
-                              "opacity": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "x",
-                              "y",
-                              "width",
-                              "height"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "line"
-                                ]
-                              },
-                              "id": {
-                                "type": "string",
-                                "description": "Optional stable object id"
-                              },
-                              "start": {
-                                "type": "object",
-                                "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  }
-                                },
-                                "required": [
-                                  "x",
-                                  "y"
-                                ]
-                              },
-                              "end": {
-                                "type": "object",
-                                "properties": {
-                                  "x": {
-                                    "type": "number"
-                                  },
-                                  "y": {
-                                    "type": "number"
-                                  }
-                                },
-                                "required": [
-                                  "x",
-                                  "y"
-                                ]
-                              },
-                              "strokeColor": {
-                                "type": "string"
-                              },
-                              "strokeWidth": {
-                                "type": "number"
-                              },
-                              "zIndex": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 10000,
-                                "description": "Optional stacking order hint. Lower values render behind higher values."
-                              },
-                              "rotation": {
-                                "type": "number",
-                                "minimum": -360,
-                                "maximum": 360,
-                                "description": "Optional clockwise rotation in degrees."
-                              },
-                              "opacity": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "start",
-                              "end"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "text"
-                                ]
-                              },
-                              "id": {
-                                "type": "string",
-                                "description": "Optional stable object id"
-                              },
-                              "x": {
-                                "type": "number"
-                              },
-                              "y": {
-                                "type": "number"
-                              },
-                              "text": {
-                                "type": "string",
-                                "description": "Text to place on the canvas"
-                              },
-                              "color": {
-                                "type": "string",
-                                "description": "Optional text color such as '#111827'"
-                              },
-                              "fontSize": {
-                                "type": "number"
-                              },
-                              "fontWeight": {
-                                "type": "integer",
-                                "minimum": 100,
-                                "maximum": 900,
-                                "description": "Optional text weight from 100 to 900."
-                              },
-                              "fontStyle": {
-                                "type": "string",
-                                "enum": [
-                                  "normal",
-                                  "italic",
-                                  "oblique"
-                                ],
-                                "description": "Optional text style."
-                              },
-                              "textAlign": {
-                                "type": "string",
-                                "enum": [
-                                  "left",
-                                  "center",
-                                  "right",
-                                  "justify"
-                                ],
-                                "description": "Optional text alignment."
-                              },
-                              "fontFamily": {
-                                "type": "string"
-                              },
-                              "zIndex": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 10000,
-                                "description": "Optional stacking order hint. Lower values render behind higher values."
-                              },
-                              "rotation": {
-                                "type": "number",
-                                "minimum": -360,
-                                "maximum": 360,
-                                "description": "Optional clockwise rotation in degrees."
-                              },
-                              "opacity": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "x",
-                              "y",
-                              "text"
-                            ]
-                          }
-                        ]
-                      }
-                    }
+                  "name": {
+                    "type": "string",
+                    "description": "Display name for the pre-populated canvas."
                   },
-                  "required": [
-                    "name"
-                  ]
-                }
+                  "fabricState": {
+                    "type": "string",
+                    "description": "Optional serialized Fabric.js canvas state. Prefer seedElements for new starter content."
+                  },
+                  "seedElements": {
+                    "type": "array",
+                    "description": "Optional coordinate-first starter elements for agent-authored sketches.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "rectangle",
+                            "circle",
+                            "triangle",
+                            "line",
+                            "text"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "name"
+                ]
               }
+            },
+            "importImages": {
+              "type": "array",
+              "description": "Optional images to pre-load onto the canvas for the user to annotate.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "File URI of an image to import onto the canvas."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Optional label for the imported image."
+                  }
+                },
+                "required": [
+                  "uri"
+                ]
+              }
+            }
           }
         }
       },
@@ -762,6 +472,109 @@
           },
           "required": [
             "plan"
+          ]
+        }
+      },
+      {
+        "name": "render_ui",
+        "tags": [
+          "ui",
+          "rendering",
+          "surface",
+          "user-interaction",
+          "seamless-agent"
+        ],
+        "toolReferenceName": "renderUI",
+        "displayName": "Render UI Surface",
+        "modelDescription": "Render a structured UI surface in a dedicated panel using a flat component list with parentId adjacency. Pass surfaceId to identify or reuse a panel. Author component-specific fields inside component.props; top-level component fields are still accepted for compatibility. Supports layout components (Row, Column, Card, Divider), content components (Text, Heading, Image, Markdown, CodeBlock, MermaidDiagram), form components (Button, TextField, Checkbox, Select), and indicator components (ProgressBar, Badge). Use enableA2UI to run the built-in validation and enhancement pass, and a2uiLevel to choose basic or strict behavior. Markdown content is rendered as formatted HTML, form controls collect values into userAction.data, and waitForAction: true blocks until the user fires a Button action. When A2UI is enabled, the result also includes diagnostics and applied enhancements. Use waitForAction: false (default) to render immediately and continue without waiting. The result always includes surfaceId and rendered fields.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(layout)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "surfaceId": {
+              "type": "string",
+              "description": "Optional unique surface identifier. Re-using the same surfaceId will update an existing panel."
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional panel title displayed in the webview header."
+            },
+            "components": {
+              "type": "array",
+              "description": "Flat list of UI components with optional parentId adjacency for nesting.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique component identifier."
+                  },
+                  "component": {
+                    "type": "object",
+                    "description": "Component definition. Must include a 'type' field.",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "Row",
+                          "Column",
+                          "Card",
+                          "Divider",
+                          "Text",
+                          "Heading",
+                          "Image",
+                          "Markdown",
+                          "CodeBlock",
+                          "Button",
+                          "TextField",
+                          "Checkbox",
+                          "Select",
+                          "MermaidDiagram",
+                          "ProgressBar",
+                          "Badge"
+                        ]
+                      },
+                      "props": {
+                        "type": "object",
+                        "description": "Component-specific properties. Supports $data.path binding syntax."
+                      }
+                    }
+                  },
+                  "parentId": {
+                    "type": "string",
+                    "description": "ID of the parent component. Omit for root-level components."
+                  }
+                },
+                "required": [
+                  "id",
+                  "component"
+                ]
+              }
+            },
+            "dataModel": {
+              "type": "object",
+              "description": "Data model for $data.path binding resolution in component props."
+            },
+            "enableA2UI": {
+              "type": "boolean",
+              "description": "Enable the built-in A2UI validation and enhancement pass before rendering. Defaults to false."
+            },
+            "a2uiLevel": {
+              "type": "string",
+              "enum": [
+                "basic",
+                "strict"
+              ],
+              "description": "A2UI processing level. Use strict for stronger validation and helper affordances."
+            },
+            "waitForAction": {
+              "type": "boolean",
+              "description": "If true, block until the user fires a Button action. Defaults to false."
+            }
+          },
+          "required": [
+            "components"
           ]
         }
       }
@@ -821,6 +634,7 @@
     "fabric": "^6.9.1",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
+    "mermaid": "^11.13.0",
     "zod": "^4.1.13"
   }
 }

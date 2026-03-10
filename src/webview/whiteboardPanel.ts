@@ -105,7 +105,7 @@ export class WhiteboardPanel {
 
         if (existingPanel) {
             existingPanel._applyOptions(options);
-            existingPanel._panel.reveal(column);
+            existingPanel._panel.reveal(column, true); // preserveFocus: true
         }
 
         return new Promise<WhiteboardPanelResult>((resolve) => {
@@ -387,7 +387,7 @@ export class WhiteboardPanel {
         const panel = vscode.window.createWebviewPanel(
             WhiteboardPanel.viewType,
             options.title,
-            column,
+            { viewColumn: column, preserveFocus: true },
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
