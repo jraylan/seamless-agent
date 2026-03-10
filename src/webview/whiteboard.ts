@@ -1394,8 +1394,9 @@ function bootstrap(): void {
     if (!canvasElement) {
         return;
     }
+    const canvasHost = canvasElement;
 
-    const fabricCanvas = new fabric.Canvas(canvasElement, {
+    const fabricCanvas = new fabric.Canvas(canvasHost, {
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         backgroundColor: DEFAULT_BACKGROUND,
@@ -1437,6 +1438,38 @@ function bootstrap(): void {
     let hydrationErrorMessage: string | undefined;
     const histories = new Map<string, UndoHistoryState>();
 
+    function syncCanvasResponsiveSizing(width: number, height: number): void {
+        const safeWidth = Number.isFinite(width) && width > 0 ? width : DEFAULT_WIDTH;
+        const safeHeight = Number.isFinite(height) && height > 0 ? height : DEFAULT_HEIGHT;
+        const aspectRatio = `${safeWidth} / ${safeHeight}`;
+        const canvasContainer = canvasHost.parentElement as HTMLElement | null;
+
+        canvasHost.style.setProperty('--whiteboard-aspect-ratio', aspectRatio);
+        canvasHost.style.width = '100%';
+        canvasHost.style.height = '100%';
+        canvasHost.style.maxWidth = '100%';
+
+        if (!canvasContainer) {
+            return;
+        }
+
+        canvasContainer.style.setProperty('--whiteboard-aspect-ratio', aspectRatio);
+        canvasContainer.style.width = '100%';
+        canvasContainer.style.maxWidth = `${safeWidth}px`;
+        canvasContainer.style.height = 'auto';
+        canvasContainer.style.aspectRatio = aspectRatio;
+
+        canvasContainer.querySelectorAll('canvas').forEach((entry) => {
+            const element = entry as HTMLCanvasElement;
+            element.style.setProperty('--whiteboard-aspect-ratio', aspectRatio);
+            element.style.width = '100%';
+            element.style.height = '100%';
+            element.style.maxWidth = '100%';
+        });
+    }
+
+    syncCanvasResponsiveSizing(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+
     function setStatus(message: string, state: 'info' | 'error' = 'info'): void {
         if (hydrationErrorMessage && state === 'info') {
             return;
@@ -1454,7 +1487,7 @@ function bootstrap(): void {
             errorBanner: hydrationErrorBanner,
             submitButton: approveButton,
             requestChangesButton,
-            canvasElement: canvasElement as HTMLCanvasElement,
+            canvasElement: canvasHost,
         }, message);
     }
 
@@ -1593,6 +1626,7 @@ function bootstrap(): void {
             let normalized: SerializedCanvasState;
             try {
                 normalized = await loadSerializedStateIntoCanvas(fabricCanvas, serialized);
+                syncCanvasResponsiveSizing(normalized.width, normalized.height);
             } catch (error) {
                 throw new Error(`during Fabric load: ${error instanceof Error ? error.message : String(error)}`);
             }

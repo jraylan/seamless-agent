@@ -26,6 +26,7 @@ import {
 } from "./types";
 import { truncate } from './utils';
 import { Logger } from '../logging';
+import { openWhiteboard } from '../tools/openWhiteboard';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -53,6 +54,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
+    private _inlineWhiteboardTokens: Map<string, vscode.CancellationTokenSource> = new Map();
 
     constructor(private readonly _context: vscode.ExtensionContext) {
         // Use the singleton instance that was initialized in extension.ts
@@ -301,6 +303,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return false;
 
+        this._cancelInlineWhiteboard(requestId);
+
         pending.resolve({
             responded: false, response: reason, attachments: []
         });
@@ -334,6 +338,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public cancelAllRequests(reason: string = strings.cancelled): void {
         for (const [id, pending] of this._pendingRequests) {
+            this._cancelInlineWhiteboard(id);
             pending.resolve({
                 responded: false, response: reason, attachments: []
             });
@@ -511,6 +516,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 break;
             case 'addAttachment':
                 this._handleAddAttachment(message.requestId);
+                break;
+            case 'openInlineWhiteboard':
+                await this._handleOpenInlineWhiteboard(message.requestId);
                 break;
             case 'addFolderAttachment':
                 this._handleAddFolderAttachment(message.requestId);
@@ -1156,6 +1164,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
 
         if (pending) {
+            this._cancelInlineWhiteboard(requestId);
+
             // Create interaction record and add to history (keeps full attachment info)
             createInteraction(requestId,
                 pending.item.question,
@@ -1469,6 +1479,69 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             } else {
                 // Historical view — read-only
                 PlanReviewPanel.showWithOptions(this._extensionUri, options);
+            }
+        }
+    }
+
+    private _cancelInlineWhiteboard(requestId: string): void {
+        const tokenSource = this._inlineWhiteboardTokens.get(requestId);
+        if (!tokenSource) {
+            return;
+        }
+
+        tokenSource.cancel();
+        tokenSource.dispose();
+        this._inlineWhiteboardTokens.delete(requestId);
+    }
+
+    private async _handleOpenInlineWhiteboard(requestId: string): Promise<void> {
+        const pending = this._pendingRequests.get(requestId);
+        if (!pending) {
+            return;
+        }
+
+        this._cancelInlineWhiteboard(requestId);
+        const tokenSource = new vscode.CancellationTokenSource();
+        this._inlineWhiteboardTokens.set(requestId, tokenSource);
+
+        try {
+            const result = await openWhiteboard({
+                title: strings.openWhiteboard,
+                context: pending.item.question,
+                blankCanvas: true,
+            }, this._context, this, tokenSource.token);
+
+            // Keep the current ask_user question visible after whiteboard closes
+            if (this._selectedRequestId === requestId) {
+                this._showQuestion(pending.item);
+            }
+
+            if (!result.submitted || result.images.length === 0) {
+                return;
+            }
+
+            const newAttachments: AttachmentInfo[] = result.images.map((image, index) => ({
+                id: `whiteboard_${Date.now()}_${index}`,
+                name: `${image.canvasName}.png`,
+                uri: image.imageUri,
+                isImage: true,
+            }));
+
+            pending.item.attachments.push(...newAttachments);
+            this._view?.webview.postMessage({
+                type: 'updateAttachments',
+                requestId,
+                attachments: pending.item.attachments,
+            });
+        } catch (error) {
+            Logger.error('Failed to open inline whiteboard:', error);
+            const message = error instanceof Error ? error.message : 'Failed to open whiteboard';
+            vscode.window.showErrorMessage(message);
+        } finally {
+            const activeToken = this._inlineWhiteboardTokens.get(requestId);
+            if (activeToken === tokenSource) {
+                tokenSource.dispose();
+                this._inlineWhiteboardTokens.delete(requestId);
             }
         }
     }

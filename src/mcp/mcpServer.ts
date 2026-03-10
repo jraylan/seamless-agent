@@ -8,8 +8,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser, openWhiteboard, planReviewApproval, walkthroughReview } from '../tools';
-import { parseWhiteboardInput, WhiteboardInputSchema } from '../tools/schemas';
+import { askUser, openWhiteboard, planReviewApproval, walkthroughReview, renderUI } from '../tools';
+import { parseWhiteboardInput, parseRenderUIInput, WhiteboardInputSchema, RenderUIInputSchema } from '../tools/schemas';
 import { Logger } from '../logging';
 
 export class McpServerManager {
@@ -217,6 +217,38 @@ export class McpServerManager {
                         this.context,
                         this.provider,
                         tokenSource.token
+                    );
+
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: JSON.stringify(result)
+                            }
+                        ]
+                    };
+                }
+            );
+
+            // Register render_ui tool (Phase 2 A2UI surface rendering)
+            this.mcpServer.registerTool(
+                "render_ui",
+                {
+                    inputSchema: RenderUIInputSchema
+                },
+                async (args: any, { signal }: { signal?: AbortSignal }) => {
+                    const tokenSource = new vscode.CancellationTokenSource();
+                    if (signal) {
+                        signal.onabort = () => tokenSource.cancel();
+                    }
+
+                    const params = parseRenderUIInput(args);
+
+                    const result = await renderUI(
+                        params,
+                        this.context,
+                        this.provider,
+                        tokenSource.token,
                     );
 
                     return {

@@ -10,6 +10,7 @@ export * from './schemas';
 export { askUser } from './askUser';
 export { planReview, planReviewApproval, walkthroughReview } from './planReview';
 export { openWhiteboard } from './openWhiteboard';
+export { renderUI } from './renderUI';
 
 // Re-export utils
 export * from './utils';
@@ -18,6 +19,7 @@ export * from './utils';
 import { askUser } from './askUser';
 import { planReviewApproval, walkthroughReview } from './planReview';
 import { openWhiteboard } from './openWhiteboard';
+import { renderUI } from './renderUI';
 import { readFileAsBuffer, getImageMimeType, validateImageMagicNumber } from './utils';
 import { createWhiteboardLanguageModelResultParts } from './whiteboardToolResult';
 import {
@@ -26,11 +28,13 @@ import {
     PlanReviewInput,
     WalkthroughReviewInput,
     WhiteboardInput,
+    RenderUIInput,
     parseAskUserInput,
     parseApprovePlanInput,
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
     parseWhiteboardInput,
+    parseRenderUIInput,
 } from './schemas';
 import { Logger } from '../logging';
 
@@ -281,12 +285,42 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         }
     });
 
+    // Register the render_ui tool (Phase 2 A2UI surface rendering)
+    const renderUITool = vscode.lm.registerTool('render_ui', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<RenderUIInput>, token: vscode.CancellationToken) {
+            let params: RenderUIInput;
+            try {
+                params = parseRenderUIInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaceId: '',
+                        rendered: false,
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await renderUI(params, context, provider, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || 'Render UI surface'
+            };
+        },
+    });
+
     (context.subscriptions as unknown as Array<vscode.Disposable>).push(
         confirmationTool,
         approvePlanTool,
         planReviewTool,
         openWhiteboardTool,
-        walkthroughReviewTool
+        walkthroughReviewTool,
+        renderUITool,
     );
 
     // Initialize chat history storage

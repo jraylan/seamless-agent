@@ -1,0 +1,186 @@
+{
+  "title": "Component Layout - Seeded Review",
+  "context": "Use this seeded board to review spacing, hierarchy, and action placement. Adjust it if needed, then submit.",
+  "initialCanvases": [
+    {
+      "name": "Component Review",
+      "seedElements": [
+        {
+          "type": "rectangle",
+          "x": 70,
+          "y": 50,
+          "width": 760,
+          "height": 90,
+          "strokeColor": "#1d4ed8",
+          "fillColor": "rgba(37,99,235,0.12)"
+        },
+        {
+          "type": "text",
+          "x": 450,
+          "y": 98,
+          "text": "Header Region",
+          "fontSize": 22,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#1e3a8a"
+        },
+        {
+          "type": "rectangle",
+          "x": 70,
+          "y": 180,
+          "width": 360,
+          "height": 220,
+          "strokeColor": "#059669",
+          "fillColor": "rgba(5,150,105,0.1)"
+        },
+        {
+          "type": "text",
+          "x": 130,
+          "y": 220,
+          "text": "Content Card A",
+          "fontSize": 18,
+          "fontWeight": 700,
+          "color": "#065f46"
+        },
+        {
+          "type": "line",
+          "start": { "x": 100, "y": 246 },
+          "end": { "x": 400, "y": 246 },
+          "strokeColor": "#6ee7b7",
+          "strokeWidth": 2
+        },
+        {
+          "type": "text",
+          "x": 110,
+          "y": 282,
+          "text": "Primary content block",
+          "fontSize": 14,
+          "color": "#065f46"
+        },
+        {
+          "type": "rectangle",
+          "x": 470,
+          "y": 180,
+          "width": 360,
+          "height": 220,
+          "strokeColor": "#c2410c",
+          "fillColor": "rgba(249,115,22,0.1)"
+        },
+        {
+          "type": "text",
+          "x": 530,
+          "y": 220,
+          "text": "Content Card B",
+          "fontSize": 18,
+          "fontWeight": 700,
+          "color": "#9a3412"
+        },
+        {
+          "type": "circle",
+          "x": 650,
+          "y": 300,
+          "radius": 34,
+          "strokeColor": "#f97316",
+          "fillColor": "rgba(249,115,22,0.16)"
+        },
+        {
+          "type": "text",
+          "x": 650,
+          "y": 306,
+          "text": "Icon",
+          "fontSize": 12,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#9a3412"
+        },
+        {
+          "type": "line",
+          "start": { "x": 70, "y": 450 },
+          "end": { "x": 830, "y": 450 },
+          "strokeColor": "#cbd5e1",
+          "strokeWidth": 3
+        },
+        {
+          "type": "rectangle",
+          "x": 88,
+          "y": 490,
+          "width": 170,
+          "height": 56,
+          "strokeColor": "#dc2626",
+          "fillColor": "rgba(220,38,38,0.12)",
+          "rx": 12
+        },
+        {
+          "type": "text",
+          "x": 173,
+          "y": 525,
+          "text": "Button A",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#991b1b"
+        },
+        {
+          "type": "rectangle",
+          "x": 282,
+          "y": 490,
+          "width": 170,
+          "height": 56,
+          "strokeColor": "#1d4ed8",
+          "fillColor": "rgba(37,99,235,0.12)",
+          "rx": 12
+        },
+        {
+          "type": "text",
+          "x": 367,
+          "y": 525,
+          "text": "Button B",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#1e3a8a"
+        },
+        {
+          "type": "rectangle",
+          "x": 476,
+          "y": 490,
+          "width": 170,
+          "height": 56,
+          "strokeColor": "#0891b2",
+          "fillColor": "rgba(8,145,178,0.12)",
+          "rx": 12
+        },
+        {
+          "type": "text",
+          "x": 561,
+          "y": 525,
+          "text": "Button C",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#155e75"
+        },
+        {
+          "type": "rectangle",
+          "x": 670,
+          "y": 490,
+          "width": 160,
+          "height": 56,
+          "strokeColor": "#475569",
+          "fillColor": "rgba(71,85,105,0.12)",
+          "rx": 12
+        },
+        {
+          "type": "text",
+          "x": 750,
+          "y": 525,
+          "text": "Button D",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#334155"
+        }
+      ]
+    }
+  ]
+}

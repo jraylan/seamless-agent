@@ -1,17 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import type * as vscode from 'vscode';
 import {
+    DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
     DEFAULT_WHITEBOARD_CANVAS_NAME,
+    DEFAULT_WHITEBOARD_CANVAS_WIDTH,
     serializeBlankFabricCanvasState,
 } from '../whiteboard/canvasState';
-import {
-    createEmptyWhiteboardSceneSummary,
-    summarizeWhiteboardScene,
-} from '../whiteboard/sceneSummary';
 import {
     normalizeAndValidateLoadableFabricState,
     serializeSeedElementsAsFabricState,
 } from '../whiteboard/seededCanvas';
-
 import {
     mergeSubmittedWhiteboardCanvases,
     resolveWhiteboardSubmittedCanvases,
@@ -26,11 +24,9 @@ import type {
     WhiteboardSubmittedCanvas,
 } from '../webview/types';
 import type { AgentInteractionProvider } from '../webview/webviewProvider';
-import {
-    WHITEBOARD_EXPLICIT_BLANK_MESSAGE,
-} from './schemas';
-import type { WhiteboardInput, WhiteboardToolResult } from './schemas';
+import type { WhiteboardExportedImage, WhiteboardInput, WhiteboardToolResult } from './schemas';
 import { Logger } from '../logging';
+import { getImageMimeType, readFileAsBuffer } from './utils/fileUtils';
 
 export interface OpenWhiteboardDependencies {
     storage: {
@@ -83,48 +79,152 @@ function toWhiteboardToolAction(result: WhiteboardPanelResult): WhiteboardReview
 function createWhiteboardInstruction(action: WhiteboardReviewAction): string {
     switch (action) {
         case 'approved':
-            return 'The user approved the submitted whiteboard. Use the sceneSummary and submitted canvases as confirmed input in your next response.';
+            return 'The user approved the submitted whiteboard. Use the returned whiteboard images as confirmed visual input in your next response.';
         case 'recreateWithChanges':
-            return 'The user requested changes to the submitted whiteboard. Address the annotated feedback and call open_whiteboard again with an updated sketch before concluding.';
+            return 'The user requested changes to the submitted whiteboard. Address the annotated feedback and call open_whiteboard again with updated whiteboard images before concluding.';
         case 'cancelled':
         default:
             return 'The whiteboard was cancelled. Do not treat this submission as approved user input.';
     }
 }
 
-function createCanvas(
-    initialCanvas: NonNullable<WhiteboardInput['initialCanvases']>[number],
-    index: number,
-    now: number,
-): WhiteboardCanvas {
-    const fabricState = initialCanvas.seedElements
-        ? serializeSeedElementsAsFabricState(initialCanvas.seedElements)
-        : normalizeAndValidateLoadableFabricState(initialCanvas.fabricState ?? '');
-
+function createCanvasRecord(name: string, fabricState: string, index: number, now: number): WhiteboardCanvas {
     return {
         id: `canvas_${now}_${index + 1}`,
-        name: initialCanvas.name,
+        name,
         fabricState,
         createdAt: now,
         updatedAt: now,
     };
 }
 
-function createInitialCanvasSeed(params: WhiteboardInput): NonNullable<WhiteboardInput['initialCanvases']> {
-    if (params.initialCanvases?.length) {
-        return params.initialCanvases;
-    }
+function createImportedImageObject(
+    image: NonNullable<WhiteboardInput['importImages']>[number],
+    mimeType: string,
+    dataUri: string,
+    index: number,
+): Record<string, unknown> {
+    return {
+        type: 'image',
+        src: dataUri,
+        left: 40 + (index % 3) * 80,
+        top: 40 + index * 80,
+        whiteboardId: `import_image_${index + 1}`,
+        whiteboardObjectType: 'image',
+        whiteboardSourceUri: image.uri,
+        whiteboardMimeType: mimeType,
+        ...(image.label ? { whiteboardLabel: image.label } : {}),
+    };
+}
 
-    if (params.blankCanvas !== true) {
-        throw new Error(WHITEBOARD_EXPLICIT_BLANK_MESSAGE);
-    }
+async function createInitialCanvases(
+    params: WhiteboardInput,
+    now: number,
+): Promise<WhiteboardCanvas[]> {
+    const baseState = JSON.parse(serializeBlankFabricCanvasState()) as {
+        version?: string;
+        width?: number;
+        height?: number;
+        backgroundColor?: string;
+        objects?: unknown[];
+    };
 
-    return [
-        {
-            name: DEFAULT_WHITEBOARD_CANVAS_NAME,
-            fabricState: serializeBlankFabricCanvasState(),
+    const initialCanvases = (params.initialCanvases ?? []).map((canvas, index) => createCanvasRecord(
+        canvas.name,
+        typeof canvas.fabricState === 'string'
+            ? normalizeAndValidateLoadableFabricState(canvas.fabricState)
+            : serializeSeedElementsAsFabricState(canvas.seedElements ?? []),
+        index,
+        now,
+    ));
+
+    const importedImages = params.importImages ?? [];
+    if (importedImages.length === 0) {
+        if (initialCanvases.length > 0) {
+            return initialCanvases;
         }
-    ];
+
+        return [createCanvasRecord(DEFAULT_WHITEBOARD_CANVAS_NAME, JSON.stringify(baseState), 0, now)];
+    }
+
+    const objects: Record<string, unknown>[] = [];
+    for (const [index, image] of importedImages.entries()) {
+        let filePath: string;
+        try {
+            const parsedUri = new URL(image.uri);
+            if (parsedUri.protocol !== 'file:') {
+                throw new Error(`Import image uri must use the file scheme: ${image.uri}`);
+            }
+            filePath = fileURLToPath(parsedUri);
+        } catch (error) {
+            if (error instanceof Error && error.message.includes('Import image uri must use the file scheme')) {
+                throw error;
+            }
+            throw new Error(`Import image uri must be a valid file URI: ${image.uri}`);
+        }
+
+        const mimeType = getImageMimeType(filePath);
+        if (mimeType === 'application/octet-stream') {
+            throw new Error(`Unsupported import image type: ${image.uri}`);
+        }
+
+        const fileData = await readFileAsBuffer(filePath);
+        const dataUri = `data:${mimeType};base64,${Buffer.from(fileData).toString('base64')}`;
+        objects.push(createImportedImageObject(image, mimeType, dataUri, index));
+    }
+
+    const importedImageCanvas = createCanvasRecord(
+        initialCanvases.length > 0 ? 'Imported Images' : DEFAULT_WHITEBOARD_CANVAS_NAME,
+        JSON.stringify({
+            ...baseState,
+            objects,
+        }),
+        initialCanvases.length,
+        now,
+    );
+
+    return initialCanvases.length > 0
+        ? [...initialCanvases, importedImageCanvas]
+        : [importedImageCanvas];
+}
+
+function getCanvasDimensions(fabricState?: string): { width: number; height: number } {
+    if (!fabricState) {
+        return {
+            width: DEFAULT_WHITEBOARD_CANVAS_WIDTH,
+            height: DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
+        };
+    }
+
+    try {
+        const parsed = JSON.parse(fabricState) as { width?: unknown; height?: unknown };
+        return {
+            width: typeof parsed.width === 'number' ? parsed.width : DEFAULT_WHITEBOARD_CANVAS_WIDTH,
+            height: typeof parsed.height === 'number' ? parsed.height : DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
+        };
+    } catch {
+        return {
+            width: DEFAULT_WHITEBOARD_CANVAS_WIDTH,
+            height: DEFAULT_WHITEBOARD_CANVAS_HEIGHT,
+        };
+    }
+}
+
+function resolveWhiteboardExportedImages(
+    submittedCanvases: WhiteboardSubmittedCanvas[],
+    resolvedCanvases: WhiteboardCanvas[],
+): WhiteboardExportedImage[] {
+    return submittedCanvases.map((canvas) => {
+        const storedCanvas = resolvedCanvases.find((candidate) => candidate.id === canvas.id);
+        const { width, height } = getCanvasDimensions(storedCanvas?.fabricState);
+        return {
+            canvasId: canvas.id,
+            canvasName: canvas.name,
+            imageUri: canvas.imageUri,
+            width,
+            height,
+        };
+    });
 }
 
 async function createDefaultDependencies(): Promise<OpenWhiteboardDependencies> {
@@ -160,16 +260,15 @@ export async function openWhiteboard(
             submitted: false,
             action: 'cancelled',
             instruction: createWhiteboardInstruction('cancelled'),
-            canvases: [],
+            images: [],
             interactionId: '',
-            sceneSummary: createEmptyWhiteboardSceneSummary(),
         };
     }
 
     const hasAllDependencies = Boolean(
         options.dependencies?.storage
         && options.dependencies?.panel
-        && options.dependencies?.now
+        && options.dependencies?.now,
     );
     const defaultDependencies = hasAllDependencies
         ? undefined
@@ -190,7 +289,7 @@ export async function openWhiteboard(
 
     const now = dependencies.now();
     const title = params.title || 'Whiteboard';
-    const canvases = createInitialCanvasSeed(params).map((canvas, index) => createCanvas(canvas, index, now));
+    const canvases = await createInitialCanvases(params, now);
     const activeCanvasId = canvases[0]?.id;
 
     const interactionId = dependencies.storage.saveWhiteboardInteraction({
@@ -238,9 +337,8 @@ export async function openWhiteboard(
                 submitted: false,
                 action: 'cancelled',
                 instruction: createWhiteboardInstruction('cancelled'),
-                canvases: [],
+                images: [],
                 interactionId,
-                sceneSummary: createEmptyWhiteboardSceneSummary(),
             };
         }
 
@@ -271,19 +369,12 @@ export async function openWhiteboard(
         });
         provider.refreshHome();
 
-        const sceneSummary = summarizeWhiteboardScene(resolvedCanvases.map((canvas) => ({
-            id: canvas.id,
-            name: canvas.name,
-            fabricState: canvas.fabricState,
-        })));
-
         return {
             submitted: result.submitted,
             action,
             instruction: createWhiteboardInstruction(action),
-            canvases: submittedCanvases,
+            images: resolveWhiteboardExportedImages(submittedCanvases, resolvedCanvases),
             interactionId,
-            sceneSummary,
         };
     } catch (error) {
         Logger.error('Error showing whiteboard panel:', error);
@@ -299,9 +390,8 @@ export async function openWhiteboard(
             submitted: false,
             action: 'cancelled',
             instruction: createWhiteboardInstruction('cancelled'),
-            canvases: [],
+            images: [],
             interactionId,
-            sceneSummary: createEmptyWhiteboardSceneSummary(),
         };
     } finally {
         cancellationDisposable.dispose();

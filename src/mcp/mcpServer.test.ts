@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { z } from 'zod';
+import { createRequire } from 'node:module';
 
-import { WhiteboardInputSchema } from '../tools/schemas';
+import { RenderUIInputSchema, WhiteboardInputSchema } from '../tools/schemas';
 
 const require = createRequire(__filename);
 const Module = require('node:module') as typeof import('node:module') & {
     _load: (request: string, parent: unknown, isMain: boolean) => unknown;
 };
+const modulePath = require.resolve('./mcpServer.ts');
+let originalLoad: typeof Module._load;
 
 type RegisteredTool = {
     name: string;
@@ -33,248 +35,231 @@ function summarizeSchemaResult(schema: z.ZodTypeAny, input: unknown) {
     };
 }
 
-describe('McpServerManager open_whiteboard registration', () => {
-    const modulePath = require.resolve('./mcpServer.ts');
-    let originalLoad: typeof Module._load;
+beforeEach(() => {
+    originalLoad = Module._load;
+    delete require.cache[modulePath];
+});
 
-    beforeEach(() => {
-        originalLoad = Module._load;
-        delete require.cache[modulePath];
-    });
+afterEach(() => {
+    Module._load = originalLoad;
+    delete require.cache[modulePath];
+});
 
-    afterEach(() => {
-        Module._load = originalLoad;
-        delete require.cache[modulePath];
-    });
+async function loadHarness(options: {
+    openWhiteboard?: (params: unknown) => Promise<unknown>;
+    renderUI?: (params: unknown) => Promise<unknown>;
+} = {}) {
+    const registeredTools: RegisteredTool[] = [];
 
-    async function loadHarness(options: {
-        openWhiteboard?: (params: unknown) => Promise<unknown>;
-    } = {}) {
-        const registeredTools: RegisteredTool[] = [];
-
-        class MockMcpServer {
-            registerTool(name: string, config: RegisteredTool['config'], handler: RegisteredTool['handler']) {
-                registeredTools.push({ name, config, handler });
-            }
-
-            async connect() {
-                return undefined;
-            }
-
-            async close() {
-                return undefined;
-            }
+    class MockMcpServer {
+        registerTool(name: string, config: RegisteredTool['config'], handler: RegisteredTool['handler']) {
+            registeredTools.push({ name, config, handler });
         }
 
-        class MockStreamableHTTPServerTransport {
-            constructor(_options: unknown) { }
-
-            async handleRequest() {
-                return undefined;
-            }
+        async connect() {
+            return undefined;
         }
 
-        const httpMock = {
-            createServer() {
-                const server = {
-                    listen(_port: number, _host: string, callback?: () => void) {
-                        callback?.();
-                    },
-                    address() {
-                        return { port: 43123 };
-                    },
-                    close(callback?: () => void) {
-                        callback?.();
-                    },
-                    on() {
-                        return server;
-                    }
-                };
-
-                return server;
-            }
-        };
-
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return {
-                    CancellationTokenSource: class {
-                        token = { isCancellationRequested: false };
-                        cancel() {
-                            this.token.isCancellationRequested = true;
-                        }
-                    },
-                    window: {
-                        showErrorMessage() { },
-                        showInformationMessage() { },
-                    }
-                };
-            }
-
-            if (request === 'http') {
-                return httpMock;
-            }
-
-            if (request === 'fs') {
-                return {
-                    existsSync() {
-                        return false;
-                    },
-                    mkdirSync() { },
-                    readFileSync() {
-                        throw new Error('not implemented');
-                    },
-                    writeFileSync() { },
-                };
-            }
-
-            if (request === 'os') {
-                return {
-                    homedir() {
-                        return '/tmp';
-                    }
-                };
-            }
-
-            if (request === 'crypto') {
-                return {
-                    randomUUID() {
-                        return 'uuid';
-                    }
-                };
-            }
-
-            if (request === '@modelcontextprotocol/sdk/server/mcp.js') {
-                return {
-                    McpServer: MockMcpServer,
-                };
-            }
-
-            if (request === '@modelcontextprotocol/sdk/server/streamableHttp.js') {
-                return {
-                    StreamableHTTPServerTransport: MockStreamableHTTPServerTransport,
-                };
-            }
-
-            if (request === '../tools') {
-                return {
-                    askUser: async () => ({ responded: true, response: 'ok', attachments: [] }),
-                    openWhiteboard: options.openWhiteboard ?? (async () => ({
-                        submitted: false,
-                        canvases: [],
-                        interactionId: 'wb_test',
-                        sceneSummary: {
-                            totalCanvases: 0,
-                            totalElements: 0,
-                            canvases: [],
-                        },
-                    })),
-                    planReviewApproval: async () => ({ status: 'approved', requiredRevisions: [], reviewId: 'review_1' }),
-                    walkthroughReview: async () => ({ status: 'acknowledged', requiredRevisions: [], reviewId: 'review_2' }),
-                };
-            }
-
-            if (request === '../logging') {
-                return {
-                    Logger: {
-                        log() { },
-                        warn() { },
-                        error() { },
-                    }
-                };
-            }
-
-            return originalLoad.call(this, request, parent, isMain);
-        };
-
-        const { McpServerManager } = require('./mcpServer.ts') as typeof import('./mcpServer');
-        const manager = new McpServerManager({} as any, {} as any);
-        await manager.start();
-
-        const openWhiteboardTool = registeredTools.find((tool) => tool.name === 'open_whiteboard');
-        assert.ok(openWhiteboardTool, 'Expected open_whiteboard MCP tool to be registered');
-
-        return {
-            openWhiteboardTool,
-        };
+        async close() {
+            return undefined;
+        }
     }
 
-    it('accepts seedElements in the MCP schema and forwards parsed seeded canvases unchanged', async () => {
+    class MockStreamableHTTPServerTransport {
+        constructor(_options: unknown) { }
+
+        async handleRequest() {
+            return undefined;
+        }
+    }
+
+    const httpMock = {
+        createServer() {
+            const server = {
+                listen(_port: number, _host: string, callback?: () => void) {
+                    callback?.();
+                },
+                address() {
+                    return { port: 43123 };
+                },
+                close(callback?: () => void) {
+                    callback?.();
+                },
+                on() {
+                    return server;
+                },
+            };
+
+            return server;
+        },
+    };
+
+    Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
+        if (request === 'vscode') {
+            return {
+                CancellationTokenSource: class {
+                    token = { isCancellationRequested: false };
+                    cancel() {
+                        this.token.isCancellationRequested = true;
+                    }
+                },
+                window: {
+                    showErrorMessage() { },
+                    showInformationMessage() { },
+                },
+            };
+        }
+
+        if (request === 'http') {
+            return httpMock;
+        }
+
+        if (request === 'fs') {
+            return {
+                existsSync() {
+                    return false;
+                },
+                mkdirSync() { },
+                readFileSync() {
+                    throw new Error('not implemented');
+                },
+                writeFileSync() { },
+            };
+        }
+
+        if (request === 'os') {
+            return {
+                homedir() {
+                    return '/tmp';
+                },
+            };
+        }
+
+        if (request === 'crypto') {
+            return {
+                randomUUID() {
+                    return 'uuid';
+                },
+            };
+        }
+
+        if (request === '@modelcontextprotocol/sdk/server/mcp.js') {
+            return {
+                McpServer: MockMcpServer,
+            };
+        }
+
+        if (request === '@modelcontextprotocol/sdk/server/streamableHttp.js') {
+            return {
+                StreamableHTTPServerTransport: MockStreamableHTTPServerTransport,
+            };
+        }
+
+        if (request === '../tools') {
+            return {
+                askUser: async () => ({ responded: true, response: 'ok', attachments: [] }),
+                openWhiteboard: options.openWhiteboard ?? (async () => ({
+                    submitted: false,
+                    images: [],
+                    interactionId: 'wb_test',
+                    action: 'cancelled',
+                    instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
+                })),
+                renderUI: options.renderUI ?? (async () => ({
+                    surfaceId: 'surface_test',
+                    rendered: true,
+                })),
+                planReviewApproval: async () => ({ status: 'approved', requiredRevisions: [], reviewId: 'review_1' }),
+                walkthroughReview: async () => ({ status: 'acknowledged', requiredRevisions: [], reviewId: 'review_2' }),
+            };
+        }
+
+        if (request === '../logging') {
+            return {
+                Logger: {
+                    log() { },
+                    warn() { },
+                    error() { },
+                },
+            };
+        }
+
+        return originalLoad.call(this, request, parent, isMain);
+    };
+
+    const { McpServerManager } = require('./mcpServer.ts') as typeof import('./mcpServer');
+    const manager = new McpServerManager({} as any, {} as any);
+    await manager.start();
+
+    const openWhiteboardTool = registeredTools.find((tool) => tool.name === 'open_whiteboard');
+    assert.ok(openWhiteboardTool, 'Expected open_whiteboard MCP tool to be registered');
+    const renderUITool = registeredTools.find((tool) => tool.name === 'render_ui');
+    assert.ok(renderUITool, 'Expected render_ui MCP tool to be registered');
+
+    return {
+        openWhiteboardTool,
+        renderUITool,
+    };
+}
+
+describe('McpServerManager open_whiteboard registration', () => {
+    it('accepts importImages in the MCP schema and forwards parsed image-first inputs', async () => {
         const receivedCalls: unknown[] = [];
         const { openWhiteboardTool } = await loadHarness({
             async openWhiteboard(params) {
                 receivedCalls.push(params);
                 return {
                     submitted: false,
-                    canvases: [],
-                    interactionId: 'wb_seeded',
-                    sceneSummary: {
-                        totalCanvases: 0,
-                        totalElements: 0,
-                        canvases: [],
-                    },
+                    images: [],
+                    interactionId: 'wb_imports',
+                    action: 'cancelled',
+                    instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
                 };
-            }
+            },
         });
 
-        const seededInput = {
-            title: 'Seeded whiteboard',
-            context: 'Sketch a basic flow.',
-            initialCanvases: [
+        const importInput = {
+            title: 'Annotate screenshot',
+            context: 'Mark the risky areas.',
+            importImages: [
                 {
-                    name: 'Sketch 1',
-                    seedElements: [
-                        {
-                            type: 'rectangle',
-                            x: 40,
-                            y: 60,
-                            width: 220,
-                            height: 120,
-                            strokeColor: '#2563eb',
-                        },
-                        {
-                            type: 'text',
-                            x: 72,
-                            y: 96,
-                            text: 'Start',
-                        }
-                    ]
-                }
-            ]
+                    uri: 'file:///tmp/mockup.png',
+                    label: 'Mockup',
+                },
+            ],
         };
 
         assert.deepStrictEqual(
-            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, seededInput),
-            summarizeSchemaResult(WhiteboardInputSchema, seededInput),
+            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, importInput),
+            summarizeSchemaResult(WhiteboardInputSchema, importInput),
         );
 
-        await openWhiteboardTool.handler(seededInput, {});
+        await openWhiteboardTool.handler(importInput, {});
 
-        assert.deepStrictEqual(receivedCalls, [seededInput]);
+        assert.deepStrictEqual(receivedCalls, [{
+            ...importInput,
+            blankCanvas: true,
+        }]);
     });
 
-    it('accepts explicit blankCanvas requests and forwards them unchanged', async () => {
+    it('defaults blankCanvas to true for blank whiteboard MCP requests', async () => {
         const receivedCalls: unknown[] = [];
         const { openWhiteboardTool } = await loadHarness({
             async openWhiteboard(params) {
                 receivedCalls.push(params);
                 return {
                     submitted: false,
-                    canvases: [],
+                    images: [],
                     interactionId: 'wb_blank',
-                    sceneSummary: {
-                        totalCanvases: 0,
-                        totalElements: 0,
-                        canvases: [],
-                    },
+                    action: 'cancelled',
+                    instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
                 };
-            }
+            },
         });
 
         const blankInput = {
             title: 'Blank whiteboard',
             context: 'Start from scratch.',
-            blankCanvas: true,
         };
 
         assert.deepStrictEqual(
@@ -284,128 +269,173 @@ describe('McpServerManager open_whiteboard registration', () => {
 
         await openWhiteboardTool.handler(blankInput, {});
 
-        assert.deepStrictEqual(receivedCalls, [blankInput]);
+        assert.deepStrictEqual(receivedCalls, [{
+            ...blankInput,
+            blankCanvas: true,
+        }]);
     });
 
-    it('rejects invalid seeded input before calling openWhiteboard', async () => {
-        let openWhiteboardCalls = 0;
+    it('accepts initialCanvases in the MCP schema and forwards seeded inputs', async () => {
+        const receivedCalls: unknown[] = [];
         const { openWhiteboardTool } = await loadHarness({
-            async openWhiteboard() {
-                openWhiteboardCalls += 1;
+            async openWhiteboard(params) {
+                receivedCalls.push(params);
                 return {
                     submitted: false,
-                    canvases: [],
-                    interactionId: 'wb_invalid_seed',
-                    sceneSummary: {
-                        totalCanvases: 0,
-                        totalElements: 0,
-                        canvases: [],
-                    },
+                    images: [],
+                    interactionId: 'wb_seeded_mcp',
+                    action: 'cancelled',
+                    instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
                 };
-            }
+            },
         });
 
-        const invalidSeededInput = {
-            title: 'Broken seed',
+        const seededInput = {
+            title: 'Seeded starter content',
             initialCanvases: [
                 {
-                    name: 'Broken canvas',
+                    name: 'Sketch',
                     seedElements: [
                         {
                             type: 'text',
-                            x: 10,
-                            y: 20,
-                            text: '',
-                        }
-                    ]
-                }
-            ]
+                            x: 120,
+                            y: 80,
+                            text: 'Hello',
+                        },
+                    ],
+                },
+            ],
         };
 
         assert.deepStrictEqual(
-            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, invalidSeededInput),
-            summarizeSchemaResult(WhiteboardInputSchema, invalidSeededInput),
+            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, seededInput),
+            summarizeSchemaResult(WhiteboardInputSchema, seededInput),
         );
 
-        await assert.rejects(
-            () => openWhiteboardTool.handler(invalidSeededInput, {}),
-            /Seed text cannot be empty/,
-        );
-        assert.strictEqual(openWhiteboardCalls, 0);
+        await openWhiteboardTool.handler(seededInput, {});
+
+        assert.deepStrictEqual(receivedCalls, [{
+            ...seededInput,
+            blankCanvas: true,
+        }]);
     });
 
-    it('rejects empty fabricState strings before runtime and never calls openWhiteboard', async () => {
+    it('rejects invalid imported-image input before calling openWhiteboard', async () => {
         let openWhiteboardCalls = 0;
         const { openWhiteboardTool } = await loadHarness({
             async openWhiteboard() {
                 openWhiteboardCalls += 1;
                 return {
                     submitted: false,
-                    canvases: [],
-                    interactionId: 'wb_invalid_fabric',
-                    sceneSummary: {
-                        totalCanvases: 0,
-                        totalElements: 0,
-                        canvases: [],
-                    },
+                    images: [],
+                    interactionId: 'wb_invalid_import',
+                    action: 'cancelled',
+                    instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
                 };
-            }
+            },
         });
 
-        const invalidFabricStateInput = {
-            title: 'Broken fabric seed',
-            initialCanvases: [
+        const invalidImportInput = {
+            title: 'Broken import',
+            importImages: [
                 {
-                    name: 'Canvas 1',
-                    fabricState: '',
-                }
-            ]
+                    uri: '',
+                },
+            ],
         };
 
         assert.deepStrictEqual(
-            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, invalidFabricStateInput),
-            summarizeSchemaResult(WhiteboardInputSchema, invalidFabricStateInput),
+            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, invalidImportInput),
+            summarizeSchemaResult(WhiteboardInputSchema, invalidImportInput),
         );
 
         await assert.rejects(
-            () => openWhiteboardTool.handler(invalidFabricStateInput, {}),
-            /Canvas fabricState cannot be empty/,
+            () => openWhiteboardTool.handler(invalidImportInput, {}),
+            /Import image uri cannot be empty/,
         );
         assert.strictEqual(openWhiteboardCalls, 0);
     });
+});
 
-    it('rejects implicit blank requests before calling openWhiteboard', async () => {
-        let openWhiteboardCalls = 0;
-        const { openWhiteboardTool } = await loadHarness({
-            async openWhiteboard() {
-                openWhiteboardCalls += 1;
+describe('McpServerManager render_ui registration', () => {
+    it('accepts the flat render_ui schema and forwards parsed inputs', async () => {
+        const receivedCalls: unknown[] = [];
+        const { renderUITool } = await loadHarness({
+            async renderUI(params) {
+                receivedCalls.push(params);
                 return {
-                    submitted: false,
-                    canvases: [],
-                    interactionId: 'wb_implicit_blank',
-                    sceneSummary: {
-                        totalCanvases: 0,
-                        totalElements: 0,
-                        canvases: [],
-                    },
+                    surfaceId: 'surface_architecture',
+                    rendered: true,
                 };
-            }
+            },
         });
 
-        const implicitBlankInput = {
-            title: 'Implicit blank whiteboard',
-            context: 'Start from scratch.',
+        const renderInput = {
+            surfaceId: 'surface_architecture',
+            title: 'Architecture',
+            components: [
+                {
+                    id: 'card_1',
+                    component: {
+                        type: 'Card',
+                    },
+                },
+                {
+                    id: 'text_1',
+                    parentId: 'card_1',
+                    component: {
+                        type: 'Text',
+                        props: {
+                            content: '$data.summary',
+                        },
+                    },
+                },
+            ],
+            dataModel: {
+                summary: 'Rendered from data',
+            },
         };
 
         assert.deepStrictEqual(
-            summarizeSchemaResult(openWhiteboardTool.config.inputSchema, implicitBlankInput),
-            summarizeSchemaResult(WhiteboardInputSchema, implicitBlankInput),
+            summarizeSchemaResult(renderUITool.config.inputSchema, renderInput),
+            summarizeSchemaResult(RenderUIInputSchema, renderInput),
+        );
+
+        await renderUITool.handler(renderInput, {});
+
+            assert.deepStrictEqual(receivedCalls, [{
+                ...renderInput,
+                waitForAction: false,
+                enableA2UI: false,
+                a2uiLevel: 'basic',
+            }]);
+    });
+
+    it('rejects render_ui input missing components before calling renderUI', async () => {
+        let renderUICalls = 0;
+        const { renderUITool } = await loadHarness({
+            async renderUI() {
+                renderUICalls += 1;
+                return {
+                    surfaceId: 'surface_invalid',
+                    rendered: true,
+                };
+            },
+        });
+
+        const invalidInput = {
+            title: 'Missing components',
+        };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(renderUITool.config.inputSchema, invalidInput),
+            summarizeSchemaResult(RenderUIInputSchema, invalidInput),
         );
 
         await assert.rejects(
-            () => openWhiteboardTool.handler(implicitBlankInput, {}),
-            /Provide initialCanvases for starter content, or set blankCanvas to true to intentionally open an empty whiteboard/,
+            () => renderUITool.handler(invalidInput, {}),
+            /components/i,
         );
-        assert.strictEqual(openWhiteboardCalls, 0);
+        assert.strictEqual(renderUICalls, 0);
     });
 });

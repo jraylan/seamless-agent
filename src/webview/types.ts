@@ -406,6 +406,10 @@ export type FromWebviewMessage = | {
         requestId: string
     }
     | {
+        type: 'openInlineWhiteboard';
+        requestId: string
+    }
+    | {
         type: 'removeAttachment';
         requestId: string;
         attachmentId: string
@@ -503,7 +507,7 @@ export type FromWebviewMessage = | {
     | { type: 'ready' }
     | {
         type: 'debugMockToolCall';
-        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2';
+        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
     }
     | {
         type: 'openSettings'

@@ -883,6 +883,7 @@ function applyAskUserOptionsTooltipMode(): void {
     const autocompleteEmpty = document.getElementById('autocomplete-empty');
     const dropZone = document.getElementById('drop-zone');
     const attachBtn = document.getElementById('attach-btn');
+    const whiteboardBtn = document.getElementById('whiteboard-btn');
 
     // Interaction history state
     let recentInteractions: ToolCallInteraction[] = [];
@@ -3189,6 +3190,14 @@ function applyAskUserOptionsTooltipMode(): void {
         }
     });
 
+    whiteboardBtn?.addEventListener('click', () => {
+        if (currentRequestId) {
+            vscode.postMessage({
+                type: 'openInlineWhiteboard', requestId: currentRequestId
+            });
+        }
+    });
+
     // Textarea input handler for # autocomplete trigger
     responseInput?.addEventListener('input', handleTextareaInput);
 
@@ -3349,7 +3358,7 @@ function applyAskUserOptionsTooltipMode(): void {
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2'; label: string; icon: string };
+        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3382,6 +3391,14 @@ function applyAskUserOptionsTooltipMode(): void {
                     { mockType: 'whiteboard', label: S?.debugMockWhiteboard || S?.openWhiteboard || S?.whiteboard || 'Whiteboard', icon: 'symbol-color' },
                     { mockType: 'whiteboardTest1', label: 'Whiteboard Test 1', icon: 'beaker' },
                     { mockType: 'whiteboardTest2', label: 'Whiteboard Test 2', icon: 'beaker-stop' },
+                ]
+            },
+            {
+                title: 'Render UI',
+                items: [
+                    { mockType: 'renderUI', label: 'Info Panel', icon: 'info' },
+                    { mockType: 'renderUIForm', label: 'Form Panel', icon: 'list-flat' },
+                    { mockType: 'renderUIMarkdown', label: 'Markdown Panel', icon: 'markdown' },
                 ]
             }
         ];

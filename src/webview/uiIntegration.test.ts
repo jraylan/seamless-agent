@@ -51,6 +51,15 @@ describe('whiteboard UI integration', () => {
         assert.doesNotMatch(mainTs, /'Open Whiteboard'/);
     });
 
+    it('adds an inline whiteboard button to ask_user attachments and wires its message handler', () => {
+        assert.match(webviewHtml, /class="input-tools-stack"/);
+        assert.match(webviewHtml, /id="attach-btn"[\s\S]*id="whiteboard-btn"/);
+        assert.match(webviewHtml, /id="whiteboard-btn"/);
+        assert.match(webviewHtml, /\{\{openWhiteboard\}\}/);
+        assert.match(mainTs, /const whiteboardBtn = document.getElementById\('whiteboard-btn'\)/);
+        assert.match(mainTs, /type: 'openInlineWhiteboard'/);
+    });
+
     it('reopens whiteboard history items in the whiteboard panel instead of the detail view', () => {
         assert.match(mainTs, /else if \(type === 'whiteboard'\)/);
         assert.match(mainTs, /type: 'openWhiteboardPanel', interactionId: id/);

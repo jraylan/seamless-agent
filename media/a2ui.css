@@ -1,0 +1,406 @@
+/* A2UI Surface Styles */
+
+:root {
+  --a2ui-gap: 8px;
+  --a2ui-padding: 12px;
+  --a2ui-radius: 6px;
+  --a2ui-font: var(--vscode-font-family, system-ui, sans-serif);
+  --a2ui-font-size: var(--vscode-font-size, 13px);
+  --a2ui-fg: var(--vscode-foreground, #cccccc);
+  --a2ui-bg: var(--vscode-editor-background, #1e1e1e);
+  --a2ui-card-bg: var(--vscode-sideBar-background, #252526);
+  --a2ui-border: var(--vscode-panel-border, #3c3c3c);
+  --a2ui-button-bg: var(--vscode-button-background, #0078d4);
+  --a2ui-button-fg: var(--vscode-button-foreground, #ffffff);
+  --a2ui-button-hover: var(--vscode-button-hoverBackground, #006cbd);
+  --a2ui-input-bg: var(--vscode-input-background, #3c3c3c);
+  --a2ui-input-fg: var(--vscode-input-foreground, #cccccc);
+  --a2ui-input-border: var(--vscode-input-border, #3c3c3c);
+  --a2ui-badge-bg: var(--vscode-badge-background, #4d4d4d);
+  --a2ui-badge-fg: var(--vscode-badge-foreground, #ffffff);
+}
+
+body {
+  font-family: var(--a2ui-font);
+  font-size: var(--a2ui-font-size);
+  color: var(--a2ui-fg);
+  background: var(--a2ui-bg);
+  margin: 0;
+  padding: var(--a2ui-padding);
+}
+
+.a2ui-surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-gap);
+}
+
+.a2ui-diagnostics {
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+  padding: var(--a2ui-padding);
+  background: color-mix(in srgb, var(--a2ui-card-bg) 84%, transparent);
+}
+
+.a2ui-diagnostics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.a2ui-diagnostics-title,
+.a2ui-diagnostics-score {
+  font-weight: 700;
+}
+
+.a2ui-diagnostics-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.a2ui-diagnostics-body h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-diagnostics-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.a2ui-diagnostics-empty {
+  margin: 0;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+/* Layout */
+.a2ui-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--a2ui-gap);
+  align-items: flex-start;
+}
+
+.a2ui-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-gap);
+  flex: 1;
+}
+
+/* Card */
+.a2ui-card {
+  background: var(--a2ui-card-bg);
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+  padding: var(--a2ui-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--a2ui-gap);
+}
+
+/* Divider */
+.a2ui-divider {
+  border: none;
+  border-top: 1px solid var(--a2ui-border);
+  margin: var(--a2ui-gap) 0;
+}
+
+/* Text & Heading */
+.a2ui-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.a2ui-heading {
+  margin: 0 0 4px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Image */
+.a2ui-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--a2ui-radius);
+}
+
+/* Markdown / CodeBlock */
+.a2ui-markdown {
+  line-height: 1.5;
+}
+
+.a2ui-markdown > :first-child {
+  margin-top: 0;
+}
+
+.a2ui-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.a2ui-markdown code {
+  background: var(--a2ui-input-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.a2ui-markdown pre {
+  margin: 0;
+}
+
+.a2ui-markdown blockquote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--a2ui-border);
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-markdown ul,
+.a2ui-markdown ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.a2ui-codeblock {
+  background: var(--a2ui-input-bg);
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+  padding: var(--a2ui-padding);
+  overflow-x: auto;
+  margin: 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: calc(var(--a2ui-font-size) - 1px);
+  line-height: 1.4;
+}
+
+.a2ui-codeblock code {
+  background: none;
+  padding: 0;
+}
+
+/* Button */
+.a2ui-button {
+  background: var(--a2ui-button-bg);
+  color: var(--a2ui-button-fg);
+  border: none;
+  border-radius: var(--a2ui-radius);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: var(--a2ui-font-size);
+  font-family: var(--a2ui-font);
+  transition: background 0.15s;
+}
+
+.a2ui-button:hover {
+  background: var(--a2ui-button-hover);
+}
+
+.a2ui-button-secondary {
+  background: var(--vscode-button-secondaryBackground, var(--a2ui-card-bg));
+  color: var(--vscode-button-secondaryForeground, var(--a2ui-fg));
+  border: 1px solid var(--a2ui-border);
+}
+
+.a2ui-button-secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--a2ui-input-bg));
+}
+
+.a2ui-button-danger {
+  background: var(--vscode-errorForeground, #c2410c);
+}
+
+.a2ui-button-danger:hover {
+  filter: brightness(1.05);
+}
+
+.a2ui-button:active {
+  opacity: 0.85;
+}
+
+.a2ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.a2ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.a2ui-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-required {
+  margin-left: 4px;
+  color: var(--vscode-errorForeground, #f44747);
+}
+
+.a2ui-field-helper {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-invalid .a2ui-textfield,
+.a2ui-invalid .a2ui-select,
+.a2ui-invalid .a2ui-checkbox {
+  border-color: var(--vscode-errorForeground, #f44747);
+  outline-color: var(--vscode-errorForeground, #f44747);
+}
+
+.a2ui-field-error {
+  font-size: 12px;
+  color: var(--vscode-errorForeground, #f44747);
+}
+
+/* TextField */
+.a2ui-textfield {
+  background: var(--a2ui-input-bg);
+  color: var(--a2ui-input-fg);
+  border: 1px solid var(--a2ui-input-border);
+  border-radius: var(--a2ui-radius);
+  padding: 5px 8px;
+  font-size: var(--a2ui-font-size);
+  font-family: var(--a2ui-font);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.a2ui-textfield:focus {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+}
+
+/* Checkbox */
+.a2ui-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.a2ui-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--a2ui-button-bg);
+}
+
+/* Select */
+.a2ui-select {
+  background: var(--a2ui-input-bg);
+  color: var(--a2ui-input-fg);
+  border: 1px solid var(--a2ui-input-border);
+  border-radius: var(--a2ui-radius);
+  padding: 5px 8px;
+  font-size: var(--a2ui-font-size);
+  font-family: var(--a2ui-font);
+  cursor: pointer;
+}
+
+/* MermaidDiagram */
+.a2ui-mermaid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.a2ui-mermaid-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-mermaid-source {
+  white-space: pre;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: calc(var(--a2ui-font-size) - 1px);
+  background: var(--a2ui-input-bg);
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+  padding: var(--a2ui-padding);
+  overflow-x: auto;
+  margin: 0;
+}
+
+.a2ui-mermaid-target {
+  background: #ffffff;
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.a2ui-mermaid-target svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.a2ui-mermaid-details summary {
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-mermaid-error {
+  color: var(--vscode-errorForeground, #f44747);
+}
+
+/* ProgressBar */
+.a2ui-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.a2ui-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.a2ui-progress-label,
+.a2ui-progress-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.a2ui-progressbar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+  background: var(--a2ui-input-bg);
+  accent-color: var(--a2ui-button-bg);
+}
+
+/* Badge */
+.a2ui-badge {
+  display: inline-block;
+  background: var(--a2ui-badge-bg);
+  color: var(--a2ui-badge-fg);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: calc(var(--a2ui-font-size) - 1px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Error state */
+.a2ui-error {
+  color: var(--vscode-errorForeground, #f44747);
+  padding: var(--a2ui-padding);
+  border: 1px solid var(--vscode-errorForeground, #f44747);
+  border-radius: var(--a2ui-radius);
+}

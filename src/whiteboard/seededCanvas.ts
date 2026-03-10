@@ -12,6 +12,8 @@ interface WhiteboardSeedElementBase {
     strokeColor?: string;
     fillColor?: string;
     strokeWidth?: number;
+    zIndex?: number;
+    rotation?: number;
     opacity?: number;
 }
 
@@ -77,16 +79,14 @@ function getSeedObjectId(element: WhiteboardSeedElement, index: number): string 
     return element.id ?? `seed_${index + 1}`;
 }
 
-function getCommonSeedProperties(element: WhiteboardSeedElement, index: number) {
-    const seedElementWithOrder = element as WhiteboardSeedElement & { zIndex?: number; rotation?: number };
-
+function getCommonSeedProperties(element: WhiteboardSeedElement, index: number): Record<string, unknown> {
     return {
         whiteboardId: getSeedObjectId(element, index),
         whiteboardObjectType: element.type,
-        ...(typeof seedElementWithOrder.zIndex === 'number' ? { whiteboardZIndex: seedElementWithOrder.zIndex } : {}),
+        ...(typeof element.zIndex === 'number' ? { whiteboardZIndex: element.zIndex } : {}),
         stroke: element.strokeColor ?? DEFAULT_STROKE_COLOR,
         strokeWidth: element.strokeWidth ?? DEFAULT_STROKE_WIDTH,
-        ...(typeof seedElementWithOrder.rotation === 'number' ? { angle: seedElementWithOrder.rotation } : {}),
+        ...(typeof element.rotation === 'number' ? { angle: element.rotation } : {}),
         opacity: element.opacity ?? 1,
     };
 }
@@ -107,20 +107,22 @@ function convertSeedElementToFabricObject(element: WhiteboardSeedElement, index:
                 ...(typeof element.ry === 'number' ? { ry: element.ry } : {}),
                 fill: element.fillColor ?? DEFAULT_FILL_COLOR,
             };
+
         case 'circle':
             return createCirclePathFabricObject({
                 centerX: element.x,
                 centerY: element.y,
                 radius: element.radius,
-                stroke: common.stroke,
-                fill: element.fillColor ?? DEFAULT_FILL_COLOR,
-                strokeWidth: common.strokeWidth,
-                opacity: common.opacity,
+                stroke: String(common.stroke),
+                fill: String(element.fillColor ?? DEFAULT_FILL_COLOR),
+                strokeWidth: Number(common.strokeWidth),
+                opacity: Number(common.opacity),
                 whiteboardId: String(common.whiteboardId),
                 whiteboardObjectType: String(common.whiteboardObjectType),
                 ...(typeof common.whiteboardZIndex === 'number' ? { whiteboardZIndex: common.whiteboardZIndex } : {}),
                 ...(typeof common.angle === 'number' ? { angle: common.angle } : {}),
             });
+
         case 'triangle':
             return {
                 type: 'triangle',
@@ -131,6 +133,7 @@ function convertSeedElementToFabricObject(element: WhiteboardSeedElement, index:
                 height: element.height,
                 fill: element.fillColor ?? DEFAULT_FILL_COLOR,
             };
+
         case 'line':
             return {
                 type: 'line',
@@ -141,6 +144,7 @@ function convertSeedElementToFabricObject(element: WhiteboardSeedElement, index:
                 y2: element.end.y,
                 fill: '',
             };
+
         case 'text': {
             const textColor = element.color ?? element.strokeColor ?? DEFAULT_STROKE_COLOR;
             return {
@@ -167,12 +171,11 @@ function convertSeedElementToFabricObject(element: WhiteboardSeedElement, index:
     }
 }
 
-export function serializeSeedElementsAsFabricState(
-    seedElements: WhiteboardSeedElement[],
-): string {
+export function serializeSeedElementsAsFabricState(seedElements: WhiteboardSeedElement[]): string {
     const blankState = createBlankFabricCanvasState();
     const objects = seedElements.map((element, index) => convertSeedElementToFabricObject(element, index));
     assertWhiteboardFabricObjectsSupported(objects);
+
     return JSON.stringify({
         ...blankState,
         objects,

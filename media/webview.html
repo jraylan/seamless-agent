@@ -175,10 +175,14 @@
 
           <!-- Input area with attach button and textarea -->
           <div class="input-area">
-            <!-- Attach button on the left -->
-            <button type="button" id="attach-btn" class="attach-btn" title="{{addAttachment}}">
-              <span class="codicon codicon-attach"></span>
-            </button>
+            <div class="input-tools-stack" aria-label="{{attachments}}">
+              <button type="button" id="attach-btn" class="attach-btn" title="{{addAttachment}}">
+                <span class="codicon codicon-attach"></span>
+              </button>
+              <button type="button" id="whiteboard-btn" class="attach-btn" title="{{openWhiteboard}}">
+                <span class="codicon codicon-symbol-color"></span>
+              </button>
+            </div>
 
             <!-- Textarea wrapper -->
             <div class="textarea-wrapper">
