@@ -163,7 +163,7 @@ export type ToWebviewMessage = | {
     | {
         type: 'updateConfig';
         key: string;
-        value: boolean | string | number;
+        value: boolean | string | number | string[];
     }
     | {
         type: 'clear'
@@ -299,7 +299,8 @@ export type FromWebviewMessage = | {
         mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview';
     }
     | {
-        type: 'openSettings'
+        type: 'openSettings';
+        query?: string;
     };
 
 

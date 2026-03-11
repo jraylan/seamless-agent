@@ -185,6 +185,12 @@ export const strings = {
     get debugMockPlanReview() { return localize('debug.mockPlanReview'); },
     get debugMockWalkthroughReview() { return localize('debug.mockWalkthroughReview'); },
 
+    // Quick actions
+    get toggleQuickActions() { return localize('webview.toggleQuickActions'); },
+    get manageQuickActions() { return localize('webview.manageQuickActions'); },
+    get addQuickAction() { return localize('webview.addQuickAction'); },
+    get configureQuickActions() { return localize('webview.configureQuickActions'); },
+
     // Errors
     get noSuchInteraction() { return localize('error.noSuchInteraction'); },
 };

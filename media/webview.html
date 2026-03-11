@@ -144,8 +144,20 @@
         </div>
       </fieldset>
 
+      <!-- Quick-action buttons - shown above response input -->
+      <div id="quick-actions-container" class="quick-actions-container hidden">
+        <div class="quick-actions-header">
+          <button type="button" id="quick-actions-toggle" class="quick-actions-toggle"
+                  aria-label="{{toggleQuickActions}}" aria-expanded="true">
+            <span class="codicon codicon-chevron-down"></span>
+          </button>
+        </div>
+        <div id="quick-actions-content" class="quick-actions-content">
+          <div id="quick-actions-default" class="quick-actions-row"></div>
+        </div>
+      </div>
+
       <div class="response-section">
-        <label class="response-label" for="response-input">{{yourResponse}}</label>
 
         <!-- Autocomplete dropdown - positioned above input container -->
         <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden">
@@ -300,12 +312,17 @@
       debugMockAskUserMultiStepLongText: "{{debugMockAskUserMultiStepLongText}}",
       debugMockPlanReview: "{{debugMockPlanReview}}",
       debugMockWalkthroughReview: "{{debugMockWalkthroughReview}}",
+      manageQuickActions: "{{manageQuickActions}}",
+      addQuickAction: "{{addQuickAction}}",
+      configureQuickActions: "{{configureQuickActions}}",
     };
     window.__CONFIG__ = {
       historyTimeDisplay: "{{historyTimeDisplay}}",
       askUserOptionsLayout: "{{askUserOptionsLayout}}",
       askUserOptionsTooltip: "{{askUserOptionsTooltip}}",
       enableToolDebug: "{{enableToolDebug}}" === "true",
+      quickActionDefaults: {{quickActionDefaults}},
+      showQuickActions: "{{showQuickActions}}" === "true",
     };
   </script>
   <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
