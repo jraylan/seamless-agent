@@ -63,4 +63,16 @@ export class Logger {
     static show() {
         outputChannel.show();
     }
+
+    // Badge-specific logging with structured output
+    static badge(...args: any[]) {
+        const timestamp = new Date().toISOString();
+        log(vscode.LogLevel.Info, `[BADGE] ${timestamp}`, ...args);
+    }
+
+    static badgeDebug(...args: any[]) {
+        const timestamp = new Date().toISOString();
+        log(vscode.LogLevel.Debug, `[BADGE-DEBUG] ${timestamp}`, ...args);
+    }
 }
+

@@ -98,7 +98,35 @@ async function main() {
         plugins: [esbuildProblemMatcherPlugin],
     });
 
-    const contexts = [extensionCtx, webviewCtx, planReviewCtx];
+    // Whiteboard webview bundle (browser)
+    const whiteboardCtx = await esbuild.context({
+        entryPoints: ['src/webview/whiteboard.ts'],
+        bundle: true,
+        format: 'iife',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/whiteboard.js',
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+
+    // A2UI panel bundle (browser)
+    const a2uiCtx = await esbuild.context({
+        entryPoints: ['src/a2ui/webview.ts'],
+        bundle: true,
+        format: 'iife',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/a2ui.js',
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+
+    const contexts = [extensionCtx, webviewCtx, planReviewCtx, whiteboardCtx, a2uiCtx];
 
     // CLI bundle (Node.js standalone) - Only for Antigravity
     if (antigravity) {

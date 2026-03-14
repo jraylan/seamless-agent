@@ -4,6 +4,11 @@
 src/**
 .github/**
 
+# AI tool session data (never ship)
+.opencode/**
+.claude/**
+.codenomad/**
+
 # Config files
 .gitignore
 .yarnrc
@@ -12,6 +17,9 @@ src/**
 tsconfig.json
 esbuild.js
 vsc-extension-quickstart.md
+build-package.js
+release-please-config.json
+.release-please-manifest.json
 
 # Build artifacts - exclude all TypeScript files including .d.ts
 **/*.map
@@ -34,6 +42,21 @@ package-lock.json
 **/tests/**
 **/*.test.js
 **/*.spec.js
+
+# Development-only docs and specs
+docs/**
+specs/**
+AGENTS.md
+PR.md
+
+# Build tooling (pre-bundled CLI entry for Antigravity ovsx only)
+bin/**
+
+# Debug and test data files
+INPUT_1.json
+Output_1_FAILED.json
+whiteboard_input*
+sample*
 
 # Redundant dist files (tsc output, keep only extension.js from esbuild)
 dist/localization.js
