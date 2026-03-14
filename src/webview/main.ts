@@ -765,6 +765,10 @@ function applyAskUserOptionsTooltipMode(): void {
                     vscode.postMessage({
                         type: 'openWhiteboardPanel', interactionId: id
                     });
+                } else if (type === 'renderUI') {
+                    vscode.postMessage({
+                        type: 'openRenderUIPanel', interactionId: id
+                    });
                 } else {
                     vscode.postMessage({
                         type: 'selectInteraction', interactionId: id
@@ -821,6 +825,10 @@ function applyAskUserOptionsTooltipMode(): void {
             } else if (type === 'whiteboard') {
                 vscode.postMessage({
                     type: 'openWhiteboardPanel', interactionId: id
+                });
+            } else if (type === 'renderUI') {
+                vscode.postMessage({
+                    type: 'openRenderUIPanel', interactionId: id
                 });
             } else {
                 vscode.postMessage({

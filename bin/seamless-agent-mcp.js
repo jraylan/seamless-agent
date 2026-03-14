@@ -21,26 +21,42 @@ const path = require('path');
 const STATE_FILE = path.join(os.homedir(), '.antigravity', 'seamless-agent-state.json');
 
 /**
- * Reads the state file written by the VS Code extension on each startup.
- * Used to recover port/token when the extension restarts with a new port.
+ * Reads the state file and returns the best (most recently active) instance.
+ * Supports both the new registry format:
+ *   { "uuid": { port, token, lastActive, startedAt }, ... }
+ * and the legacy flat format:
+ *   { port, token }
  */
-function readStateFile() {
+function readBestInstance() {
     try {
-        if (fs.existsSync(STATE_FILE)) {
-            const data = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-            if (data && typeof data.port === 'number' && typeof data.token === 'string') {
-                return { port: data.port, token: data.token };
-            }
+        const raw = fs.readFileSync(STATE_FILE, 'utf8');
+        const registry = JSON.parse(raw);
+        // Backward compatibility: old format has a direct `port` field
+        if (registry && typeof registry.port === 'number' && typeof registry.token === 'string') {
+            return { port: registry.port, token: registry.token };
         }
-    } catch (_) {}
-    return null;
+        const entries = Object.values(registry);
+        if (!Array.isArray(entries) || entries.length === 0) return null;
+        // Sort by lastActive descending, fall back to startedAt
+        entries.sort((a, b) => {
+            const aTime = (a.lastActive ?? a.startedAt ?? 0);
+            const bTime = (b.lastActive ?? b.startedAt ?? 0);
+            return bTime - aTime;
+        });
+        const best = entries[0];
+        if (!best || !best.port || !best.token) return null;
+        return { port: best.port, token: best.token };
+    } catch {
+        return null;
+    }
 }
 
 // Parse command line arguments
+// --port and --token are optional; if absent, routing relies entirely on the registry.
 function parseArgs() {
     const args = process.argv.slice(2);
-    let port = null;
-    let token = null;
+    let port = 0;
+    let token = '';
 
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--port' && args[i + 1]) {
@@ -53,14 +69,7 @@ function parseArgs() {
         }
     }
 
-    if (!port || isNaN(port) || !token) {
-        console.error('Usage: seamless-agent-mcp --port <api-port> --token <api-token>');
-        console.error('  --port  The port where the VS Code extension API is running');
-        console.error('  --token Authentication token for the local API service');
-        process.exit(1);
-    }
-
-    return { port, token };
+    return { port: isNaN(port) ? 0 : port, token };
 }
 
 // Make HTTP request to VS Code extension API
@@ -82,12 +91,19 @@ async function callExtensionApi(state, endpoint, data) {
         return await response.json();
     }
 
+    // Re-read registry on every call to route to the most-recently-focused IDE window
+    const proactive = readBestInstance();
+    if (proactive && (proactive.port !== state.port || proactive.token !== state.token)) {
+        state.port = proactive.port;
+        state.token = proactive.token;
+    }
+
     try {
         return await attempt(state.port, state.token);
     } catch (error) {
-        // If the extension was restarted with a new port, recover from the state file and retry once
+        // If the extension was restarted with a new port, recover from the registry and retry once
         if (error.cause && error.cause.code === 'ECONNREFUSED') {
-            const fresh = readStateFile();
+            const fresh = readBestInstance();
             if (fresh && (fresh.port !== state.port || fresh.token !== state.token)) {
                 state.port = fresh.port;
                 state.token = fresh.token;

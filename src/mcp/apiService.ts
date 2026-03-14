@@ -36,11 +36,14 @@ export class ApiServiceManager {
     private server: http.Server | undefined;
     private port: number | undefined;
     private authToken: string | undefined;
+    private readonly instanceId: string;
 
     constructor(
         private context: vscode.ExtensionContext,
         private provider: AgentInteractionProvider
-    ) { }
+    ) {
+        this.instanceId = crypto.randomUUID();
+    }
 
     async start() {
         try {
@@ -140,6 +143,13 @@ export class ApiServiceManager {
 
             // Write state file so a running CLI can recover the current port/token
             await this.writeStateFile();
+
+            // Track window focus to update lastActive in the registry
+            vscode.window.onDidChangeWindowState((state) => {
+                if (state.focused) {
+                    this.updateLastActive();
+                }
+            });
 
             vscode.window.showInformationMessage(
                 `Seamless Agent API service started on port ${this.port}`
@@ -755,6 +765,7 @@ export class ApiServiceManager {
 
     async dispose() {
         await this.unregisterFromAntigravity();
+        await this.unregisterFromStateFile();
 
         if (this.server) {
             return new Promise<void>((resolve) => {
@@ -788,8 +799,8 @@ export class ApiServiceManager {
 
     /**
      * Writes the current port and token to a well-known state file.
-     * The running CLI process reads this file on ECONNREFUSED to recover
-     * from a VS Code extension restart that changed the API port.
+     * The file is a registry keyed by instanceId so multiple IDE windows
+     * can each maintain their own entry without overwriting one another.
      */
     private async writeStateFile() {
         if (!this.port || !this.authToken) return;
@@ -805,10 +816,81 @@ export class ApiServiceManager {
             if (!fs.existsSync(stateDir)) {
                 fs.mkdirSync(stateDir, { recursive: true });
             }
-            fs.writeFileSync(stateFilePath, JSON.stringify({ port: this.port, token: this.authToken }), { mode: 0o600 });
-            Logger.log(`State file written: ${stateFilePath}`);
+            let registry: Record<string, { port: number; token: string; lastActive: number; startedAt: number }> = {};
+            if (fs.existsSync(stateFilePath)) {
+                try {
+                    const content = fs.readFileSync(stateFilePath, 'utf8');
+                    const parsed = JSON.parse(content);
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        // Detect and discard old flat format {port, token} to avoid
+                        // backward-compat clash where readBestInstance returns stale data
+                        if (typeof parsed.port !== 'number') {
+                            registry = parsed;
+                        }
+                    }
+                } catch {
+                    // Start fresh if corrupt
+                }
+            }
+            const now = Date.now();
+            registry[this.instanceId] = {
+                port: this.port,
+                token: this.authToken,
+                lastActive: now,
+                startedAt: now
+            };
+            fs.writeFileSync(stateFilePath, JSON.stringify(registry, null, 2), { mode: 0o600 });
+            Logger.log(`State file written: ${stateFilePath} (instanceId: ${this.instanceId})`);
         } catch (error) {
             Logger.warn('Failed to write state file:', error);
+        }
+    }
+
+    /**
+     * Removes this instance's entry from the state file registry on shutdown.
+     */
+    private async unregisterFromStateFile() {
+        const fs = await import('fs');
+        const path = await import('path');
+        const os = await import('os');
+
+        const stateFilePath = path.join(os.homedir(), '.antigravity', 'seamless-agent-state.json');
+
+        try {
+            if (!fs.existsSync(stateFilePath)) return;
+            const content = fs.readFileSync(stateFilePath, 'utf8');
+            const registry = JSON.parse(content);
+            if (registry && typeof registry === 'object' && !Array.isArray(registry)) {
+                delete registry[this.instanceId];
+                fs.writeFileSync(stateFilePath, JSON.stringify(registry, null, 2), { mode: 0o600 });
+                Logger.log(`Removed instance ${this.instanceId} from state file registry`);
+            }
+        } catch (error) {
+            Logger.warn('Failed to unregister from state file:', error);
+        }
+    }
+
+    /**
+     * Updates lastActive timestamp for this instance in the registry.
+     * Called when the IDE window receives focus.
+     */
+    private async updateLastActive() {
+        const fs = await import('fs');
+        const path = await import('path');
+        const os = await import('os');
+
+        const stateFilePath = path.join(os.homedir(), '.antigravity', 'seamless-agent-state.json');
+
+        try {
+            if (!fs.existsSync(stateFilePath)) return;
+            const content = fs.readFileSync(stateFilePath, 'utf8');
+            const registry = JSON.parse(content);
+            if (registry && typeof registry === 'object' && !Array.isArray(registry) && registry[this.instanceId]) {
+                registry[this.instanceId].lastActive = Date.now();
+                fs.writeFileSync(stateFilePath, JSON.stringify(registry, null, 2), { mode: 0o600 });
+            }
+        } catch {
+            // Best-effort; don't log noise on every focus event
         }
     }
 
@@ -849,11 +931,11 @@ export class ApiServiceManager {
             // This matches the standard MCP server configuration pattern
             config.mcpServers['seamless-agent'] = {
                 command: 'node',
-                args: [cliScriptPath, '--port', String(this.port), '--token', this.authToken]
+                args: [cliScriptPath]
             };
 
             fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
-            Logger.log(`Registered with Antigravity: command=node, args=[${cliScriptPath}, --port, ${this.port}]`);
+            Logger.log(`Registered with Antigravity: command=node, args=[${cliScriptPath}] (port/token resolved from state registry at runtime)`);
 
         } catch (error) {
             Logger.error('Failed to register MCP server in mcp_config.json:', error);
