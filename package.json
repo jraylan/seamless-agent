@@ -697,6 +697,25 @@
             "surfaceId"
           ]
         }
+      },
+      {
+        "name": "list_surfaces",
+        "tags": [
+          "ui",
+          "surface",
+          "seamless-agent",
+          "discovery"
+        ],
+        "toolReferenceName": "listSurfaces",
+        "displayName": "List UI Surfaces",
+        "modelDescription": "List all currently active UI surface panels with their metadata including surfaceId, title, and creation timestamp. Use this tool to discover existing surfaces before updating, appending to, or closing them. An empty surfaces array means no panels are currently open.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-tree)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
       }
     ],
     "commands": [
@@ -758,6 +777,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@vscode/codicons": "^0.0.43",
     "dompurify": "^3.3.3",
@@ -765,6 +785,7 @@
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "mermaid": "^11.13.0",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

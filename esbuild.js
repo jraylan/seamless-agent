@@ -139,7 +139,7 @@ async function main() {
             sourcesContent: false,
             platform: 'node',
             outfile: 'dist/seamless-agent-mcp.js',
-            external: [],  // Bundle all dependencies
+            external: ['vscode'],  // Bundle zod and all subpaths to ensure standalone CLI resolves zod/v3 (MCP SDK 1.25.2 compat)
             logLevel: 'info',
             plugins: [esbuildProblemMatcherPlugin, shebangPlugin],
         });
