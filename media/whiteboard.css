@@ -146,22 +146,61 @@ input[type='range'] {
 
 .canvas-surface {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 12px;
   flex: 1;
   min-height: 0;
 }
 
-.canvas-stage,
-.canvas-help {
+.right-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-panel {
   border: 1px solid var(--vscode-panel-border);
   border-radius: 10px;
-  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  background: var(--vscode-sideBar-background);
+  padding: 12px;
+}
+
+.sidebar-panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--vscode-descriptionForeground);
+}
+
+.style-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.style-controls label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-actions .submit-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .canvas-stage {
   overflow: auto;
   padding: 12px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
 }
 
 .whiteboard-hydration-error {
@@ -211,15 +250,6 @@ input[type='range'] {
   height: 100% !important;
 }
 
-.canvas-help {
-  padding: 12px 16px;
-}
-
-.canvas-help h2 {
-  margin-top: 0;
-  font-size: 1rem;
-}
-
 .canvas-help ul {
   margin: 0;
   padding-left: 18px;
@@ -228,10 +258,67 @@ input[type='range'] {
 
 .whiteboard-footer {
   justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.comment-section {
+  width: 100%;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.comment-section.visible {
+  display: flex;
+}
+
+.comment-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+.comment-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 12px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 6px;
+  background: var(--vscode-input-background, var(--vscode-editor-background));
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+  line-height: 1.4;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.comment-textarea:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.comment-textarea::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (max-width: 1100px) {
   .canvas-surface {
     grid-template-columns: 1fr;
+  }
+
+  .right-sidebar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
   }
 }

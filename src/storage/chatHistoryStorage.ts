@@ -3,6 +3,7 @@ import {
     isCompletedStoredInteraction,
     isPendingStoredInteraction,
     type RequiredPlanRevisions,
+    type RenderUISession,
     type StoredInteraction,
     type WhiteboardCanvas,
     type WhiteboardSession,
@@ -203,6 +204,43 @@ export class ChatHistoryStorage {
     }
 
     /**
+     * Save a new renderUI interaction
+     */
+    saveRenderUIInteraction(data: {
+        title?: string;
+        surfaceId: string;
+        components?: unknown[];
+        dataModel?: Record<string, unknown>;
+        userAction?: { name: string; data: Record<string, unknown> };
+        dismissed?: boolean;
+        renderErrors?: Array<{ source: string; message: string }>;
+        isDebug?: boolean;
+    }): string {
+        const interactionId = this.generateId('ui');
+        const interaction: StoredInteraction = {
+            id: interactionId,
+            type: 'renderUI',
+            timestamp: Date.now(),
+            title: data.title,
+            isDebug: data.isDebug,
+            renderUISession: {
+                id: interactionId,
+                interactionId,
+                title: data.title,
+                surfaceId: data.surfaceId,
+                components: data.components,
+                dataModel: data.dataModel,
+                userAction: data.userAction,
+                dismissed: data.dismissed ?? false,
+                renderErrors: data.renderErrors,
+            },
+        };
+
+        this.saveInteraction(interaction);
+        return interactionId;
+    }
+
+    /**
      * Save an interaction to storage
      */
     private saveInteraction(interaction: StoredInteraction): void {
@@ -358,7 +396,7 @@ export class ChatHistoryStorage {
     /**
      * Get interactions by type
      */
-    getInteractionsByType(type: 'ask_user' | 'plan_review' | 'whiteboard'): StoredInteraction[] {
+    getInteractionsByType(type: 'ask_user' | 'plan_review' | 'whiteboard' | 'renderUI'): StoredInteraction[] {
         return this.getAllInteractions().filter(i => i.type === type);
     }
 

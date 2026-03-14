@@ -146,12 +146,18 @@ export const strings = {
     get detailWhiteboardNoCanvases() { return localize('detail.whiteboardNoCanvases'); },
     get detailWhiteboardSession() { return localize('detail.whiteboardSession'); },
     get detailWhiteboardStatus() { return localize('detail.whiteboardStatus'); },
+    get detailRenderUI() { return localize('detail.renderUI'); },
+    get detailRenderUISurfaceId() { return localize('detail.renderUISurfaceId'); },
+    get detailRenderUIComponents() { return localize('detail.renderUIComponents'); },
+    get detailRenderUIUserAction() { return localize('detail.renderUIUserAction'); },
+    get detailRenderUIDismissed() { return localize('detail.renderUIDismissed'); },
 
     // History filters
     get historyFilterAll() { return localize('history.filter.all'); },
     get historyFilterAskUser() { return localize('history.filter.askUser'); },
     get historyFilterPlanReview() { return localize('history.filter.planReview'); },
     get historyFilterWhiteboard() { return localize('history.filter.whiteboard'); },
+    get historyFilterRenderUI() { return localize('history.filter.renderUI'); },
 
     // Attachments / images
     get attachmentNoFilesFound() { return localize('attachment.noFilesFound'); },

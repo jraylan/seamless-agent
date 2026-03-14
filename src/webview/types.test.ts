@@ -269,12 +269,12 @@ describe('stored interaction status helpers', () => {
         }), false);
     });
 
-    it('treats whiteboards without a stored session as pending interactions', () => {
+    it('treats whiteboards without a stored session as completed interactions', () => {
         assert.strictEqual(isPendingStoredInteraction({
             id: 'wb-missing-session',
             type: 'whiteboard',
             timestamp: 1,
-        }), true);
+        }), false);
     });
 
     it('treats approved, recreateWithChanges, and cancelled whiteboards as completed interactions', () => {

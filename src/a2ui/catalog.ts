@@ -17,6 +17,13 @@ export const ALLOWED_COMPONENT_TYPES: ReadonlySet<string> = new Set<A2UIComponen
     'MermaidDiagram',
     'ProgressBar',
     'Badge',
+    'Table',
+    'Tabs',
+    'Toggle',
+    'HTML',
+    'BarChart',
+    'LineChart',
+    'PieChart',
 ]);
 
 export function isAllowedComponentType(type: string): type is A2UIComponentType {

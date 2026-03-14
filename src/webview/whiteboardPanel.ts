@@ -195,6 +195,7 @@ export class WhiteboardPanel {
                         submitted: true,
                         action: message.action,
                         canvases: exportedCanvases,
+                        userComment: message.userComment,
                     });
                 } catch (error) {
                     await this._showError(`Failed to export whiteboard images: ${error instanceof Error ? error.message : String(error)}`);

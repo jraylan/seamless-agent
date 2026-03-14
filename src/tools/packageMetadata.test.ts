@@ -68,6 +68,7 @@ describe('package metadata', () => {
         assert.ok(tool.inputSchema?.properties?.enableA2UI, 'Expected enableA2UI input schema');
         assert.ok(tool.inputSchema?.properties?.a2uiLevel, 'Expected a2uiLevel input schema');
         assert.ok(tool.inputSchema?.properties?.waitForAction, 'Expected waitForAction input schema');
+        assert.ok(tool.inputSchema?.properties?.deleteSurface, 'Expected deleteSurface input schema');
     });
 
     it('declares all catalog component types in render_ui schema', () => {
@@ -100,5 +101,43 @@ describe('package metadata', () => {
         assert.match(tool?.modelDescription ?? '', /Markdown content is rendered/i);
         assert.match(tool?.modelDescription ?? '', /enableA2UI/);
         assert.match(tool?.modelDescription ?? '', /diagnostics and applied enhancements/i);
+        assert.match(tool?.modelDescription ?? '', /deleteSurface/);
+    });
+
+    it('registers update_ui as a language model tool', () => {
+        const tool = packageJson.contributes?.languageModelTools?.find((entry) => entry.name === 'update_ui');
+
+        assert.ok(tool, 'Expected update_ui to be declared in package.json');
+        assert.ok(tool.tags?.includes('ui'), 'Expected ui tag');
+        assert.ok(tool.tags?.includes('seamless-agent'), 'Expected seamless-agent tag');
+        assert.ok(tool.inputSchema?.properties?.surfaceId, 'Expected surfaceId input schema');
+        assert.ok(tool.inputSchema?.properties?.title, 'Expected title input schema');
+        assert.ok(tool.inputSchema?.properties?.dataModel, 'Expected dataModel input schema');
+        assert.match(tool?.modelDescription ?? '', /surfaceId/);
+        assert.match(tool?.modelDescription ?? '', /dataModel/);
+    });
+
+    it('registers append_ui as a language model tool', () => {
+        const tool = packageJson.contributes?.languageModelTools?.find((entry) => entry.name === 'append_ui');
+
+        assert.ok(tool, 'Expected append_ui to be declared in package.json');
+        assert.ok(tool.tags?.includes('ui'), 'Expected ui tag');
+        assert.ok(tool.tags?.includes('seamless-agent'), 'Expected seamless-agent tag');
+        assert.ok(tool.inputSchema?.properties?.surfaceId, 'Expected surfaceId input schema');
+        assert.ok(tool.inputSchema?.properties?.components, 'Expected components input schema');
+        assert.ok(tool.inputSchema?.properties?.title, 'Expected title input schema');
+        assert.match(tool?.modelDescription ?? '', /surfaceId/);
+        assert.match(tool?.modelDescription ?? '', /components/);
+    });
+
+    it('registers close_ui as a language model tool', () => {
+        const tool = packageJson.contributes?.languageModelTools?.find((entry) => entry.name === 'close_ui');
+
+        assert.ok(tool, 'Expected close_ui to be declared in package.json');
+        assert.ok(tool.tags?.includes('ui'), 'Expected ui tag');
+        assert.ok(tool.tags?.includes('seamless-agent'), 'Expected seamless-agent tag');
+        assert.ok(tool.inputSchema?.properties?.surfaceId, 'Expected surfaceId input schema');
+        assert.match(tool?.modelDescription ?? '', /surfaceId/);
+        assert.match(tool?.modelDescription ?? '', /close|panel/i);
     });
 });

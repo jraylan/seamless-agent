@@ -350,6 +350,7 @@ describe('WhiteboardPanel', () => {
             submitted: true,
             action: 'recreateWithChanges',
             canvases: [],
+            userComment: undefined,
         });
     });
 

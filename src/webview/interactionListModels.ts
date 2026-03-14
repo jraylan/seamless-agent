@@ -12,7 +12,7 @@ export interface PendingStoredInteractionEntry {
 
 export interface UnifiedHistoryEntry {
     id: string;
-    type: 'ask_user' | 'plan_review' | 'whiteboard';
+    type: 'ask_user' | 'plan_review' | 'whiteboard' | 'renderUI';
     timestamp: number;
     title: string;
     preview: string;
@@ -92,6 +92,10 @@ function getInteractionTitle(
         return interaction.title || interaction.whiteboardSession?.title || labels.defaultTitle;
     }
 
+    if (interaction.type === 'renderUI') {
+        return interaction.title || interaction.renderUISession?.title || 'UI Surface';
+    }
+
     return interaction.agentName ?? interaction.question ?? 'Ask User';
 }
 
@@ -141,12 +145,27 @@ function getHistoryPreview(
         );
     }
 
+    if (interaction.type === 'renderUI') {
+        const session = interaction.renderUISession;
+        if (!session) {
+            return 'UI Surface';
+        }
+        const componentCount = session.components?.length ?? 0;
+        const actionText = session.dismissed ? 'Dismissed' : session.userAction ? `Action: ${session.userAction.name}` : 'Viewed';
+        return `${actionText}${componentCount > 0 ? ` • ${componentCount} component${componentCount === 1 ? '' : 's'}` : ''}`;
+    }
+
     return interaction.question || '';
 }
 
 function getInteractionStatus(interaction: StoredInteraction): string | undefined {
     if (interaction.type === 'whiteboard') {
         return interaction.whiteboardSession?.status || 'pending';
+    }
+
+    // renderUI doesn't have a status - it's always completed
+    if (interaction.type === 'renderUI') {
+        return undefined;
     }
 
     return interaction.status;

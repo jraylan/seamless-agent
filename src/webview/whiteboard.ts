@@ -1426,7 +1426,22 @@ function bootstrap(): void {
     const approveButton = document.getElementById('approve-btn') as HTMLButtonElement;
     const requestChangesButton = document.getElementById('request-changes-btn') as HTMLButtonElement;
     const cancelButton = document.getElementById('cancel-btn') as HTMLButtonElement;
+    const commentSection = document.getElementById('comment-section') as HTMLDivElement;
+    const userCommentTextarea = document.getElementById('user-comment') as HTMLTextAreaElement;
+    const cancelCommentButton = document.getElementById('cancel-comment-btn') as HTMLButtonElement;
+    const confirmRequestChangesButton = document.getElementById('confirm-request-changes-btn') as HTMLButtonElement;
     const toolButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tool]'));
+
+    // Elements object for easy access
+    const elements = {
+        approveButton,
+        requestChangesButton,
+        cancelButton,
+        commentSection,
+        userCommentTextarea,
+        cancelCommentButton,
+        confirmRequestChangesButton
+    };
 
     let currentTool: WhiteboardTool = 'pen';
     let session: WhiteboardSession | undefined;
@@ -1946,7 +1961,19 @@ function bootstrap(): void {
             });
         }
 
-        postMessage({ type: 'submit', action, canvases: submitted });
+        // Get user comment from textarea if requesting changes
+        const userComment = action === 'recreateWithChanges'
+            ? elements.userCommentTextarea?.value.trim()
+            : undefined;
+
+        // Update status before submission
+        if (action === 'approved') {
+            setStatus('Submitting approved sketch...', 'info');
+        } else if (action === 'recreateWithChanges') {
+            setStatus('Submitting with comments...', 'info');
+        }
+
+        postMessage({ type: 'submit', action, canvases: submitted, userComment });
     }
 
     toolButtons.forEach((button) => {
@@ -2128,12 +2155,62 @@ function bootstrap(): void {
         void Promise.all(files.map((file) => importImageFile(file)));
     });
 
+    // Main button handlers
     approveButton.addEventListener('click', () => {
         void submitWhiteboard('approved');
     });
+    
     requestChangesButton.addEventListener('click', () => {
-        void submitWhiteboard('recreateWithChanges');
+        // Show comment section, hide main buttons
+        if (elements.commentSection) {
+            elements.commentSection.classList.add('visible');
+        }
+        if (elements.approveButton) {
+            elements.approveButton.hidden = true;
+        }
+        if (elements.requestChangesButton) {
+            elements.requestChangesButton.hidden = true;
+        }
+        if (elements.cancelButton) {
+            elements.cancelButton.hidden = true;
+        }
+        // Focus on textarea
+        if (elements.userCommentTextarea) {
+            elements.userCommentTextarea.focus();
+        }
+        setStatus('Editing: Add your comments or keep editing', 'info');
     });
+    
+    // Comment section handlers
+    if (elements.cancelCommentButton) {
+        elements.cancelCommentButton.addEventListener('click', () => {
+            // Hide comment section, show main buttons
+            if (elements.commentSection) {
+                elements.commentSection.classList.remove('visible');
+            }
+            if (elements.approveButton) {
+                elements.approveButton.hidden = false;
+            }
+            if (elements.requestChangesButton) {
+                elements.requestChangesButton.hidden = false;
+            }
+            if (elements.cancelButton) {
+                elements.cancelButton.hidden = false;
+            }
+            // Clear comment
+            if (elements.userCommentTextarea) {
+                elements.userCommentTextarea.value = '';
+            }
+            setStatus('Ready for review', 'info');
+        });
+    }
+
+    if (elements.confirmRequestChangesButton) {
+        elements.confirmRequestChangesButton.addEventListener('click', () => {
+            void submitWhiteboard('recreateWithChanges');
+        });
+    }
+    
     cancelButton.addEventListener('click', () => postMessage({ type: 'cancel' }));
 
     fabricCanvas.on('path:created', (event: any) => {

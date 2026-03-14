@@ -175,10 +175,22 @@ export interface WhiteboardSession {
     submittedCanvases?: WhiteboardSubmittedCanvas[];
 }
 
-// Represents a stored interaction (ask_user, plan_review, or whiteboard)
+export interface RenderUISession {
+    id: string;
+    interactionId: string;
+    title?: string;
+    surfaceId: string;
+    components?: unknown[]; // A2UIComponent[] from a2ui/types
+    dataModel?: Record<string, unknown>; // A2UIDataModel from a2ui/types
+    userAction?: { name: string; data: Record<string, unknown> };
+    dismissed?: boolean;
+    renderErrors?: Array<{ source: string; message: string }>;
+}
+
+// Represents a stored interaction (ask_user, plan_review, whiteboard, or renderUI)
 export interface StoredInteraction {
     id: string;
-    type: 'ask_user' | 'plan_review' | 'whiteboard';
+    type: 'ask_user' | 'plan_review' | 'whiteboard' | 'renderUI';
     timestamp: number;
     isDebug?: boolean;
 
@@ -199,6 +211,9 @@ export interface StoredInteraction {
 
     // For whiteboard
     whiteboardSession?: WhiteboardSession;
+
+    // For renderUI
+    renderUISession?: RenderUISession;
 }
 
 export function isPendingStoredInteraction(interaction: StoredInteraction): boolean {
@@ -208,11 +223,13 @@ export function isPendingStoredInteraction(interaction: StoredInteraction): bool
 
     if (interaction.type === 'whiteboard') {
         const whiteboardStatus = interaction.whiteboardSession?.status;
-        return whiteboardStatus !== 'approved'
-            && whiteboardStatus !== 'recreateWithChanges'
-            && whiteboardStatus !== 'cancelled';
+        // Treat 'submitted' as completed (legacy status from old data)
+        // Valid pending statuses: 'pending'
+        // Completed statuses: 'approved', 'recreateWithChanges', 'cancelled', 'submitted'
+        return (whiteboardStatus as string) === 'pending';
     }
 
+    // renderUI and ask_user are always completed (no pending state)
     return false;
 }
 
@@ -223,7 +240,17 @@ export function isCompletedStoredInteraction(interaction: StoredInteraction): bo
 
     if (interaction.type === 'whiteboard') {
         const whiteboardStatus = interaction.whiteboardSession?.status;
-        return whiteboardStatus === 'approved' || whiteboardStatus === 'recreateWithChanges' || whiteboardStatus === 'cancelled';
+        // 'submitted' is a legacy/invalid status that should be treated as completed
+        const status = whiteboardStatus as string;
+        return status === 'approved'
+            || status === 'recreateWithChanges'
+            || status === 'cancelled'
+            || status === 'submitted';
+    }
+
+    // renderUI is always completed (no pending state)
+    if (interaction.type === 'renderUI') {
+        return true;
     }
 
     return interaction.status !== 'pending';
@@ -507,10 +534,13 @@ export type FromWebviewMessage = | {
     | { type: 'ready' }
     | {
         type: 'debugMockToolCall';
-        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
+        mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
     }
     | {
         type: 'openSettings'
+    }
+    | {
+        type: 'showLogs'
     };
 
 
@@ -551,7 +581,7 @@ export type PlanReviewPanelFromWebviewMessage =
 
 export type WhiteboardToExtensionMessage =
     | { type: 'ready' }
-    | { type: 'submit'; action: Exclude<WhiteboardReviewAction, 'cancelled'>; canvases: WhiteboardCanvasSubmission[] }
+    | { type: 'submit'; action: Exclude<WhiteboardReviewAction, 'cancelled'>; canvases: WhiteboardCanvasSubmission[]; userComment?: string }
     | { type: 'cancel' }
     | {
         type: 'saveCanvas';
@@ -581,6 +611,7 @@ export interface WhiteboardPanelResult {
     submitted: boolean;
     action: WhiteboardReviewAction;
     canvases: WhiteboardCanvasSubmission[];
+    userComment?: string;
 }
 // File search result for autocomplete
 export interface FileSearchResult {

@@ -262,6 +262,7 @@ export async function openWhiteboard(
             instruction: createWhiteboardInstruction('cancelled'),
             images: [],
             interactionId: '',
+            userComment: undefined,
         };
     }
 
@@ -339,6 +340,7 @@ export async function openWhiteboard(
                 instruction: createWhiteboardInstruction('cancelled'),
                 images: [],
                 interactionId,
+                userComment: undefined,
             };
         }
 
@@ -375,6 +377,7 @@ export async function openWhiteboard(
             instruction: createWhiteboardInstruction(action),
             images: resolveWhiteboardExportedImages(submittedCanvases, resolvedCanvases),
             interactionId,
+            userComment: result.userComment,
         };
     } catch (error) {
         Logger.error('Error showing whiteboard panel:', error);
@@ -392,6 +395,7 @@ export async function openWhiteboard(
             instruction: createWhiteboardInstruction('cancelled'),
             images: [],
             interactionId,
+            userComment: undefined,
         };
     } finally {
         cancellationDisposable.dispose();

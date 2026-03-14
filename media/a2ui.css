@@ -92,7 +92,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--a2ui-gap);
-  flex: 1;
 }
 
 /* Card */
@@ -396,6 +395,229 @@ body {
   font-weight: 600;
   white-space: nowrap;
 }
+.a2ui-badge-info    { background: var(--vscode-charts-blue, #2596be);   color: #fff; }
+.a2ui-badge-success { background: var(--vscode-charts-green, #35a151);  color: #fff; }
+.a2ui-badge-warning { background: var(--vscode-charts-yellow, #c19c00); color: #000; }
+.a2ui-badge-danger  { background: var(--vscode-charts-red, #c72e2e);    color: #fff; }
+
+/* Table */
+.a2ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--a2ui-font-size);
+}
+
+.a2ui-table th,
+.a2ui-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--a2ui-border);
+}
+
+.a2ui-table thead tr {
+  border-bottom: 2px solid var(--a2ui-border);
+}
+
+.a2ui-table th {
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+}
+
+.a2ui-table tbody tr:hover {
+  background: var(--a2ui-input-bg);
+}
+
+/* Tabs */
+.a2ui-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.a2ui-tab-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--a2ui-border);
+  padding-bottom: 4px;
+}
+
+.a2ui-tab-button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: var(--a2ui-font-size);
+  color: var(--vscode-descriptionForeground, var(--a2ui-fg));
+  transition: all 0.2s ease;
+}
+
+.a2ui-tab-button:hover {
+  color: var(--a2ui-fg);
+  border-bottom-color: var(--a2ui-border);
+}
+
+.a2ui-tab-button-active {
+  color: var(--a2ui-button-bg);
+  border-bottom-color: var(--a2ui-button-bg);
+  font-weight: 600;
+}
+
+.a2ui-tab-content {
+  padding: 8px 0;
+}
+
+.a2ui-tab-panel {
+  display: none;
+}
+
+.a2ui-tab-panel[data-tab-active="true"] {
+  display: block;
+}
+
+/* Toggle */
+.a2ui-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.a2ui-toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.a2ui-toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  background-color: var(--vscode-input-background, var(--a2ui-input-bg));
+  border: 1px solid var(--a2ui-border);
+  border-radius: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.a2ui-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 1px;
+  bottom: 1px;
+  background-color: var(--a2ui-fg);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.a2ui-toggle-input:checked + .a2ui-toggle-slider {
+  background-color: var(--a2ui-button-bg);
+  border-color: var(--a2ui-button-bg);
+}
+
+.a2ui-toggle-input:checked + .a2ui-toggle-slider::before {
+  transform: translateX(20px);
+  background-color: white;
+}
+
+.a2ui-toggle-input:disabled + .a2ui-toggle-slider {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.a2ui-toggle-label {
+  font-size: var(--a2ui-font-size);
+  color: var(--a2ui-fg);
+}
+
+/* HTML Component */
+.a2ui-html-container {
+  width: 100%;
+  overflow: auto;
+}
+
+.a2ui-html-sandbox {
+  width: 100%;
+  min-height: 200px;
+  border: 1px solid var(--a2ui-border);
+  border-radius: var(--a2ui-radius);
+}
+
+/* Charts */
+.a2ui-chart-container {
+  width: 100%;
+  height: 300px;
+  position: relative;
+}
+
+.a2ui-chart-svg {
+  width: 100%;
+  height: 100%;
+  font-family: var(--a2ui-font);
+  font-size: 8px;
+}
+
+.a2ui-chart-title {
+  font-size: 12px;
+  font-weight: bold;
+  fill: var(--a2ui-fg);
+}
+
+.a2ui-chart-error {
+  padding: var(--a2ui-padding);
+  color: var(--vscode-errorForeground, #f44747);
+  background: color-mix(in srgb, var(--a2ui-card-bg) 84%, transparent);
+  border-radius: var(--a2ui-radius);
+}
+
+/* BarChart */
+.a2ui-bar-rect {
+  transition: opacity 0.2s;
+}
+.a2ui-bar-rect:hover {
+  opacity: 0.8;
+}
+.a2ui-bar-label {
+  font-size: 6px;
+  fill: var(--a2ui-fg);
+}
+.a2ui-bar-value {
+  font-size: 6px;
+  fill: var(--a2ui-fg);
+  font-weight: bold;
+}
+
+/* LineChart */
+.a2ui-line-path {
+  vector-effect: non-scaling-stroke;
+}
+.a2ui-line-point {
+  transition: r 0.2s;
+}
+.a2ui-line-point:hover {
+  r: 6;
+}
+.a2ui-line-label {
+  font-size: 8px;
+  fill: var(--a2ui-fg);
+}
+
+/* PieChart */
+.a2ui-pie-slice {
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+.a2ui-pie-slice:hover {
+  opacity: 0.8;
+}
+.a2ui-legend-text {
+  font-size: 8px;
+  fill: var(--a2ui-fg);
+}
 
 /* Error state */
 .a2ui-error {
@@ -403,4 +625,36 @@ body {
   padding: var(--a2ui-padding);
   border: 1px solid var(--vscode-errorForeground, #f44747);
   border-radius: var(--a2ui-radius);
+}
+
+/* Streaming indicator — shown when render_ui is called with streaming:true */
+.a2ui-streaming-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: calc(var(--a2ui-font-size) - 1px);
+}
+
+.a2ui-streaming-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vscode-descriptionForeground, #888);
+  animation: a2ui-streaming-pulse 1.2s infinite ease-in-out;
+}
+
+.a2ui-streaming-dot:nth-child(1) { animation-delay: 0s; }
+.a2ui-streaming-dot:nth-child(2) { animation-delay: 0.2s; }
+.a2ui-streaming-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes a2ui-streaming-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40%           { opacity: 1;    transform: scale(1); }
+}
+
+.a2ui-streaming-label {
+  margin-left: 2px;
 }

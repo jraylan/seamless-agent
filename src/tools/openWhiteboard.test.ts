@@ -112,6 +112,7 @@ describe('openWhiteboard', () => {
             instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
             images: [],
             interactionId: '',
+            userComment: undefined,
         });
         assert.strictEqual(saveCalls, 0);
         assert.strictEqual(showCalls, 0);
@@ -148,6 +149,7 @@ describe('openWhiteboard', () => {
                                         imageUri: 'file:///tmp/canvas.png',
                                     },
                                 ],
+                                userComment: undefined,
                             };
                         },
                         closeIfOpen() {
@@ -173,6 +175,7 @@ describe('openWhiteboard', () => {
                 },
             ],
             interactionId: 'wb_image_contract',
+            userComment: undefined,
         });
     });
 
@@ -218,6 +221,7 @@ describe('openWhiteboard', () => {
                                     submitted: false,
                                     action: 'cancelled',
                                     canvases: [],
+                                    userComment: undefined,
                                 };
                             },
                             closeIfOpen() {
@@ -235,6 +239,7 @@ describe('openWhiteboard', () => {
                 instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
                 images: [],
                 interactionId: 'wb_imports',
+                userComment: undefined,
             });
         } finally {
             fs.rmSync(tempDirectory, { recursive: true, force: true });
@@ -299,6 +304,7 @@ describe('openWhiteboard', () => {
                                         imageUri: 'file:///tmp/seeded.png',
                                     },
                                 ],
+                                userComment: undefined,
                             };
                         },
                         closeIfOpen() {
@@ -324,6 +330,7 @@ describe('openWhiteboard', () => {
                 },
             ],
             interactionId: 'wb_seeded',
+            userComment: undefined,
         });
     });
 
@@ -357,6 +364,7 @@ describe('openWhiteboard', () => {
                                         imageUri: 'file:///tmp/updated.png',
                                     },
                                 ],
+                                userComment: undefined,
                             };
                         },
                         closeIfOpen() {
@@ -371,6 +379,7 @@ describe('openWhiteboard', () => {
         assert.equal(result.submitted, true);
         assert.equal(result.action, 'recreateWithChanges');
         assert.equal(result.images[0]?.imageUri, 'file:///tmp/updated.png');
+        assert.equal(result.userComment, undefined);
     });
 
     it('logs and persists cancellation when the whiteboard panel throws', async () => {
@@ -420,6 +429,7 @@ describe('openWhiteboard', () => {
             instruction: 'The whiteboard was cancelled. Do not treat this submission as approved user input.',
             images: [],
             interactionId: 'wb_throw',
+            userComment: undefined,
         });
     });
 });

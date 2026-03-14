@@ -22,7 +22,8 @@ describe('render_ui schema', () => {
             ],
         });
         assert.strictEqual(result.waitForAction, false);
-        assert.strictEqual(result.enableA2UI, false);
+        assert.strictEqual(result.enableA2UI, true);
+        assert.strictEqual(result.streaming, false);
         assert.strictEqual(result.a2uiLevel, 'basic');
         assert.strictEqual(result.surfaceId, 'surf1');
     });
@@ -60,6 +61,7 @@ describe('render_ui schema', () => {
                 },
             ],
         });
+        assert.ok(result.components);
         assert.equal(result.components[0]?.component.type, 'Table');
     });
 
@@ -78,6 +80,7 @@ describe('render_ui schema', () => {
                 },
             ],
         });
+        assert.ok(result.components);
         assert.equal(result.components[1]?.parentId, 'row1');
     });
 
@@ -108,6 +111,169 @@ describe('render_ui schema', () => {
         });
         assert.equal(result.dataModel?.greeting, 'Hello from data');
     });
+
+    it('accepts deleteSurface requests without components when surfaceId is provided', async () => {
+        const { parseRenderUIInput } = await import('./schemas');
+        const result = parseRenderUIInput({
+            surfaceId: 'surface_to_delete',
+            deleteSurface: true,
+        });
+        assert.equal(result.deleteSurface, true);
+        assert.equal(result.surfaceId, 'surface_to_delete');
+        assert.equal(result.components, undefined);
+    });
+
+    it('rejects deleteSurface requests without surfaceId', async () => {
+        const { RenderUIInputSchema, safeParseInput } = await import('./schemas');
+        const result = safeParseInput(RenderUIInputSchema, {
+            deleteSurface: true,
+        });
+        assert.strictEqual(result.success, false);
+    });
+});
+
+// =====================================================
+// package.json render_ui schema contract tests
+// =====================================================
+
+describe('render_ui package.json schema contract', () => {
+    /**
+     * Reads the component type enum advertised in package.json's render_ui inputSchema.
+     * This is the agent-facing contract: whatever is listed here is what the LLM
+     * "knows" it can generate.  It must stay in sync with the runtime catalog.
+     */
+    function getRenderUITypeEnum(): string[] {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pkg = require('../../package.json') as {
+            contributes?: {
+                languageModelTools?: Array<{
+                    name: string;
+                    inputSchema?: {
+                        properties?: {
+                            components?: {
+                                items?: {
+                                    properties?: {
+                                        component?: {
+                                            properties?: {
+                                                type?: { enum?: string[] };
+                                            };
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    };
+                }>;
+            };
+        };
+        const tool = pkg.contributes?.languageModelTools?.find((t) => t.name === 'render_ui');
+        return (
+            tool?.inputSchema?.properties?.components?.items?.properties?.component?.properties?.type
+                ?.enum ?? []
+        );
+    }
+
+    it('documents BarChart in the render_ui component type enum', () => {
+        const types = getRenderUITypeEnum();
+        assert.ok(
+            types.includes('BarChart'),
+            `package.json render_ui schema must enumerate "BarChart" so agents can discover it. Found: ${types.join(', ')}`,
+        );
+    });
+
+    it('documents LineChart in the render_ui component type enum', () => {
+        const types = getRenderUITypeEnum();
+        assert.ok(
+            types.includes('LineChart'),
+            `package.json render_ui schema must enumerate "LineChart" so agents can discover it. Found: ${types.join(', ')}`,
+        );
+    });
+
+    it('documents PieChart in the render_ui component type enum', () => {
+        const types = getRenderUITypeEnum();
+        assert.ok(
+            types.includes('PieChart'),
+            `package.json render_ui schema must enumerate "PieChart" so agents can discover it. Found: ${types.join(', ')}`,
+        );
+    });
+
+    it('documents MermaidDiagram Mermaid prop keys in the render_ui props description', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pkg = require('../../package.json') as {
+            contributes?: {
+                languageModelTools?: Array<{
+                    name: string;
+                    inputSchema?: {
+                        properties?: {
+                            components?: {
+                                items?: {
+                                    properties?: {
+                                        component?: {
+                                            properties?: {
+                                                props?: { description?: string };
+                                            };
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    };
+                }>;
+            };
+        };
+        const tool = pkg.contributes?.languageModelTools?.find((t) => t.name === 'render_ui');
+        const propsDesc =
+            tool?.inputSchema?.properties?.components?.items?.properties?.component?.properties?.props
+                ?.description ?? '';
+        // The description must mention at least one accepted Mermaid prop key so agents know
+        // which key carries the diagram source.
+        const mentionsMermaidKey =
+            propsDesc.includes('diagram') ||
+            propsDesc.includes('definition') ||
+            propsDesc.includes('source') ||
+            propsDesc.includes('code');
+        assert.ok(
+            mentionsMermaidKey,
+            `package.json render_ui props description must mention at least one Mermaid diagram source key (diagram/definition/source/code). Got: "${propsDesc}"`,
+        );
+    });
+
+    it('documents chart data shape (data array) in the render_ui props description', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pkg = require('../../package.json') as {
+            contributes?: {
+                languageModelTools?: Array<{
+                    name: string;
+                    inputSchema?: {
+                        properties?: {
+                            components?: {
+                                items?: {
+                                    properties?: {
+                                        component?: {
+                                            properties?: {
+                                                props?: { description?: string };
+                                            };
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    };
+                }>;
+            };
+        };
+        const tool = pkg.contributes?.languageModelTools?.find((t) => t.name === 'render_ui');
+        const propsDesc =
+            tool?.inputSchema?.properties?.components?.items?.properties?.component?.properties?.props
+                ?.description ?? '';
+        // The description must give agents a hint about how chart data is structured
+        // so they can author BarChart/LineChart/PieChart payloads correctly.
+        const mentionsChartData = propsDesc.includes('data') || propsDesc.includes('label');
+        assert.ok(
+            mentionsChartData,
+            `package.json render_ui props description must hint at chart data shape (data/label). Got: "${propsDesc}"`,
+        );
+    });
 });
 
 // =====================================================
@@ -122,6 +288,7 @@ describe('a2ui catalog', () => {
             'Text', 'Heading', 'Image', 'Markdown', 'CodeBlock',
             'Button', 'TextField', 'Checkbox', 'Select',
             'MermaidDiagram', 'ProgressBar', 'Badge',
+            'Table', 'Tabs', 'Toggle', 'HTML',
         ];
         for (const type of allowed) {
             assert.ok(isAllowedComponentType(type), `Expected ${type} to be allowed`);
@@ -131,7 +298,7 @@ describe('a2ui catalog', () => {
     it('rejects unsupported types', async () => {
         const { isAllowedComponentType } = await import('../a2ui/catalog');
         assert.strictEqual(isAllowedComponentType('Unknown'), false);
-        assert.strictEqual(isAllowedComponentType('Table'), false);
+        assert.strictEqual(isAllowedComponentType('Slider'), false); // Slider is not implemented
         assert.strictEqual(isAllowedComponentType(''), false);
         assert.strictEqual(isAllowedComponentType('Grid'), false);
     });
@@ -189,6 +356,89 @@ describe('a2ui renderer', () => {
         assert.ok(html.includes('Owner: Platform Team'), 'Expected embedded binding interpolation');
     });
 
+    it('resolves canonical A2UI bound values using JSON Pointer paths', async () => {
+        const { renderSurface } = await import('../a2ui/renderer');
+        const html = renderSurface({
+            surfaceId: 'surf1',
+            components: [
+                {
+                    id: 'c1',
+                    component: {
+                        Text: {
+                            text: { path: '/user/name', literalString: 'Guest' },
+                        },
+                    },
+                },
+            ],
+            dataModel: { user: { name: 'Alice' } },
+        });
+        assert.ok(html.includes('Alice'), 'Expected canonical path binding resolution');
+    });
+
+    it('renders canonical child references without relying on parentId adjacency', async () => {
+        const { renderSurface } = await import('../a2ui/renderer');
+        const html = renderSurface({
+            surfaceId: 'surf1',
+            components: [
+                {
+                    id: 'root',
+                    component: {
+                        Column: {
+                            children: { explicitList: ['text_1'] },
+                        },
+                    },
+                },
+                {
+                    id: 'text_1',
+                    component: {
+                        Text: {
+                            text: { literalString: 'Canonical child' },
+                        },
+                    },
+                },
+            ],
+        });
+        assert.ok(html.includes('Canonical child'), 'Expected canonical child references to render');
+    });
+
+    it('renders template children against scoped item data', async () => {
+        const { renderSurface } = await import('../a2ui/renderer');
+        const html = renderSurface({
+            surfaceId: 'surf1',
+            components: [
+                {
+                    id: 'root',
+                    component: {
+                        Column: {
+                            children: {
+                                template: {
+                                    dataBinding: '/items',
+                                    componentId: 'item_text',
+                                },
+                            },
+                        },
+                    },
+                },
+                {
+                    id: 'item_text',
+                    component: {
+                        Text: {
+                            text: { path: '/name' },
+                        },
+                    },
+                },
+            ],
+            dataModel: {
+                items: [
+                    { name: 'Alpha' },
+                    { name: 'Beta' },
+                ],
+            },
+        });
+        assert.ok(html.includes('Alpha'), 'Expected first template item');
+        assert.ok(html.includes('Beta'), 'Expected second template item');
+    });
+
     it('renders Mermaid components with a target container and collapsible source', async () => {
         const { renderSurface } = await import('../a2ui/renderer');
         const html = renderSurface({
@@ -201,6 +451,48 @@ describe('a2ui renderer', () => {
         assert.ok(html.includes('a2ui-mermaid-details'), 'Expected Mermaid source details');
     });
 
+    it('embeds the diagram source text in rendered Mermaid HTML (regression)', async () => {
+        // Regression: the rendered HTML must contain the actual diagram definition so the
+        // browser-side Mermaid runtime can pick it up from .a2ui-mermaid-source.
+        const { renderSurface } = await import('../a2ui/renderer');
+        const diagramSrc = 'graph TD\nX-->Y\nY-->Z';
+        const html = renderSurface({
+            surfaceId: 'mermaid-regression',
+            components: [
+                { id: 'd1', component: { type: 'MermaidDiagram', props: { content: diagramSrc } } },
+            ],
+        });
+        assert.ok(
+            html.includes('graph TD'),
+            `Rendered HTML must embed the diagram source; got: ${html.slice(0, 300)}`,
+        );
+        assert.ok(html.includes('X--&gt;Y') || html.includes('X-->Y'), 'Arrow notation must survive HTML rendering');
+    });
+
+    it('embeds diagram source for every accepted Mermaid prop alias', async () => {
+        // MermaidDiagram accepts: diagram, definition, source, code, text, content.
+        // Each alias must result in the source text being embedded in the HTML.
+        const { renderSurface } = await import('../a2ui/renderer');
+        const aliases: Array<[string, Record<string, string>]> = [
+            ['diagram',    { diagram:    'graph LR\nAlias1-->B' }],
+            ['definition', { definition: 'graph LR\nAlias2-->B' }],
+            ['source',     { source:     'graph LR\nAlias3-->B' }],
+            ['code',       { code:       'graph LR\nAlias4-->B' }],
+            ['text',       { text:       'graph LR\nAlias5-->B' }],
+            ['content',    { content:    'graph LR\nAlias6-->B' }],
+        ];
+        for (const [alias, props] of aliases) {
+            const html = renderSurface({
+                surfaceId: `alias-${alias}`,
+                components: [{ id: 'diag', component: { type: 'MermaidDiagram', props } }],
+            });
+            assert.ok(
+                html.includes(`Alias${aliases.findIndex(([a]) => a === alias) + 1}`),
+                `Mermaid prop alias "${alias}" must embed diagram source in HTML`,
+            );
+        }
+    });
+
     it('throws RendererError for unsupported component type', async () => {
         const { renderSurface, RendererError } = await import('../a2ui/renderer');
         assert.throws(
@@ -208,7 +500,7 @@ describe('a2ui renderer', () => {
                 renderSurface({
                     surfaceId: 'surf1',
                     components: [
-                        { id: 'c1', component: { type: 'Table', props: {} } },
+                        { id: 'c1', component: { type: 'InvalidComponent', props: {} } },
                     ],
                 }),
             (err: unknown) => {
@@ -462,6 +754,7 @@ describe('render_ui tool', () => {
                     { id: 'c1', component: { type: 'Text', props: { content: 'test' } } },
                 ],
                 waitForAction: false,
+                enableA2UI: false,
             },
             mockContext as unknown as import('vscode').ExtensionContext,
             {} as unknown as import('../webview/webviewProvider').AgentInteractionProvider,
@@ -473,6 +766,49 @@ describe('render_ui tool', () => {
         assert.strictEqual(result.rendered, true);
         assert.strictEqual(result.userAction, undefined);
         assert.strictEqual(result.a2ui, undefined);
+    });
+
+    it('propagates panel render errors back to the tool result', async () => {
+        const { renderUI } = await import('./renderUI');
+        const mockPanel = {
+            showSurface: async () => ({
+                dismissed: false,
+                renderErrors: [
+                    {
+                        source: 'renderer' as const,
+                        message: 'Unsupported component type: Table (id: table_1)',
+                    },
+                ],
+            }),
+            closeIfOpen() {
+                return false;
+            },
+        };
+        const mockToken = {
+            isCancellationRequested: false,
+            onCancellationRequested: () => ({ dispose: () => { } }),
+        };
+
+        const result = await renderUI(
+            {
+                surfaceId: 'surf_render_error',
+                components: [
+                    { id: 'table_1', component: { type: 'Table' } },
+                ],
+            },
+            { extensionUri: { fsPath: '/test' } } as unknown as import('vscode').ExtensionContext,
+            {} as unknown as import('../webview/webviewProvider').AgentInteractionProvider,
+            mockToken as unknown as import('vscode').CancellationToken,
+            { panel: mockPanel },
+        );
+
+        assert.strictEqual(result.rendered, true);
+        assert.deepStrictEqual(result.renderErrors, [
+            {
+                source: 'renderer',
+                message: 'Unsupported component type: Table (id: table_1)',
+            },
+        ]);
     });
 
     it('returns userAction when waitForAction=true and user acts', async () => {
@@ -536,6 +872,42 @@ describe('render_ui tool', () => {
         assert.strictEqual(result.surfaceId, 'surf1');
     });
 
+    it('deletes an existing surface when deleteSurface is true', async () => {
+        const { renderUI } = await import('./renderUI');
+        const deletedSurfaceIds: string[] = [];
+        const mockPanel = {
+            showSurface: async () => {
+                throw new Error('showSurface should not be called for deleteSurface');
+            },
+            closeIfOpen(surfaceId: string) {
+                deletedSurfaceIds.push(surfaceId);
+                return true;
+            },
+        };
+        const mockToken = {
+            isCancellationRequested: false,
+            onCancellationRequested: () => ({ dispose: () => { } }),
+        };
+
+        const result = await renderUI(
+            {
+                surfaceId: 'surface_to_delete',
+                deleteSurface: true,
+            },
+            { extensionUri: { fsPath: '/test' } } as unknown as import('vscode').ExtensionContext,
+            {} as unknown as import('../webview/webviewProvider').AgentInteractionProvider,
+            mockToken as unknown as import('vscode').CancellationToken,
+            { panel: mockPanel },
+        );
+
+        assert.deepStrictEqual(deletedSurfaceIds, ['surface_to_delete']);
+        assert.deepStrictEqual(result, {
+            surfaceId: 'surface_to_delete',
+            rendered: false,
+            deleted: true,
+        });
+    });
+
     it('closes a waiting surface when cancellation happens after rendering starts', async () => {
         const { renderUI } = await import('./renderUI');
         let cancellationHandler: (() => void) | undefined;
@@ -573,6 +945,7 @@ describe('render_ui tool', () => {
                     { id: 'c1', component: { type: 'Button', props: { label: 'Wait', action: 'wait' } } },
                 ],
                 waitForAction: true,
+                enableA2UI: false,
             },
             mockContext as unknown as import('vscode').ExtensionContext,
             {} as unknown as import('../webview/webviewProvider').AgentInteractionProvider,
@@ -619,6 +992,7 @@ describe('render_ui tool', () => {
                 components: [
                     { id: 'c1', component: { type: 'Text', props: { content: 'test' } } },
                 ],
+                enableA2UI: false,
             },
             mockContext as unknown as import('vscode').ExtensionContext,
             {} as unknown as import('../webview/webviewProvider').AgentInteractionProvider,

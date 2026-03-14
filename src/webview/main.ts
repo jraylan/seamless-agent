@@ -154,6 +154,12 @@ declare global {
             detailWhiteboardNoCanvases: string;
             detailWhiteboardSession: string;
             detailWhiteboardStatus: string;
+            // renderUI
+            detailRenderUI: string;
+            detailRenderUISurfaceId: string;
+            detailRenderUIComponents: string;
+            detailRenderUIUserAction: string;
+            detailRenderUIDismissed: string;
             // Batch selection
             batchSelectMode: string;
             batchExitSelectMode: string;
@@ -384,9 +390,7 @@ function applyAskUserOptionsTooltipMode(): void {
     function initHomeToolbar(): void {
         document.querySelectorAll('.home-toolbar-btn[data-tab]').forEach(btn => {
             btn.addEventListener('click', () => {
-                const tab = (btn.getAttribute('data-tab') || 'pending') as HomeTab;
-                
-                // Special handling for settings button
+                // Special handling for settings button - opens VS Code settings
                 if (btn.id === 'settings-btn') {
                     vscode.postMessage({
                         type: 'openSettings'
@@ -394,6 +398,7 @@ function applyAskUserOptionsTooltipMode(): void {
                     return;
                 }
                 
+                const tab = (btn.getAttribute('data-tab') || 'pending') as HomeTab;
                 switchTab(tab);
             });
         });
@@ -430,6 +435,10 @@ function applyAskUserOptionsTooltipMode(): void {
 
                 else if (filter === 'whiteboard') {
                     show = type === 'whiteboard';
+                }
+
+                else if (filter === 'renderUI') {
+                    show = type === 'renderUI';
                 }
 
                 (item as HTMLElement).style.display = show ? '' : 'none';
@@ -1903,7 +1912,8 @@ function applyAskUserOptionsTooltipMode(): void {
         for (const entry of entries) {
             const isPlanReview = entry.type === 'plan_review';
             const isWhiteboard = entry.type === 'whiteboard';
-            const icon = isPlanReview ? 'file-text' : (isWhiteboard ? 'symbol-color' : 'comment');
+            const isRenderUI = entry.type === 'renderUI';
+            const icon = isPlanReview ? 'file-text' : (isWhiteboard ? 'symbol-color' : (isRenderUI ? 'window' : 'comment'));
             const typeIcon = codicon(icon);
             const statusClass = entry.status || 'pending';
 
@@ -2031,7 +2041,9 @@ function applyAskUserOptionsTooltipMode(): void {
                 ? (interaction.title || 'Plan Review')
                 : interaction.type === 'whiteboard'
                     ? (interaction.title || interaction.whiteboardSession?.title || window.__STRINGS__?.whiteboard || 'Whiteboard')
-                    : (interaction.agentName ? `${interaction.agentName}: Ask User` : 'Ask User');
+                    : interaction.type === 'renderUI'
+                        ? (interaction.title || interaction.renderUISession?.title || 'UI Surface')
+                        : (interaction.agentName ? `${interaction.agentName}: Ask User` : 'Ask User');
             headerTitle.textContent = title;
         }
 
@@ -2165,7 +2177,50 @@ function applyAskUserOptionsTooltipMode(): void {
                 vscode.postMessage({
                     type: 'openPlanReviewPanel', interactionId: interaction.id
                 });
-            } else {
+            }
+            else if (interaction.type === 'renderUI') {
+                const renderUILabel = window.__STRINGS__?.detailRenderUI || 'UI Surface';
+                const surfaceIdLabel = window.__STRINGS__?.detailRenderUISurfaceId || 'Surface ID';
+                const componentsLabel = window.__STRINGS__?.detailRenderUIComponents || 'Components';
+                const userActionLabel = window.__STRINGS__?.detailRenderUIUserAction || 'User action';
+                const dismissedLabel = window.__STRINGS__?.detailRenderUIDismissed || 'Dismissed';
+                const session = interaction.renderUISession;
+                const componentCount = session?.components?.length ?? 0;
+                const userAction = session?.userAction;
+                const wasDismissed = session?.dismissed ?? false;
+
+                appendChildren(interactionDetailView!,
+                    el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('window'),
+                            renderUILabel
+                        ),
+                        el('div', { className: 'detail-content' },
+                            wasDismissed ? dismissedLabel : (userAction ? `${userActionLabel}: ${userAction.name}` : 'Viewed')
+                        )
+                    ),
+                    el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('symbol-namespace'),
+                            surfaceIdLabel
+                        ),
+                        el('div', { className: 'detail-content' }, session?.surfaceId || interaction.id)
+                    ),
+                    el('div', { className: 'detail-section detail-section-plain' },
+                        el('div', { className: 'detail-label' },
+                            codicon('symbol-misc'),
+                            componentsLabel
+                        ),
+                        el('div', { className: 'detail-content' },
+                            componentCount > 0 ? `${componentCount} component${componentCount === 1 ? '' : 's'}` : 'No components'
+                        )
+                    ),
+                    el('div', { className: 'detail-meta' },
+                        el('span', { text: formatTime(interaction.timestamp) })
+                    )
+                );
+            }
+            else {
                 const whiteboardLabel = window.__STRINGS__?.detailWhiteboard || window.__STRINGS__?.whiteboard || 'Whiteboard';
                 const contextLabel = window.__STRINGS__?.detailWhiteboardContext || 'Context';
                 const canvasesLabel = window.__STRINGS__?.detailWhiteboardCanvases || 'Canvases';
@@ -2860,8 +2915,8 @@ function applyAskUserOptionsTooltipMode(): void {
         responseInput.style.height = 'auto';
         responseInput.style.overflow = 'hidden';
 
-        // Min and max heights
-        const minHeight = 24; // Single line
+        // Min and max heights - minHeight matches CSS min-height (52px) to show full placeholder
+        const minHeight = 52; // Matches CSS min-height for full placeholder text
         const maxHeight = 200; // Max before scrolling
 
         // Calculate new height based on scroll height
@@ -2906,7 +2961,7 @@ function applyAskUserOptionsTooltipMode(): void {
 
         // Dragging up (negative delta) increases height; dragging down decreases
         const delta = resizeStartY - e.clientY;
-        const minHeight = 24;
+        const minHeight = 52; // Matches CSS min-height for full placeholder text
         const maxHeight = 2000;
         const newHeight = Math.max(minHeight, Math.min(resizeStartHeight + delta, maxHeight));
 
@@ -3358,11 +3413,17 @@ function applyAskUserOptionsTooltipMode(): void {
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown'; label: string; icon: string };
+        type MockDef = { mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
         const sections: SectionDef[] = [
+            {
+                title: 'Logs',
+                items: [
+                    { mockType: 'showLogs', label: 'Show Extension Logs', icon: 'output' },
+                ]
+            },
             {
                 title: S?.debugSectionAskUser || 'Ask User',
                 items: [

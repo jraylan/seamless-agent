@@ -2,12 +2,20 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
-import type { A2UISurface, A2UIUserAction } from './types';
+import type { A2UIComponent, A2UIDataModel, A2UIRenderIssue, A2UISurface, A2UIUserAction, DroppedStyleEntry } from './types';
 import { renderSurface } from './renderer';
 
 export interface A2UIPanelResult {
     dismissed: boolean;
+    renderErrors?: A2UIRenderIssue[];
     userAction?: A2UIUserAction;
+    droppedStyles?: DroppedStyleEntry[];
+}
+
+export interface A2UIPanelUpdateResult {
+    found: boolean;
+    renderErrors?: A2UIRenderIssue[];
+    droppedStyles?: DroppedStyleEntry[];
 }
 
 type FromWebviewMessage =
@@ -47,6 +55,9 @@ export class A2UIPanel {
     private _surface: A2UISurface;
     private readonly _surfaceKey: string;
     private _disposables: vscode.Disposable[] = [];
+    private _lastRenderErrors: A2UIRenderIssue[] = [];
+    private _lastDroppedStyles: DroppedStyleEntry[] = [];
+    private _pendingResult?: Promise<A2UIPanelResult>;
     private _resolvePromise?: (result: A2UIPanelResult) => void;
 
     private constructor(
@@ -54,15 +65,13 @@ export class A2UIPanel {
         extensionUri: vscode.Uri,
         surface: A2UISurface,
         surfaceKey: string,
-        resolve: (result: A2UIPanelResult) => void,
     ) {
         this._panel = panel;
         this._extensionUri = extensionUri;
         this._surface = surface;
         this._surfaceKey = surfaceKey;
-        this._resolvePromise = resolve;
 
-        this._panel.webview.html = this._getHtmlContent();
+        this._renderIntoWebview();
         this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(
             (message: FromWebviewMessage) => void this._handleMessage(message),
@@ -87,10 +96,14 @@ export class A2UIPanel {
         if (!waitForAction) {
             const existing = A2UIPanel._panels.get(key);
             if (existing) {
-                existing._surface = surface;
-                existing._panel.title = surface.title ?? 'UI Surface';
-                existing._panel.webview.html = existing._getHtmlContent();
+                const renderErrors = existing._setSurface(surface);
+                const droppedStyles = existing._lastDroppedStyles;
                 existing._panel.reveal(column);
+                return {
+                    dismissed: false,
+                    ...(renderErrors.length > 0 ? { renderErrors } : {}),
+                    ...(droppedStyles.length > 0 ? { droppedStyles } : {}),
+                };
             } else {
                 const webviewPanel = vscode.window.createWebviewPanel(
                     A2UIPanel.viewType,
@@ -98,33 +111,32 @@ export class A2UIPanel {
                     column,
                     A2UIPanel._webviewOptions(extensionUri),
                 );
-                const instance = new A2UIPanel(webviewPanel, extensionUri, surface, key, () => { });
+                const instance = new A2UIPanel(webviewPanel, extensionUri, surface, key);
                 A2UIPanel._panels.set(key, instance);
+                return {
+                    dismissed: false,
+                    ...(instance._lastRenderErrors.length > 0 ? { renderErrors: instance._lastRenderErrors } : {}),
+                    ...(instance._lastDroppedStyles.length > 0 ? { droppedStyles: instance._lastDroppedStyles } : {}),
+                };
             }
-            return { dismissed: false };
         }
 
-        return new Promise<A2UIPanelResult>((resolve) => {
-            const existing = A2UIPanel._panels.get(key);
-            if (existing) {
-                existing._resolve({ dismissed: true });
-                existing._surface = surface;
-                existing._panel.title = surface.title ?? 'UI Surface';
-                existing._resolvePromise = resolve;
-                existing._panel.webview.html = existing._getHtmlContent();
-                existing._panel.reveal(column);
-                return;
-            }
+        const existing = A2UIPanel._panels.get(key);
+        if (existing) {
+            existing._setSurface(surface);
+            existing._panel.reveal(column);
+            return existing._ensurePendingResult();
+        }
 
-            const webviewPanel = vscode.window.createWebviewPanel(
-                A2UIPanel.viewType,
-                surface.title ?? 'UI Surface',
-                column,
-                A2UIPanel._webviewOptions(extensionUri),
-            );
-            const instance = new A2UIPanel(webviewPanel, extensionUri, surface, key, resolve);
-            A2UIPanel._panels.set(key, instance);
-        });
+        const webviewPanel = vscode.window.createWebviewPanel(
+            A2UIPanel.viewType,
+            surface.title ?? 'UI Surface',
+            column,
+            A2UIPanel._webviewOptions(extensionUri),
+        );
+        const instance = new A2UIPanel(webviewPanel, extensionUri, surface, key);
+        A2UIPanel._panels.set(key, instance);
+        return instance._ensurePendingResult();
     }
 
     public static closeIfOpen(surfaceId: string): boolean {
@@ -134,6 +146,75 @@ export class A2UIPanel {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Lists all currently active surfaces with their metadata.
+     */
+    public static listSurfaces(): Array<{ surfaceId: string; title: string; created: string }> {
+        const surfaces: Array<{ surfaceId: string; title: string; created: string }> = [];
+
+        for (const [surfaceId, panel] of A2UIPanel._panels.entries()) {
+            surfaces.push({
+                surfaceId,
+                title: panel._surface.title ?? '',
+                created: new Date().toISOString(), // Use current time since we don't track creation time
+            });
+        }
+
+        return surfaces;
+    }
+
+    /**
+     * Updates only the `dataModel` of an existing surface and re-renders it.
+     * Returns `{ found: false }` when no surface with the given id is open.
+     * The pending waiter (if any) is preserved unchanged.
+     */
+    public static updateDataModel(surfaceId: string, dataModel: A2UIDataModel): A2UIPanelUpdateResult {
+        const panel = A2UIPanel._panels.get(surfaceId);
+        if (!panel) {
+            return { found: false };
+        }
+        panel._surface = { ...panel._surface, dataModel };
+        const renderErrors = panel._renderIntoWebview();
+        const droppedStyles = panel._lastDroppedStyles;
+        return { found: true, ...(renderErrors.length > 0 ? { renderErrors } : {}), ...(droppedStyles.length > 0 ? { droppedStyles } : {}) };
+    }
+
+    /**
+     * Updates only the title of an existing surface panel and re-renders the webview.
+     * Returns `{ found: false }` when no surface with the given id is open.
+     */
+    public static updateTitle(surfaceId: string, title: string): A2UIPanelUpdateResult {
+        const panel = A2UIPanel._panels.get(surfaceId);
+        if (!panel) {
+            return { found: false };
+        }
+        panel._surface = { ...panel._surface, title };
+        panel._panel.title = title;
+        const renderErrors = panel._renderIntoWebview();
+        const droppedStyles = panel._lastDroppedStyles;
+        return { found: true, ...(renderErrors.length > 0 ? { renderErrors } : {}), ...(droppedStyles.length > 0 ? { droppedStyles } : {}) };
+    }
+
+    /**
+     * Appends `components` to the existing component list of a surface and re-renders.
+     * Returns `{ found: false }` when no surface with the given id is open.
+     * Prior components are preserved. The pending waiter (if any) is preserved unchanged.
+     */
+    public static appendComponents(surfaceId: string, components: A2UIComponent[], finalize?: boolean): A2UIPanelUpdateResult {
+        const panel = A2UIPanel._panels.get(surfaceId);
+        if (!panel) {
+            return { found: false };
+        }
+        const updatedSurface = { ...panel._surface, components: [...panel._surface.components, ...components] };
+        if (finalize) {
+            updatedSurface.streaming = false;
+        }
+        panel._surface = updatedSurface;
+        const renderErrors = panel._renderIntoWebview();
+        const droppedStyles = panel._lastDroppedStyles;
+        return { found: true, ...(renderErrors.length > 0 ? { renderErrors } : {}), ...(droppedStyles.length > 0 ? { droppedStyles } : {}) };
     }
 
     private static _webviewOptions(extensionUri: vscode.Uri): vscode.WebviewPanelOptions & vscode.WebviewOptions {
@@ -152,22 +233,42 @@ export class A2UIPanel {
                 name: message.name,
                 data: message.data,
             };
-            this._resolve({ dismissed: false, userAction: action });
+            this._resolve({
+                dismissed: false,
+                ...(this._lastRenderErrors.length > 0 ? { renderErrors: this._lastRenderErrors } : {}),
+                ...(this._lastDroppedStyles.length > 0 ? { droppedStyles: this._lastDroppedStyles } : {}),
+                userAction: action,
+            });
             this._panel.dispose();
         }
+    }
+
+    private _ensurePendingResult(): Promise<A2UIPanelResult> {
+        if (!this._pendingResult) {
+            this._pendingResult = new Promise<A2UIPanelResult>((resolve) => {
+                this._resolvePromise = resolve;
+            });
+        }
+
+        return this._pendingResult;
     }
 
     private _resolve(result: A2UIPanelResult): void {
         if (this._resolvePromise) {
             this._resolvePromise(result);
             this._resolvePromise = undefined;
+            this._pendingResult = undefined;
         }
     }
 
     private _dispose(): void {
         A2UIPanel._panels.delete(this._surfaceKey);
         if (this._resolvePromise) {
-            this._resolve({ dismissed: true });
+            this._resolve({
+                dismissed: true,
+                ...(this._lastRenderErrors.length > 0 ? { renderErrors: this._lastRenderErrors } : {}),
+                ...(this._lastDroppedStyles.length > 0 ? { droppedStyles: this._lastDroppedStyles } : {}),
+            });
         }
         for (const d of this._disposables) {
             d.dispose();
@@ -175,9 +276,24 @@ export class A2UIPanel {
         this._disposables = [];
     }
 
-    private _getHtmlContent(): string {
+    private _setSurface(surface: A2UISurface): A2UIRenderIssue[] {
+        this._surface = surface;
+        this._panel.title = surface.title ?? 'UI Surface';
+        return this._renderIntoWebview();
+    }
+
+    private _renderIntoWebview(): A2UIRenderIssue[] {
+        const { html, renderErrors, droppedStyles } = this._getHtmlContent();
+        this._lastRenderErrors = renderErrors;
+        this._lastDroppedStyles = droppedStyles;
+        this._panel.webview.html = html;
+        return renderErrors;
+    }
+
+    private _getHtmlContent(): { html: string; renderErrors: A2UIRenderIssue[]; droppedStyles: DroppedStyleEntry[] } {
         const webview = this._panel.webview;
         const nonce = crypto.randomBytes(16).toString('hex');
+        const renderErrors: A2UIRenderIssue[] = [];
 
         const cssUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'media', 'a2ui.css'),
@@ -187,12 +303,24 @@ export class A2UIPanel {
         );
         const cspSource = webview.cspSource;
 
+        const droppedMap = new Map<string, string[]>();
         let renderedHtml: string;
         try {
-            renderedHtml = renderSurface(this._surface);
-        } catch {
-            renderedHtml = '<p class="a2ui-error">Failed to render surface.</p>';
+            renderedHtml = renderSurface(this._surface, droppedMap);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to render surface.';
+            renderErrors.push({
+                source: 'renderer',
+                message,
+            });
+            renderedHtml = `<p class="a2ui-error">${escHtml(message)}</p>`;
         }
+
+        const droppedStyles: DroppedStyleEntry[] = Array.from(droppedMap.entries()).map(([componentId, properties]) => ({ componentId, properties }));
+
+        const streamingIndicatorHtml = this._surface.streaming
+            ? '<div class="a2ui-streaming-indicator" aria-live="polite" aria-label="Generating content"><span class="a2ui-streaming-dot"></span><span class="a2ui-streaming-dot"></span><span class="a2ui-streaming-dot"></span><span class="a2ui-streaming-label">Generating…</span></div>'
+            : '';
 
         const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'a2ui.html');
         let html = fs.readFileSync(htmlPath, 'utf8');
@@ -207,7 +335,12 @@ export class A2UIPanel {
 
         html = html.replace(/\{\{diagnosticsHtml\}\}/g, () => renderA2UIDiagnostics(this._surface));
         html = html.replace(/\{\{surfaceHtml\}\}/g, () => renderedHtml);
+        html = html.replace(/\{\{streamingIndicatorHtml\}\}/g, () => streamingIndicatorHtml);
 
-        return html;
+        return {
+            html,
+            renderErrors,
+            droppedStyles,
+        };
     }
 }

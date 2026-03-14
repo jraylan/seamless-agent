@@ -162,9 +162,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
 
-        // Update badge count
-        if (this._pendingRequests.size > 0) {
-            this._setBadge(this._pendingRequests.size);
+        // Update badge count with total pending from all sources
+        const totalPending = this._getTotalPendingCount();
+        if (totalPending > 0) {
+            this._setBadge(totalPending);
         }
     }
 
@@ -263,7 +264,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             this._pendingRequests.set(req, { item, resolve });
 
             // Update badge count
-            this._setBadge(this._pendingRequests.size);
+            const newTotal = this._getTotalPendingCount();
+            Logger.badge('New pending request created:', { requestId: req, question: question.substring(0, 50), totalPending: newTotal });
+            this._setBadge(newTotal);
 
             // NOTE: Do NOT call this._view?.show() here — even with preserveFocus: true,
             // it causes VS Code to activate the sidebar, stealing focus from the user's
@@ -315,7 +318,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             this._lastOpenedRequestId = null;
         }
 
-        this._setBadge(this._pendingRequests.size);
+        const newTotal = this._getTotalPendingCount();
+        this._setBadge(newTotal);
 
         // Update UI
         if (this._pendingRequests.size > 0) {
@@ -345,7 +349,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
 
         this._pendingRequests.clear();
-        this._setBadge(0);
+        this._setBadge(this._getTotalPendingCount());
         this._lastOpenedRequestId = null;
 
         this._view?.webview.postMessage({
@@ -407,19 +411,6 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pendingWhiteboards = this._chatHistoryStorage.getPendingWhiteboards();
         const historyInteractions = this._chatHistoryStorage.getCompletedInteractions();
 
-        Logger.debug('_showHome called:', {
-            pendingRequestsCount: pendingRequests.length,
-            pendingPlanReviewsCount: pendingPlanReviews.length,
-            pendingWhiteboardsCount: pendingWhiteboards.length,
-            historyInteractionsCount: historyInteractions.length,
-            pendingPlanReviews: pendingPlanReviews.map(r => ({ id: r.id, title: r.title, status: r.status })),
-            pendingWhiteboards: pendingWhiteboards.map((interaction) => ({
-                id: interaction.id,
-                title: interaction.title,
-                status: interaction.whiteboardSession?.status,
-            }))
-        });
-
         const message: ToWebviewMessage = {
             type: 'showHome',
             pendingRequests,
@@ -432,8 +423,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         this._view?.webview.postMessage(message);
 
         // Update badge with total pending count (requests + stored interactions)
-        const totalPending = pendingRequests.length + pendingPlanReviews.length + pendingWhiteboards.length;
-        this._setBadge(totalPending);
+        this._setBadge(this._getTotalPendingCount());
     }
 
     /**
@@ -571,6 +561,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openSettings':
                 vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jraylan.seamless-agent');
                 break;
+            case 'showLogs':
+                vscode.commands.executeCommand('seamless-agent.showLogs');
+                break;
         }
     }
 
@@ -587,6 +580,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Creates a mock pending request to simulate real tool calls.
      */
     private async _handleDebugMockToolCall(mockType: string): Promise<void> {
+        // Handle showLogs directly
+        if (mockType === 'showLogs') {
+            vscode.commands.executeCommand('seamless-agent.showLogs');
+            return;
+        }
         const { MockToolCallService } = await import('./utils/mockToolCall');
         await MockToolCallService.mockToolCall(mockType, this);
     }
@@ -632,6 +630,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const closed = PlanReviewPanel.closeIfOpen(panelId);
         if (!closed) {
             this._chatHistoryStorage.updateInteraction(panelId, { status: 'cancelled' });
+            // Recalculate badge since we just changed a stored interaction's status
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
         }
         return closed;
     }
@@ -650,6 +651,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     status: 'cancelled',
                 },
             });
+            // Recalculate badge since we just changed a stored interaction's status
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
         }
         return true;
     }
@@ -1222,7 +1226,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             }
 
             // Update badge
-            this._setBadge(this._pendingRequests.size);
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
 
             // Show home view (pending requests + history)
             if (this._pendingRequests.size > 0) {
@@ -1307,6 +1312,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Get the total count of all pending items (in-memory requests + stored interactions)
+     */
+    private _getTotalPendingCount(): number {
+        const pendingPlanReviews = this._chatHistoryStorage.getPendingPlanReviews();
+        const pendingWhiteboards = this._chatHistoryStorage.getPendingWhiteboards();
+        const total = this._pendingRequests.size + pendingPlanReviews.length + pendingWhiteboards.length;
+        return total;
+    }
+
+    /**
      * Set the badge count on the view
      */
     private _setBadge(count: number): void {
@@ -1320,8 +1335,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 };
 
                 setTimeout(() => {
-                    if (this._view && this._pendingRequests.size === 0) {
+                    // Check ALL sources, not just in-memory requests
+                    const totalPending = this._getTotalPendingCount();
+                    if (this._view && totalPending === 0) {
                         this._view.badge = undefined;
+                        Logger.badge('Badge completely removed (all sources empty)');
                     }
                 }, 100);
             }
@@ -1708,6 +1726,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{historyFilterAskUser}}': strings.historyFilterAskUser,
             '{{historyFilterPlanReview}}': strings.historyFilterPlanReview,
             '{{historyFilterWhiteboard}}': strings.historyFilterWhiteboard,
+            '{{historyFilterRenderUI}}': strings.historyFilterRenderUI,
             '{{whiteboard}}': strings.whiteboard,
             '{{openWhiteboard}}': strings.openWhiteboard,
             '{{whiteboardSubmitted}}': strings.whiteboardSubmitted,
@@ -1718,6 +1737,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{detailWhiteboardNoCanvases}}': strings.detailWhiteboardNoCanvases,
             '{{detailWhiteboardSession}}': strings.detailWhiteboardSession,
             '{{detailWhiteboardStatus}}': strings.detailWhiteboardStatus,
+            // renderUI
+            '{{detailRenderUI}}': strings.detailRenderUI,
+            '{{detailRenderUISurfaceId}}': strings.detailRenderUISurfaceId,
+            '{{detailRenderUIComponents}}': strings.detailRenderUIComponents,
+            '{{detailRenderUIUserAction}}': strings.detailRenderUIUserAction,
+            '{{detailRenderUIDismissed}}': strings.detailRenderUIDismissed,
             // Batch selection
             '{{batchSelectMode}}': strings.batchSelectMode,
             '{{batchExitSelectMode}}': strings.batchExitSelectMode,

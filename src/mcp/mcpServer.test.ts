@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { createRequire } from 'node:module';
 
-import { RenderUIInputSchema, WhiteboardInputSchema } from '../tools/schemas';
+import { RenderUIInputSchema, WhiteboardInputSchema, UpdateUIInputSchema, AppendUIInputSchema, CloseUIInputSchema } from '../tools/schemas';
 
 const require = createRequire(__filename);
 const Module = require('node:module') as typeof import('node:module') & {
@@ -35,6 +35,16 @@ function summarizeSchemaResult(schema: z.ZodTypeAny, input: unknown) {
     };
 }
 
+function parseTextResult(result: unknown): unknown {
+    assert.ok(result && typeof result === 'object');
+    const content = (result as { content?: Array<{ type?: string; text?: string }> }).content;
+    assert.ok(Array.isArray(content));
+    assert.strictEqual(content.length, 1);
+    assert.strictEqual(content[0]?.type, 'text');
+    assert.ok(typeof content[0]?.text === 'string');
+    return JSON.parse(content[0]!.text!);
+}
+
 beforeEach(() => {
     originalLoad = Module._load;
     delete require.cache[modulePath];
@@ -48,8 +58,13 @@ afterEach(() => {
 async function loadHarness(options: {
     openWhiteboard?: (params: unknown) => Promise<unknown>;
     renderUI?: (params: unknown) => Promise<unknown>;
+    updateUI?: (params: unknown) => Promise<unknown>;
+    appendUI?: (params: unknown) => Promise<unknown>;
+    closeUI?: (params: unknown) => Promise<unknown>;
 } = {}) {
     const registeredTools: RegisteredTool[] = [];
+    let cancellationTokenSourceConstructCount = 0;
+    let cancellationTokenSourceDisposeCount = 0;
 
     class MockMcpServer {
         registerTool(name: string, config: RegisteredTool['config'], handler: RegisteredTool['handler']) {
@@ -98,9 +113,15 @@ async function loadHarness(options: {
         if (request === 'vscode') {
             return {
                 CancellationTokenSource: class {
+                    constructor() {
+                        cancellationTokenSourceConstructCount += 1;
+                    }
                     token = { isCancellationRequested: false };
                     cancel() {
                         this.token.isCancellationRequested = true;
+                    }
+                    dispose() {
+                        cancellationTokenSourceDisposeCount += 1;
                     }
                 },
                 window: {
@@ -169,6 +190,18 @@ async function loadHarness(options: {
                     surfaceId: 'surface_test',
                     rendered: true,
                 })),
+                updateUI: options.updateUI ?? (async () => ({
+                    surfaceId: 'surface_test',
+                    applied: true,
+                })),
+                appendUI: options.appendUI ?? (async () => ({
+                    surfaceId: 'surface_test',
+                    applied: true,
+                })),
+                closeUI: options.closeUI ?? (async () => ({
+                    surfaceId: 'surface_test',
+                    closed: true,
+                })),
                 planReviewApproval: async () => ({ status: 'approved', requiredRevisions: [], reviewId: 'review_1' }),
                 walkthroughReview: async () => ({ status: 'acknowledged', requiredRevisions: [], reviewId: 'review_2' }),
             };
@@ -195,10 +228,23 @@ async function loadHarness(options: {
     assert.ok(openWhiteboardTool, 'Expected open_whiteboard MCP tool to be registered');
     const renderUITool = registeredTools.find((tool) => tool.name === 'render_ui');
     assert.ok(renderUITool, 'Expected render_ui MCP tool to be registered');
+    const updateUITool = registeredTools.find((tool) => tool.name === 'update_ui');
+    assert.ok(updateUITool, 'Expected update_ui MCP tool to be registered');
+    const appendUITool = registeredTools.find((tool) => tool.name === 'append_ui');
+    assert.ok(appendUITool, 'Expected append_ui MCP tool to be registered');
+    const closeUITool = registeredTools.find((tool) => tool.name === 'close_ui');
+    assert.ok(closeUITool, 'Expected close_ui MCP tool to be registered');
 
     return {
         openWhiteboardTool,
         renderUITool,
+        updateUITool,
+        appendUITool,
+        closeUITool,
+        getCancellationTokenSourceConstructCount: () => cancellationTokenSourceConstructCount,
+        getCancellationTokenSourceDisposeCount: () => cancellationTokenSourceDisposeCount,
+        resetCancellationTokenSourceConstructCount: () => { cancellationTokenSourceConstructCount = 0; },
+        resetCancellationTokenSourceDisposeCount: () => { cancellationTokenSourceDisposeCount = 0; },
     };
 }
 
@@ -406,8 +452,10 @@ describe('McpServerManager render_ui registration', () => {
             assert.deepStrictEqual(receivedCalls, [{
                 ...renderInput,
                 waitForAction: false,
-                enableA2UI: false,
+                enableA2UI: true,
+                streaming: false,
                 a2uiLevel: 'basic',
+                deleteSurface: false,
             }]);
     });
 
@@ -432,10 +480,288 @@ describe('McpServerManager render_ui registration', () => {
             summarizeSchemaResult(RenderUIInputSchema, invalidInput),
         );
 
-        await assert.rejects(
-            () => renderUITool.handler(invalidInput, {}),
-            /components/i,
-        );
+        const result = await renderUITool.handler(invalidInput, {});
+        const payload = parseTextResult(result) as { surfaceId: string; rendered: boolean; error?: string };
+        assert.strictEqual(payload.surfaceId, '');
+        assert.strictEqual(payload.rendered, false);
+        assert.match(payload.error ?? '', /Validation error:/);
         assert.strictEqual(renderUICalls, 0);
+    });
+});
+
+describe('McpServerManager update_ui registration', () => {
+    it('accepts valid update_ui input and forwards parsed params', async () => {
+        const receivedCalls: unknown[] = [];
+        const { updateUITool } = await loadHarness({
+            async updateUI(params) {
+                receivedCalls.push(params);
+                return { surfaceId: 'surface_1', applied: true };
+            },
+        });
+
+        const updateInput = {
+            surfaceId: 'surface_1',
+            dataModel: { key: 'value' },
+        };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(updateUITool.config.inputSchema, updateInput),
+            summarizeSchemaResult(UpdateUIInputSchema, updateInput),
+        );
+
+        await updateUITool.handler(updateInput, {});
+        assert.deepStrictEqual(receivedCalls, [updateInput]);
+    });
+
+    it('rejects update_ui input missing both title and dataModel', async () => {
+        let updateUICalls = 0;
+        const { updateUITool } = await loadHarness({
+            async updateUI() {
+                updateUICalls += 1;
+                return { surfaceId: 'surface_invalid', applied: false };
+            },
+        });
+
+        const invalidInput = { surfaceId: 'surface_1' };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(updateUITool.config.inputSchema, invalidInput),
+            summarizeSchemaResult(UpdateUIInputSchema, invalidInput),
+        );
+
+        const result = await updateUITool.handler(invalidInput, {});
+        const payload = parseTextResult(result) as { surfaceId: string; applied: boolean; error?: string };
+        assert.strictEqual(payload.surfaceId, 'surface_1');
+        assert.strictEqual(payload.applied, false);
+        assert.match(payload.error ?? '', /Validation error:/);
+        assert.strictEqual(updateUICalls, 0);
+    });
+});
+
+describe('McpServerManager append_ui registration', () => {
+    it('accepts valid append_ui input and forwards parsed params', async () => {
+        const receivedCalls: unknown[] = [];
+        const { appendUITool } = await loadHarness({
+            async appendUI(params) {
+                receivedCalls.push(params);
+                return { surfaceId: 'surface_2', applied: true };
+            },
+        });
+
+        const appendInput = {
+            surfaceId: 'surface_2',
+            components: [
+                { id: 'text_1', component: { type: 'Text', props: { content: 'Hello' } } },
+            ],
+        };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(appendUITool.config.inputSchema, appendInput),
+            summarizeSchemaResult(AppendUIInputSchema, appendInput),
+        );
+
+        await appendUITool.handler(appendInput, {});
+        assert.deepStrictEqual(receivedCalls, [{ ...appendInput, finalize: false }]);
+    });
+
+    it('rejects append_ui input missing components before calling appendUI', async () => {
+        let appendUICalls = 0;
+        const { appendUITool } = await loadHarness({
+            async appendUI() {
+                appendUICalls += 1;
+                return { surfaceId: 'surface_invalid', applied: false };
+            },
+        });
+
+        const invalidInput = { surfaceId: 'surface_2' };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(appendUITool.config.inputSchema, invalidInput),
+            summarizeSchemaResult(AppendUIInputSchema, invalidInput),
+        );
+
+        const result = await appendUITool.handler(invalidInput, {});
+        const payload = parseTextResult(result) as { surfaceId: string; applied: boolean; error?: string };
+        assert.strictEqual(payload.surfaceId, 'surface_2');
+        assert.strictEqual(payload.applied, false);
+        assert.match(payload.error ?? '', /Validation error:/);
+        assert.strictEqual(appendUICalls, 0);
+    });
+});
+
+describe('McpServerManager close_ui registration', () => {
+    it('accepts valid close_ui input and forwards parsed params', async () => {
+        const receivedCalls: unknown[] = [];
+        const { closeUITool } = await loadHarness({
+            async closeUI(params) {
+                receivedCalls.push(params);
+                return { surfaceId: 'surface_3', closed: true };
+            },
+        });
+
+        const closeInput = { surfaceId: 'surface_3' };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(closeUITool.config.inputSchema, closeInput),
+            summarizeSchemaResult(CloseUIInputSchema, closeInput),
+        );
+
+        await closeUITool.handler(closeInput, {});
+        assert.deepStrictEqual(receivedCalls, [closeInput]);
+    });
+
+    it('rejects close_ui input with empty surfaceId', async () => {
+        let closeUICalls = 0;
+        const { closeUITool } = await loadHarness({
+            async closeUI() {
+                closeUICalls += 1;
+                return { surfaceId: '', closed: false };
+            },
+        });
+
+        const invalidInput = { surfaceId: '' };
+
+        assert.deepStrictEqual(
+            summarizeSchemaResult(closeUITool.config.inputSchema, invalidInput),
+            summarizeSchemaResult(CloseUIInputSchema, invalidInput),
+        );
+
+        const result = await closeUITool.handler(invalidInput, {});
+        const payload = parseTextResult(result) as { surfaceId: string; closed: boolean; error?: string };
+        assert.strictEqual(payload.surfaceId, '');
+        assert.strictEqual(payload.closed, false);
+        assert.match(payload.error ?? '', /Validation error:/);
+        assert.strictEqual(closeUICalls, 0);
+    });
+});
+
+describe('McpServerManager - CancellationTokenSource for delta tools', () => {
+    it('render_ui handler disposes CancellationTokenSource after success', async () => {
+        const {
+            renderUITool,
+            resetCancellationTokenSourceConstructCount,
+            resetCancellationTokenSourceDisposeCount,
+            getCancellationTokenSourceConstructCount,
+            getCancellationTokenSourceDisposeCount,
+        } = await loadHarness({
+            async renderUI() {
+                return { surfaceId: 'surface_render', rendered: true };
+            },
+        });
+
+        resetCancellationTokenSourceConstructCount();
+        resetCancellationTokenSourceDisposeCount();
+        await renderUITool.handler({ title: 'Render', components: [{ id: 'text_1', component: { type: 'Text', props: { content: 'Hello' } } }] }, {});
+        assert.strictEqual(getCancellationTokenSourceConstructCount(), 1);
+        assert.strictEqual(getCancellationTokenSourceDisposeCount(), 1);
+    });
+
+    it('update_ui handler constructs CancellationTokenSource and passes token', async () => {
+        const {
+            updateUITool,
+            resetCancellationTokenSourceConstructCount,
+            resetCancellationTokenSourceDisposeCount,
+            getCancellationTokenSourceConstructCount,
+            getCancellationTokenSourceDisposeCount,
+        } =
+            await loadHarness({
+                async updateUI() {
+                    return { surfaceId: 'surface_1', applied: true };
+                },
+            });
+
+        resetCancellationTokenSourceConstructCount();
+        resetCancellationTokenSourceDisposeCount();
+        await updateUITool.handler({ surfaceId: 'surface_1', dataModel: { key: 'value' } }, {});
+        assert.strictEqual(
+            getCancellationTokenSourceConstructCount(),
+            1,
+            'update_ui must construct CancellationTokenSource to pass the token',
+        );
+        assert.strictEqual(
+            getCancellationTokenSourceDisposeCount(),
+            1,
+            'update_ui must dispose the CancellationTokenSource after the request completes',
+        );
+    });
+
+    it('append_ui handler constructs CancellationTokenSource and passes token', async () => {
+        const {
+            appendUITool,
+            resetCancellationTokenSourceConstructCount,
+            resetCancellationTokenSourceDisposeCount,
+            getCancellationTokenSourceConstructCount,
+            getCancellationTokenSourceDisposeCount,
+        } =
+            await loadHarness({
+                async appendUI() {
+                    return { surfaceId: 'surface_2', applied: true };
+                },
+            });
+
+        resetCancellationTokenSourceConstructCount();
+        resetCancellationTokenSourceDisposeCount();
+        await appendUITool.handler(
+            {
+                surfaceId: 'surface_2',
+                components: [{ id: 'text_1', component: { type: 'Text', props: { content: 'Hello' } } }],
+            },
+            {},
+        );
+        assert.strictEqual(
+            getCancellationTokenSourceConstructCount(),
+            1,
+            'append_ui must construct CancellationTokenSource to pass the token',
+        );
+        assert.strictEqual(
+            getCancellationTokenSourceDisposeCount(),
+            1,
+            'append_ui must dispose the CancellationTokenSource after the request completes',
+        );
+    });
+
+    it('close_ui handler constructs CancellationTokenSource and passes token', async () => {
+        const {
+            closeUITool,
+            resetCancellationTokenSourceConstructCount,
+            resetCancellationTokenSourceDisposeCount,
+            getCancellationTokenSourceConstructCount,
+            getCancellationTokenSourceDisposeCount,
+        } =
+            await loadHarness({
+                async closeUI() {
+                    return { surfaceId: 'surface_3', closed: true };
+                },
+            });
+
+        resetCancellationTokenSourceConstructCount();
+        resetCancellationTokenSourceDisposeCount();
+        await closeUITool.handler({ surfaceId: 'surface_3' }, {});
+        assert.strictEqual(
+            getCancellationTokenSourceConstructCount(),
+            1,
+            'close_ui must construct CancellationTokenSource to pass the token',
+        );
+        assert.strictEqual(
+            getCancellationTokenSourceDisposeCount(),
+            1,
+            'close_ui must dispose the CancellationTokenSource after the request completes',
+        );
+    });
+
+    it('update_ui disposes CancellationTokenSource after validation errors too', async () => {
+        const {
+            updateUITool,
+            resetCancellationTokenSourceConstructCount,
+            resetCancellationTokenSourceDisposeCount,
+            getCancellationTokenSourceConstructCount,
+            getCancellationTokenSourceDisposeCount,
+        } = await loadHarness();
+
+        resetCancellationTokenSourceConstructCount();
+        resetCancellationTokenSourceDisposeCount();
+        await updateUITool.handler({ surfaceId: 'surface_1' }, {});
+        assert.strictEqual(getCancellationTokenSourceConstructCount(), 1);
+        assert.strictEqual(getCancellationTokenSourceDisposeCount(), 1);
     });
 });

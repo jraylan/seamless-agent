@@ -82,6 +82,10 @@
               aria-label="{{historyFilterWhiteboard}}">
               <span class="codicon codicon-symbol-color"></span>
             </button>
+            <button class="filter-btn" data-filter="renderUI" title="{{historyFilterRenderUI}}"
+              aria-label="{{historyFilterRenderUI}}">
+              <span class="codicon codicon-window"></span>
+            </button>
             <div class="filter-bar-spacer"></div>
             <button id="history-clear-btn" class="filter-btn" title="{{clearHistory}}" aria-label="{{clearHistory}}">
               <span class="codicon codicon-trash"></span>
@@ -186,7 +190,7 @@
 
             <!-- Textarea wrapper -->
             <div class="textarea-wrapper">
-              <textarea id="response-input" placeholder="{{inputPlaceholder}}" rows="1"></textarea>
+              <textarea id="response-input" placeholder="{{inputPlaceholder}}" rows="2"></textarea>
             </div>
           </div>
         </div>
