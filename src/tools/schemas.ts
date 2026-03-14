@@ -328,7 +328,11 @@ CONTENT COMPONENTS:
   Text      — paragraph text.        props: { text: string, style?: object }
   Heading   — section heading.       props: { text: string, level?: 1|2|3|4|5|6, style?: object }
   Markdown  — rendered Markdown.     props: { content: string }
+              Note: mermaid fenced code blocks (language "mermaid") inside Markdown are auto-upgraded to rendered diagrams.
+              For standalone diagrams prefer MermaidDiagram directly.
   CodeBlock — syntax-highlighted code.  props: { code: string, language?: string }
+              Note: CodeBlock with language="mermaid" is auto-upgraded to a rendered Mermaid diagram.
+              For standalone Mermaid diagrams prefer MermaidDiagram directly.
   Image     — image.                 props: { src: string, alt?: string, width?: string, height?: string, style?: object }
   Badge     — inline status label.   props: { label: string, variant?: "default"|"info"|"success"|"warning"|"danger" }
   Divider   — horizontal rule.       props: {}

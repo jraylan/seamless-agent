@@ -477,6 +477,10 @@ export type FromWebviewMessage = | {
         interactionId: string
     }
     | {
+        type: 'openRenderUIPanel';
+        interactionId: string
+    }
+    | {
         type: 'deleteInteraction';
         interactionId: string
     }

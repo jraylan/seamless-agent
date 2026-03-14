@@ -540,6 +540,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openWhiteboardPanel':
                 this._handleOpenWhiteboardPanel(message.interactionId);
                 break;
+            case 'openRenderUIPanel':
+                this._handleOpenRenderUIPanel(message.interactionId);
+                break;
             case 'deleteInteraction':
                 this._handleDeleteInteraction(message.interactionId);
                 break;
@@ -1561,6 +1564,28 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 tokenSource.dispose();
                 this._inlineWhiteboardTokens.delete(requestId);
             }
+        }
+    }
+
+    private async _handleOpenRenderUIPanel(interactionId: string): Promise<void> {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+        const session = interaction?.renderUISession;
+
+        if (!interaction || interaction.type !== 'renderUI' || !session) {
+            return;
+        }
+
+        try {
+            const { A2UIPanel } = await import('../a2ui/panel');
+            const surface = {
+                surfaceId: session.surfaceId,
+                title: interaction.title ?? session.title ?? 'UI Surface',
+                components: (session.components as import('../a2ui/types').A2UIComponent[]) ?? [],
+                ...(session.dataModel ? { dataModel: session.dataModel as import('../a2ui/types').A2UIDataModel } : {}),
+            };
+            await A2UIPanel.showSurface(this._extensionUri, surface, false);
+        } catch (error) {
+            Logger.error('Error reopening render_ui panel:', error);
         }
     }
 

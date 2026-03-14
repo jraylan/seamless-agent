@@ -1115,3 +1115,39 @@ describe('Security: DOM-free sanitizeHTML – no jsdom at runtime (Issue 4)', ()
         assert.ok(html.includes('visible'), `Content outside noscript must survive. Got: ${html}`);
     });
 });
+
+describe('CodeBlock component', () => {
+    it('renders code prop (schema-correct prop name)', async () => {
+        const { renderSurface } = await import('./renderer');
+        const html = renderSurface({
+            components: [{ id: 'cb1', component: { type: 'CodeBlock', props: { code: 'const x = 1;', language: 'typescript' } } }],
+        });
+        assert.ok(html.includes('const x = 1;'), `code prop must render. Got: ${html}`);
+        assert.ok(html.includes('language-typescript'), `language class must be set. Got: ${html}`);
+    });
+
+    it('auto-upgrades CodeBlock with language=mermaid to MermaidDiagram structure', async () => {
+        const { renderSurface } = await import('./renderer');
+        const html = renderSurface({
+            components: [{ id: 'cb2', component: { type: 'CodeBlock', props: { code: 'graph TD\n  A --> B', language: 'mermaid' } } }],
+        });
+        assert.ok(html.includes('a2ui-mermaid'), `auto-upgrade must emit .a2ui-mermaid. Got: ${html}`);
+        assert.ok(html.includes('a2ui-mermaid-target'), `must include render target. Got: ${html}`);
+        assert.ok(html.includes('graph TD'), `mermaid source must be preserved. Got: ${html}`);
+        assert.ok(!html.includes('a2ui-codeblock'), `must NOT be a plain code block. Got: ${html}`);
+    });
+});
+
+describe('Markdown mermaid auto-upgrade', () => {
+    it('auto-upgrades mermaid fenced code block inside Markdown to MermaidDiagram structure', async () => {
+        const { renderSurface } = await import('./renderer');
+        const content = 'Here is a diagram:\n\n```mermaid\ngraph TD\n  A --> B\n```\n\nEnd.';
+        const html = renderSurface({
+            components: [{ id: 'md1', component: { type: 'Markdown', props: { content } } }],
+        });
+        assert.ok(html.includes('a2ui-mermaid'), `mermaid fence must be auto-upgraded. Got: ${html}`);
+        assert.ok(html.includes('a2ui-mermaid-target'), `must include render target. Got: ${html}`);
+        assert.ok(html.includes('graph TD'), `mermaid source must be preserved. Got: ${html}`);
+        assert.ok(html.includes('Here is a diagram'), `surrounding text must survive. Got: ${html}`);
+    });
+});

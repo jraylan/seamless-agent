@@ -687,12 +687,27 @@ function renderTag(
         case 'Image':
             return `<img class="a2ui-image" id="${escHtml(id)}" src="${escHtml(String(props.src ?? ''))}" alt="${escHtml(String(props.alt ?? ''))}"${ariaLabel} />`;
 
-        case 'Markdown':
-            return `<div class="a2ui-markdown" id="${escHtml(id)}">${markdownRenderer.render(String(props.text ?? props.content ?? ''))}</div>`;
+        case 'Markdown': {
+            const rendered = markdownRenderer.render(String(props.text ?? props.content ?? ''));
+            // Auto-upgrade ```mermaid fenced code blocks to MermaidDiagram rendering so AI
+            // agents that use Markdown+fence instead of MermaidDiagram are handled gracefully
+            const withMermaid = rendered.replace(
+                /<pre><code class="language-mermaid">([\/\s\S]*?)<\/code><\/pre>/g,
+                (_, escapedSrc) =>
+                    `<div class="a2ui-mermaid"><div class="a2ui-mermaid-label">Mermaid Diagram</div><div class="a2ui-mermaid-target" aria-live="polite"></div><details class="a2ui-mermaid-details"><summary>Diagram source</summary><pre class="a2ui-mermaid-source"><code class="language-mermaid">${escapedSrc}</code></pre></details></div>`
+            );
+            return `<div class="a2ui-markdown" id="${escHtml(id)}">${withMermaid}</div>`;
+        }
 
         case 'CodeBlock': {
-            const lang = escHtml(String(props.language ?? 'text'));
-            return `<pre class="a2ui-codeblock" id="${escHtml(id)}"><code class="language-${lang}">${escHtml(String(props.content ?? ''))}</code></pre>`;
+            // Fix: schema says prop is "code"; also accept "content" as fallback
+            const codeContent = String(props.code ?? props.content ?? '');
+            const lang = String(props.language ?? 'text');
+            // Auto-upgrade CodeBlock with language=mermaid to MermaidDiagram rendering
+            if (lang === 'mermaid') {
+                return `<div class="a2ui-mermaid" id="${escHtml(id)}"><div class="a2ui-mermaid-label">Mermaid Diagram</div><div class="a2ui-mermaid-target" aria-live="polite"></div><details class="a2ui-mermaid-details"><summary>Diagram source</summary><pre class="a2ui-mermaid-source"><code class="language-mermaid">${escHtml(codeContent)}</code></pre></details></div>`;
+            }
+            return `<pre class="a2ui-codeblock" id="${escHtml(id)}"><code class="language-${escHtml(lang)}">${escHtml(codeContent)}</code></pre>`;
         }
 
         case 'Button':
