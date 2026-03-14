@@ -1,5 +1,5 @@
 import type * as vscode from 'vscode';
-import type { A2UIRenderIssue } from '../a2ui/types';
+import type { A2UIRenderIssue, DroppedStyleEntry } from '../a2ui/types';
 import type { UpdateUIInput, UpdateUIToolResult } from './schemas';
 
 export interface UpdateUIPanelDependency {
@@ -7,7 +7,7 @@ export interface UpdateUIPanelDependency {
     updateDataModel(
         surfaceId: string,
         dataModel: Record<string, unknown>,
-    ): { found: boolean; renderErrors?: A2UIRenderIssue[] };
+    ): { found: boolean; renderErrors?: A2UIRenderIssue[]; droppedStyles?: DroppedStyleEntry[] };
 }
 
 export interface UpdateUIDependencies {
@@ -81,5 +81,6 @@ export async function updateUI(
         surfaceId: params.surfaceId,
         applied: true,
         ...(allErrors.length > 0 ? { renderErrors: allErrors } : {}),
+        ...(result.droppedStyles?.length ? { droppedStyles: result.droppedStyles } : {}),
     };
 }

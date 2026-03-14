@@ -28,6 +28,17 @@ import { parsePredicate, serializePredicate, INTERACTIVE_COMPONENT_TYPES } from 
  *     this layer – they are mitigated by the sandboxed-iframe rendering path
  *     (sandbox: true) which provides defence-in-depth.
  */
+function sanitizeUrl(url: string): string {
+    // Block vbscript and javascript
+    if (/^(javascript|vbscript):/i.test(url)) return '';
+    // Block dangerous data: MIME types (svg+xml can execute JS, text/html, text/javascript)
+    if (/^data:/i.test(url)) {
+        const safeMime = /^data:image\/(png|jpeg|jpg|gif|webp);/i.test(url);
+        if (!safeMime) return '';
+    }
+    return url;
+}
+
 function sanitizeHTML(html: string): string {
     // Step 1 – strip dangerous block elements and ALL their content.
     // These tags can contain or execute arbitrary code regardless of attributes.
@@ -53,16 +64,23 @@ function sanitizeHTML(html: string): string {
                 '',
             );
 
-            // 2b. Strip javascript: protocol from URL-bearing attributes.
-            // Quoted form: href="javascript:…"
+            // 2b. Sanitize URL protocols from URL-bearing attributes (blocks javascript:, vbscript:,
+            //     and dangerous data: URIs while allowing safe image data: URIs).
+            // Quoted form: href="…"
             clean = clean.replace(
-                /((?:href|src|action|formaction|xlink:href)\s*=\s*)(['"])\s*javascript:[^'"]*\2/gi,
-                '$1$2about:blank$2',
+                /((?:href|src|action|formaction|xlink:href)\s*=\s*)(['"])\s*([^'"]*)\2/gi,
+                (_: string, prefix: string, quote: string, url: string): string => {
+                    const safe = sanitizeUrl(url.trim());
+                    return `${prefix}${quote}${safe !== '' ? safe : 'about:blank'}${quote}`;
+                },
             );
-            // Unquoted form: href=javascript:…
+            // Unquoted form: href=…
             clean = clean.replace(
-                /((?:href|src|action|formaction|xlink:href)\s*=\s*)javascript:[^\s>]*/gi,
-                '$1about:blank',
+                /((?:href|src|action|formaction|xlink:href)\s*=\s*)([^\s>"']*)/gi,
+                (_: string, prefix: string, url: string): string => {
+                    const safe = sanitizeUrl(url.trim());
+                    return `${prefix}${safe !== '' ? safe : 'about:blank'}`;
+                },
             );
 
             return `<${tagName}${clean}${end}`;
@@ -179,12 +197,19 @@ const SAFE_CSS_PROPERTIES = new Set([
 const SAFE_DIMENSION_RE = /^(\d+(\.\d+)?(px|%|em|rem|vw|vh|vmin|vmax|ch|ex|cm|mm|in|pt|pc|fr)|auto|inherit|0)$/i;
 
 /**
+ * Allowed CSS calc() expression pattern.
+ * Blocks dangerous characters that could escape a style attribute or inject
+ * css functions like url(), expression(), or script content.
+ */
+const SAFE_CALC_RE = /^calc\([^;{}'"`<>]*\)$/i;
+
+/**
  * Returns the trimmed dimension string if it is a safe CSS length/percentage
  * value, or null if it contains disallowed characters.
  */
 function sanitizeDimension(value: string): string | null {
     const trimmed = value.trim();
-    return SAFE_DIMENSION_RE.test(trimmed) ? trimmed : null;
+    return SAFE_DIMENSION_RE.test(trimmed) || SAFE_CALC_RE.test(trimmed) ? trimmed : null;
 }
 
 /**
@@ -219,6 +244,16 @@ function renderStyle(styleObj: unknown, droppedOut?: string[], componentId?: str
     }
 
     return styleParts.join('; ');
+}
+
+function sanitizeCssValue(value: string): string {
+    // Block CSS expression() (IE legacy, defense-in-depth)
+    // Block javascript: and vbscript: in url() values
+    // Block @import
+    if (/expression\s*\(/i.test(value)) return '';
+    if (/url\s*\(\s*['"]?\s*(javascript|vbscript|data:text)/i.test(value)) return '';
+    if (/@import/i.test(value)) return '';
+    return value;
 }
 
 /**
@@ -257,7 +292,10 @@ function parseDeclarativeStyle(cssString: string): string {
 
                 // Check if property is in whitelist
                 if (SAFE_CSS_PROPERTIES.has(camelKey)) {
-                    filteredDecls.push(`${property}: ${value}`);
+                    const safeValue = sanitizeCssValue(value);
+                    if (safeValue !== '') {
+                        filteredDecls.push(`${property}: ${safeValue}`);
+                    }
                 }
             }
         }
@@ -282,7 +320,10 @@ function parseDeclarativeStyle(cssString: string): string {
             if (property && value) {
                 const camelKey = property.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
                 if (SAFE_CSS_PROPERTIES.has(camelKey)) {
-                    filteredDecls.push(`${property}: ${value}`);
+                    const safeValue = sanitizeCssValue(value);
+                    if (safeValue !== '') {
+                        filteredDecls.push(`${property}: ${safeValue}`);
+                    }
                 }
             }
         }
@@ -548,6 +589,39 @@ function toFiniteNum(v: unknown): number {
     return Number.isFinite(n) ? n : 0;
 }
 
+// SVG Chart coordinate system:
+// ViewBox: 0 0 600 200
+// Chart area: x=30 to 570 (width=540), y=30 to 180 (height=150)
+// Title area: y=10 to 25
+// Left axis labels: x=0 to 28
+// Bottom axis labels: y=182 to 200
+const CHART_LIMITS = {
+    OPTIMAL: 2000,
+    WARNING: 5000,
+    SOFT_LIMIT: 10000,
+    HARD_LIMIT: 25000,
+};
+
+function isValidCssColor(color: string): boolean {
+    return /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(|^[a-zA-Z][a-zA-Z0-9-]*$/.test(color.trim());
+}
+
+function generateSmoothPath(points: Array<{ x: number; y: number }>): string {
+    if (points.length < 2) return '';
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        // Control points: 1/3 of the way between adjacent points
+        const cp1x = prev.x + (curr.x - prev.x) / 3;
+        const cp1y = prev.y;
+        const cp2x = curr.x - (curr.x - prev.x) / 3;
+        const cp2y = curr.y;
+        d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+    }
+    return d;
+}
+
 function renderTag(
     type: string,
     id: string,
@@ -556,7 +630,7 @@ function renderTag(
     droppedMapOut?: Map<string, string[]>,
 ): string {
     const labelText = typeof props.label === 'string' ? props.label : '';
-    const disabled = props.disabled ? ' disabled' : '';
+    const disabled = props.disabled === true ? ' disabled' : '';
     const ariaLabel = typeof props.ariaLabel === 'string' && props.ariaLabel.trim().length > 0
         ? ` aria-label="${escHtml(props.ariaLabel)}"`
         : '';
@@ -678,13 +752,24 @@ function renderTag(
         }
 
         case 'Badge': {
-            const badgeVariant = typeof props.variant === 'string' ? ` a2ui-badge-${escHtml(props.variant)}` : '';
+            const VALID_BADGE_VARIANTS = new Set(['info', 'success', 'warning', 'error', 'default', 'primary', 'secondary']);
+            const variantStr = typeof props.variant === 'string' && VALID_BADGE_VARIANTS.has(props.variant)
+                ? props.variant
+                : 'default';
+            const badgeVariant = ` a2ui-badge-${variantStr}`;
             return `<span class="a2ui-badge${badgeVariant}" id="${escHtml(id)}">${escHtml(String(props.label ?? ''))}</span>`;
         }
 
         case 'Table': {
             const columns = Array.isArray(props.columns) ? props.columns : [];
             const data = Array.isArray(props.data) ? props.data : [];
+
+            const validColumns = columns.filter((c): c is Record<string, unknown> =>
+                c !== null && typeof c === 'object' && !Array.isArray(c) && typeof (c as Record<string, unknown>).key === 'string' && ((c as Record<string, unknown>).key as string).length > 0
+            );
+            if (validColumns.length === 0 && columns.length > 0) {
+                return `<div class="a2ui-error">Table columns missing required "key" property</div>`;
+            }
 
             // Build header row
             const headerHtml = columns
@@ -764,7 +849,7 @@ function renderTag(
         case 'Toggle': {
             const toggleLabel = typeof props.label === 'string' ? props.label : '';
             const checked = Boolean(props.checked);
-            const toggleDisabled = props.disabled ? ' disabled' : '';
+            const toggleDisabled = props.disabled === true ? ' disabled' : '';
 
             return `<label class="a2ui-toggle" id="${escHtml(id)}"${ariaLabel}${toggleDisabled}><input type="checkbox" class="a2ui-toggle-input" data-field="${escHtml(id)}"${checked ? ' checked' : ''}${toggleDisabled} /><span class="a2ui-toggle-slider"></span><span class="a2ui-toggle-label">${escHtml(toggleLabel)}</span></label>`;
         }
@@ -804,15 +889,24 @@ function renderTag(
         case 'BarChart': {
             const data = parseChartData<{label?: string, value?: number}>(props.data);
             const title = typeof props.title === 'string' ? props.title : '';
-            const color = typeof props.color === 'string' ? props.color : '#4CAF50';
+            const color = typeof props.color === 'string' && isValidCssColor(props.color) ? props.color : '#4CAF50';
             const horizontal = props.horizontal === true;
             const showValues = props.showValues === true;
 
             if (data.length === 0) {
                 return `<div class="a2ui-chart-error" id="${escHtml(id)}">No data provided</div>`;
             }
+            if (data.length > CHART_LIMITS.HARD_LIMIT) {
+                return `<div class="a2ui-chart-error" id="${escHtml(id)}">Chart data exceeds maximum of ${CHART_LIMITS.HARD_LIMIT} points (got ${data.length}). Consider aggregating your data.</div>`;
+            }
+            const sizeWarning = data.length > CHART_LIMITS.SOFT_LIMIT
+                ? `<!-- Warning: ${data.length} points exceeds recommended ${CHART_LIMITS.SOFT_LIMIT} -->`
+                : '';
 
-            const maxValue = Math.max(...data.map(d => toFiniteNum(d.value)));
+            const allValues = data.map(d => toFiniteNum(d.value));
+            const maxValue = Math.max(0, ...allValues);
+            const minValue = Math.min(0, ...allValues);
+            const range = maxValue - minValue || 1;
 
             let svgContent = '';
 
@@ -825,7 +919,7 @@ function renderTag(
             data.forEach((item, index) => {
                 const label = typeof item.label === 'string' ? item.label : `Item ${index + 1}`;
                 const value = toFiniteNum(item.value);
-                const percent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                const percent = (value - minValue) / range * 100;
 
                 if (horizontal) {
                     const y = 20 + index * (160 / data.length);
@@ -838,7 +932,7 @@ function renderTag(
                     `;
                 } else {
                     const x = 30 + index * (540 / data.length);
-                    const barHeight = maxValue > 0 ? (value / maxValue) * 140 : 0;
+                    const barHeight = (value - minValue) / range * 140;
                     const y = 180 - barHeight;
                     svgContent += `
                         <g class="a2ui-bar-group">
@@ -850,7 +944,7 @@ function renderTag(
                 }
             });
 
-            return `<div class="a2ui-chart-container a2ui-barchart" id="${escHtml(id)}"${styleAttr}>
+            return `${sizeWarning}<div class="a2ui-chart-container a2ui-barchart" id="${escHtml(id)}"${styleAttr}>
                 <svg viewBox="0 0 600 200" class="a2ui-chart-svg" preserveAspectRatio="none">
                     ${svgContent}
                 </svg>
@@ -860,13 +954,19 @@ function renderTag(
         case 'LineChart': {
             const data = parseChartData<{label?: string, value?: number}>(props.data);
             const title = typeof props.title === 'string' ? props.title : '';
-            const color = typeof props.color === 'string' ? props.color : '#2196F3';
+            const color = typeof props.color === 'string' && isValidCssColor(props.color) ? props.color : '#2196F3';
             const showPoints = props.showPoints !== false; // default true
             const smooth = props.smooth === true;
 
             if (data.length === 0) {
                 return `<div class="a2ui-chart-error" id="${escHtml(id)}">No data provided</div>`;
             }
+            if (data.length > CHART_LIMITS.HARD_LIMIT) {
+                return `<div class="a2ui-chart-error" id="${escHtml(id)}">Chart data exceeds maximum of ${CHART_LIMITS.HARD_LIMIT} points (got ${data.length}). Consider aggregating your data.</div>`;
+            }
+            const sizeWarning = data.length > CHART_LIMITS.SOFT_LIMIT
+                ? `<!-- Warning: ${data.length} points exceeds recommended ${CHART_LIMITS.SOFT_LIMIT} -->`
+                : '';
 
             const maxValue = Math.max(...data.map(d => toFiniteNum(d.value)));
             const minValue = Math.min(0, ...data.map(d => toFiniteNum(d.value)));
@@ -879,16 +979,22 @@ function renderTag(
             }
 
             // Coordinate space: viewBox "0 0 600 200"
-            // Generate points
-            const points = data.map((item, index) => {
+            // Generate point objects
+            const pointObjects = data.map((item, index) => {
                 const x = 30 + (index / (data.length - 1 || 1)) * 540;
                 const value = toFiniteNum(item.value);
                 const y = 170 - ((value - minValue) / range) * 150;
-                return `${x},${y}`;
-            }).join(' ');
+                return { x, y };
+            });
 
             // Draw line
-            svgContent += `<polyline points="${points}" fill="none" stroke="${escHtml(color)}" stroke-width="2" class="a2ui-line-path"/>`;
+            if (smooth) {
+                const pathD = generateSmoothPath(pointObjects);
+                svgContent += `<path d="${pathD}" fill="none" stroke="${escHtml(color)}" stroke-width="2" class="a2ui-line-path"/>`;
+            } else {
+                const points = pointObjects.map(p => `${p.x},${p.y}`).join(' ');
+                svgContent += `<polyline points="${points}" fill="none" stroke="${escHtml(color)}" stroke-width="2" class="a2ui-line-path"/>`;
+            }
 
             // Draw points if enabled
             if (showPoints) {
@@ -904,7 +1010,7 @@ function renderTag(
                 });
             }
 
-            return `<div class="a2ui-chart-container a2ui-linechart" id="${escHtml(id)}"${styleAttr}>
+            return `${sizeWarning}<div class="a2ui-chart-container a2ui-linechart" id="${escHtml(id)}"${styleAttr}>
                 <svg viewBox="0 0 600 200" class="a2ui-chart-svg" preserveAspectRatio="none">
                     ${svgContent}
                 </svg>
@@ -920,6 +1026,12 @@ function renderTag(
             if (data.length === 0) {
                 return `<div class="a2ui-chart-error" id="${escHtml(id)}">No data provided</div>`;
             }
+            if (data.length > CHART_LIMITS.HARD_LIMIT) {
+                return `<div class="a2ui-chart-error" id="${escHtml(id)}">Chart data exceeds maximum of ${CHART_LIMITS.HARD_LIMIT} points (got ${data.length}). Consider aggregating your data.</div>`;
+            }
+            const sizeWarning = data.length > CHART_LIMITS.SOFT_LIMIT
+                ? `<!-- Warning: ${data.length} points exceeds recommended ${CHART_LIMITS.SOFT_LIMIT} -->`
+                : '';
 
             const total = data.reduce((sum, item) => sum + toFiniteNum(item.value), 0);
             const defaultColors = ['#4CAF50', '#2196F3', '#FF9800', '#F44336', '#9C27B0', '#00BCD4'];
@@ -937,7 +1049,7 @@ function renderTag(
             data.forEach((item, index) => {
                 const value = toFiniteNum(item.value);
                 const label = typeof item.label === 'string' ? item.label : `Item ${index + 1}`;
-                const color = typeof item.color === 'string' ? item.color : defaultColors[index % defaultColors.length];
+                const color = typeof item.color === 'string' && isValidCssColor(item.color) ? item.color : defaultColors[index % defaultColors.length];
                 const percent = total > 0 ? (value / total) * 100 : 0;
                 const angle = total > 0 ? (value / total) * 360 : 0;
 
@@ -982,7 +1094,7 @@ function renderTag(
                 currentAngle += angle;
             });
 
-            return `<div class="a2ui-chart-container a2ui-piechart" id="${escHtml(id)}"${styleAttr}>
+            return `${sizeWarning}<div class="a2ui-chart-container a2ui-piechart" id="${escHtml(id)}"${styleAttr}>
                 <svg viewBox="0 0 200 200" class="a2ui-chart-svg" preserveAspectRatio="xMidYMid meet">
                     ${svgContent}
                 </svg>

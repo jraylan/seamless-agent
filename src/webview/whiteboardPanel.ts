@@ -186,10 +186,14 @@ export class WhiteboardPanel {
                 return;
             case 'submit': {
                 try {
+                    const storageUri = getExtensionContext().globalStorageUri;
+                    if (!storageUri) {
+                        throw new Error('Global storage URI not available');
+                    }
                     const exportedCanvases = await exportSubmittedWhiteboardCanvases(
                         this._options.interactionId,
                         message.canvases,
-                        getExtensionContext().globalStorageUri.fsPath,
+                        storageUri.fsPath,
                     );
                     this._resolve({
                         submitted: true,
@@ -202,10 +206,14 @@ export class WhiteboardPanel {
                 }
                 return;
             }
-            case 'cancel':
-                cleanupWhiteboardTempImages(this._options.interactionId, getExtensionContext().globalStorageUri.fsPath);
+            case 'cancel': {
+                const cancelStorageUri = getExtensionContext().globalStorageUri;
+                if (cancelStorageUri) {
+                    cleanupWhiteboardTempImages(this._options.interactionId, cancelStorageUri.fsPath);
+                }
                 this._resolve({ submitted: false, action: 'cancelled', canvases: [] });
                 return;
+            }
             default:
                 return;
         }

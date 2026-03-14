@@ -395,10 +395,10 @@ describe('McpServerManager open_whiteboard registration', () => {
             summarizeSchemaResult(WhiteboardInputSchema, invalidImportInput),
         );
 
-        await assert.rejects(
-            () => openWhiteboardTool.handler(invalidImportInput, {}),
-            /Import image uri cannot be empty/,
-        );
+        // FIX #5: handler now returns structured error instead of throwing
+        const result = await openWhiteboardTool.handler(invalidImportInput, {});
+        const resultText = (result as { content: Array<{ text: string }> }).content[0].text;
+        assert.match(resultText, /Import image uri cannot be empty/);
         assert.strictEqual(openWhiteboardCalls, 0);
     });
 });
