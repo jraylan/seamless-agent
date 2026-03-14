@@ -2,8 +2,23 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import * as crypto from 'crypto';
 import { AgentInteractionProvider } from '../webview/webviewProvider';
-import { askUser, planReview } from '../tools';
-import { PlanReviewInput, parsePlanReviewInput } from '../tools/schemas';
+import { askUser, planReview, openWhiteboard, renderUI, updateUI, appendUI, closeUI, listSurfaces } from '../tools';
+import {
+    PlanReviewInput,
+    parsePlanReviewInput,
+    WhiteboardInput,
+    parseWhiteboardInput,
+    RenderUIInput,
+    parseRenderUIInput,
+    UpdateUIInput,
+    parseUpdateUIInput,
+    AppendUIInput,
+    parseAppendUIInput,
+    CloseUIInput,
+    parseCloseUIInput,
+    ListSurfacesInput,
+    parseListSurfacesInput
+} from '../tools/schemas';
 import { Logger } from '../logging';
 
 export { planReviewApproval, walkthroughReview } from '../tools/planReview';
@@ -66,6 +81,42 @@ export class ApiServiceManager {
                         return;
                     }
 
+                    // Open whiteboard endpoint
+                    if (url === '/open_whiteboard' && req.method === 'POST') {
+                        await this.handleOpenWhiteboard(req, res);
+                        return;
+                    }
+
+                    // Render UI endpoint
+                    if (url === '/render_ui' && req.method === 'POST') {
+                        await this.handleRenderUI(req, res);
+                        return;
+                    }
+
+                    // Update UI endpoint
+                    if (url === '/update_ui' && req.method === 'POST') {
+                        await this.handleUpdateUI(req, res);
+                        return;
+                    }
+
+                    // Append UI endpoint
+                    if (url === '/append_ui' && req.method === 'POST') {
+                        await this.handleAppendUI(req, res);
+                        return;
+                    }
+
+                    // Close UI endpoint
+                    if (url === '/close_ui' && req.method === 'POST') {
+                        await this.handleCloseUI(req, res);
+                        return;
+                    }
+
+                    // List surfaces endpoint
+                    if (url === '/list_surfaces' && req.method === 'POST') {
+                        await this.handleListSurfaces(req, res);
+                        return;
+                    }
+
                     res.writeHead(404, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Not found' }));
                 } catch (error) {
@@ -86,6 +137,9 @@ export class ApiServiceManager {
 
             // Register with Antigravity using command format
             await this.registerWithAntigravity();
+
+            // Write state file so a running CLI can recover the current port/token
+            await this.writeStateFile();
 
             vscode.window.showInformationMessage(
                 `Seamless Agent API service started on port ${this.port}`
@@ -248,6 +302,390 @@ export class ApiServiceManager {
     }
 
     /**
+     * Handle POST /open_whiteboard requests
+     */
+    private async handleOpenWhiteboard(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: WhiteboardInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseWhiteboardInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await openWhiteboard(
+                params,
+                this.context,
+                this.provider,
+                tokenSource.token
+            );
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                submitted: false,
+                canvases: [],
+                interactionId: '',
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /render_ui requests
+     */
+    private async handleRenderUI(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: RenderUIInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseRenderUIInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await renderUI(
+                params,
+                this.context,
+                this.provider,
+                tokenSource.token
+            );
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                surfaceId: params.surfaceId ?? '',
+                rendered: false,
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /update_ui requests
+     */
+    private async handleUpdateUI(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: UpdateUIInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseUpdateUIInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await updateUI(params, undefined, tokenSource.token);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                surfaceId: params.surfaceId ?? '',
+                applied: false,
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /append_ui requests
+     */
+    private async handleAppendUI(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: AppendUIInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseAppendUIInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await appendUI(params, undefined, tokenSource.token);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                surfaceId: params.surfaceId ?? '',
+                applied: false,
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /close_ui requests
+     */
+    private async handleCloseUI(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: CloseUIInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseCloseUIInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await closeUI(params, undefined, tokenSource.token);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                surfaceId: params.surfaceId ?? '',
+                closed: false,
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
+     * Handle POST /list_surfaces requests
+     */
+    private async handleListSurfaces(
+        req: http.IncomingMessage,
+        res: http.ServerResponse
+    ): Promise<void> {
+        if (!this.isAuthorized(req)) {
+            res.writeHead(401, {
+                'Content-Type': 'application/json',
+                'WWW-Authenticate': 'Bearer'
+            });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
+
+        const contentType = req.headers['content-type'];
+        const contentTypeValue = Array.isArray(contentType) ? contentType[0] : contentType;
+        if (!contentTypeValue || !contentTypeValue.toLowerCase().startsWith('application/json')) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported Media Type. Use application/json' }));
+            return;
+        }
+
+        let body: string;
+        try {
+            body = await this.readRequestBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request body too large' }));
+            return;
+        }
+
+        let params: ListSurfacesInput;
+        try {
+            const parsed = JSON.parse(body);
+            params = parseListSurfacesInput(parsed);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Validation error: ${errorMessage}` }));
+            return;
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+
+        try {
+            const result = await listSurfaces(params, undefined, tokenSource.token);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                surfaces: [],
+                error: `Error: ${error}`,
+            }));
+        } finally {
+            tokenSource.dispose();
+        }
+    }
+
+    /**
      * Read request body as string
      */
     private readRequestBody(req: http.IncomingMessage, maxBytes: number): Promise<string> {
@@ -348,8 +786,33 @@ export class ApiServiceManager {
         });
     }
 
-    private async registerWithAntigravity() {
+    /**
+     * Writes the current port and token to a well-known state file.
+     * The running CLI process reads this file on ECONNREFUSED to recover
+     * from a VS Code extension restart that changed the API port.
+     */
+    private async writeStateFile() {
         if (!this.port || !this.authToken) return;
+
+        const fs = await import('fs');
+        const path = await import('path');
+        const os = await import('os');
+
+        const stateFilePath = path.join(os.homedir(), '.antigravity', 'seamless-agent-state.json');
+        const stateDir = path.dirname(stateFilePath);
+
+        try {
+            if (!fs.existsSync(stateDir)) {
+                fs.mkdirSync(stateDir, { recursive: true });
+            }
+            fs.writeFileSync(stateFilePath, JSON.stringify({ port: this.port, token: this.authToken }), { mode: 0o600 });
+            Logger.log(`State file written: ${stateFilePath}`);
+        } catch (error) {
+            Logger.warn('Failed to write state file:', error);
+        }
+    }
+
+    private async registerWithAntigravity() {
 
         const fs = await import('fs');
         const path = await import('path');

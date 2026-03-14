@@ -52,12 +52,6 @@ PR.md
 # Build tooling (pre-bundled CLI entry for Antigravity ovsx only)
 bin/**
 
-# Debug and test data files
-INPUT_1.json
-Output_1_FAILED.json
-whiteboard_input*
-sample*
-
 # Redundant dist files (tsc output, keep only extension.js from esbuild)
 dist/localization.js
 dist/mcpServer.js
