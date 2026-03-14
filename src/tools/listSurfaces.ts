@@ -27,7 +27,7 @@ async function createDefaultDependencies(): Promise<ListSurfacesDependencies> {
  * Lists all currently active surface panels with their metadata.
  */
 export async function listSurfaces(
-    params: ListSurfacesInput,
+    _params: ListSurfacesInput,
     deps?: Partial<ListSurfacesDependencies>,
     token?: vscode.CancellationToken,
 ): Promise<ListSurfacesToolResult> {

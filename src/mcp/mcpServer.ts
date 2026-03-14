@@ -111,44 +111,55 @@ export class McpServerManager {
                     })
                 },
                 async (args: any, { signal }: { signal?: AbortSignal }) => {
-                    // Convert MCP cancellation token to VS Code cancellation token
                     const tokenSource = new vscode.CancellationTokenSource();
                     if (signal) {
                         signal.onabort = () => tokenSource.cancel();
                     }
+                    try {
+                        // Validate args
+                        if (!args || typeof args !== 'object' || !('question' in args)) {
+                            throw new Error('Invalid arguments: question is required');
+                        }
 
                     // Validate args
                     if (!args || typeof args !== 'object' || !('question' in args)) {
                         throw new Error('Invalid arguments: question is required');
                     }
 
-                    const result = await askUser(
-                        {
-                            question: String(args.question),
-                            title: args.title ? String(args.title) : undefined,
-                            agentName: args.agentName ? String(args.agentName) : undefined,
-                            options: args.options ?? undefined,
-                            multiSelect: args.multiSelect ? Boolean(args.multiSelect) : false
-                        },
-                        this.provider,
-                        tokenSource.token
-                    );
-
-                    const appendText = vscode.workspace.getConfiguration('seamless-agent').get<string>('askUserAppendText', '');
-
-                    return {
-                        content: [
+                    try {
+                        const result = await askUser(
                             {
-                                type: "text" as const,
-                                text: JSON.stringify(result)
+                                question: String(args.question),
+                                title: args.title ? String(args.title) : undefined,
+                                agentName: args.agentName ? String(args.agentName) : undefined,
+                                options: args.options ?? undefined,
+                                multiSelect: args.multiSelect ? Boolean(args.multiSelect) : false
                             },
-                            // Append user-configured text as a separate content part
-                            ...(appendText ? [{
-                                type: "text" as const,
-                                text: appendText
-                            }] : [])
-                        ]
-                    };
+                            this.provider,
+                            tokenSource.token
+                        );
+
+                        const appendText = vscode.workspace.getConfiguration('seamless-agent').get<string>('askUserAppendText', '');
+
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: JSON.stringify(result)
+                                },
+                                ...(appendText ? [{
+                                    type: "text",
+                                    text: appendText
+                                }] : [])
+                            ]
+                        };
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        return createMcpTextResult({ error: `Validation failed: ${message}` });
+                    } finally {
+                        tokenSource.dispose();
+                    }
+
                 }
             );
 
@@ -167,36 +178,41 @@ export class McpServerManager {
                     })
                 },
                 async (args: any, { signal }: { signal?: AbortSignal }) => {
-                    // Convert MCP cancellation token to VS Code cancellation token
                     const tokenSource = new vscode.CancellationTokenSource();
                     if (signal) {
                         signal.onabort = () => tokenSource.cancel();
                     }
+                    try {
+                        // Validate args
+                        if (!args || typeof args !== 'object' || !('plan' in args)) {
+                            throw new Error('Invalid arguments: plan is required');
+                        }
 
-                    // Validate args
-                    if (!args || typeof args !== 'object' || !('plan' in args)) {
-                        throw new Error('Invalid arguments: plan is required');
-                    }
-
-                    const result = await planReviewApproval(
-                        {
-                            plan: String(args.plan),
-                            title: args.title ? String(args.title) : undefined,
-                            chatId: args.chatId ? String(args.chatId) : undefined
-                        },
-                        this.context,
-                        this.provider,
-                        tokenSource.token
-                    );
-
-                    return {
-                        content: [
+                        const result = await planReviewApproval(
                             {
-                                type: "text",
-                                text: JSON.stringify(result)
-                            }
-                        ]
-                    };
+                                plan: String(args.plan),
+                                title: args.title ? String(args.title) : undefined,
+                                chatId: args.chatId ? String(args.chatId) : undefined
+                            },
+                            this.context,
+                            this.provider,
+                            tokenSource.token
+                        );
+
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: JSON.stringify(result)
+                                }
+                            ]
+                        };
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        return createMcpTextResult({ error: `Validation failed: ${message}` });
+                    } finally {
+                        tokenSource.dispose();
+                    }
                 }
             );
 
@@ -218,24 +234,30 @@ export class McpServerManager {
                     if (signal) {
                         signal.onabort = () => tokenSource.cancel();
                     }
+                    try {
+                        const params = parseWhiteboardInput(args);
 
-                    const params = parseWhiteboardInput(args);
+                        const result = await openWhiteboard(
+                            params,
+                            this.context,
+                            this.provider,
+                            tokenSource.token
+                        );
 
-                    const result = await openWhiteboard(
-                        params,
-                        this.context,
-                        this.provider,
-                        tokenSource.token
-                    );
-
-                    return {
-                        content: [
-                            {
-                                type: "text",
-                                text: JSON.stringify(result)
-                            }
-                        ]
-                    };
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: JSON.stringify(result)
+                                }
+                            ]
+                        };
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        return createMcpTextResult({ error: `Validation failed: ${message}` });
+                    } finally {
+                        tokenSource.dispose();
+                    }
                 }
             );
 
@@ -258,30 +280,36 @@ export class McpServerManager {
                     if (signal) {
                         signal.onabort = () => tokenSource.cancel();
                     }
+                    try {
+                        if (!args || typeof args !== 'object' || !('plan' in args)) {
+                            throw new Error('Invalid arguments: plan is required');
+                        }
 
-                    if (!args || typeof args !== 'object' || !('plan' in args)) {
-                        throw new Error('Invalid arguments: plan is required');
-                    }
-
-                    const result = await walkthroughReview(
-                        {
-                            plan: String(args.plan),
-                            title: args.title ? String(args.title) : undefined,
-                            chatId: args.chatId ? String(args.chatId) : undefined
-                        },
-                        this.context,
-                        this.provider,
-                        tokenSource.token
-                    );
-
-                    return {
-                        content: [
+                        const result = await walkthroughReview(
                             {
-                                type: "text",
-                                text: JSON.stringify(result)
-                            }
-                        ]
-                    };
+                                plan: String(args.plan),
+                                title: args.title ? String(args.title) : undefined,
+                                chatId: args.chatId ? String(args.chatId) : undefined
+                            },
+                            this.context,
+                            this.provider,
+                            tokenSource.token
+                        );
+
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: JSON.stringify(result)
+                                }
+                            ]
+                        };
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        return createMcpTextResult({ error: `Validation failed: ${message}` });
+                    } finally {
+                        tokenSource.dispose();
+                    }
                 }
             );
 

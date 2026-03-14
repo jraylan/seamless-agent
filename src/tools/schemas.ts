@@ -720,6 +720,12 @@ export interface UpdateUIToolResult {
      * even if render errors are present; the panel may display degraded output.
      */
     renderErrors?: DeltaRenderError[];
+    /**
+     * CSS properties that were silently dropped by the style whitelist during the re-render
+     * triggered by this update. Consider using the HTML component for sections that need those
+     * properties.
+     */
+    droppedStyles?: Array<{ componentId: string; properties: string[] }>;
 }
 
 /**
