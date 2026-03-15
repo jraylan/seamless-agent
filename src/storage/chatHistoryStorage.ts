@@ -12,6 +12,7 @@ import {
 } from '../webview/types';
 import { getStorageContext } from '../config/storage';
 import { Logger } from '../logging';
+import { cleanupWhiteboardTempImages } from '../whiteboard/imageCleanup';
 
 /**
  * Storage keys for global state
@@ -109,7 +110,7 @@ export class ChatHistoryStorage {
     /**
      * Save a new ask_user interaction
      */
-    saveAskUserInteraction(data: {
+    async saveAskUserInteraction(data: {
         question: string;
         title?: string;
         agentName?: string;
@@ -118,7 +119,7 @@ export class ChatHistoryStorage {
         options?: import('../webview/types').AskUserOptions;
         selectedOptionLabels?: Record<string, string[]>;
         isDebug?: boolean;
-    }): string {
+    }): Promise<string> {
         const interactionId = this.generateId('ask');
         const interaction: StoredInteraction = {
             id: interactionId,
@@ -134,21 +135,21 @@ export class ChatHistoryStorage {
             isDebug: data.isDebug,
         };
 
-        this.saveInteraction(interaction);
+        await this.saveInteraction(interaction);
         return interactionId;
     }
 
     /**
      * Save a new plan_review interaction
      */
-    savePlanReviewInteraction(data: {
+    async savePlanReviewInteraction(data: {
         plan: string;
         title?: string;
         mode?: 'review' | 'walkthrough';
         status?: 'pending' | 'approved' | 'recreateWithChanges' | 'acknowledged' | 'closed' | 'cancelled';
         requiredRevisions?: RequiredPlanRevisions[];
         isDebug?: boolean;
-    }): string {
+    }): Promise<string> {
         const interactionId = this.generateId('review');
         const interaction: StoredInteraction = {
             id: interactionId,
@@ -162,14 +163,14 @@ export class ChatHistoryStorage {
             isDebug: data.isDebug,
         };
 
-        this.saveInteraction(interaction);
+        await this.saveInteraction(interaction);
         return interactionId;
     }
 
     /**
      * Save a new whiteboard interaction
      */
-    saveWhiteboardInteraction(data: {
+    async saveWhiteboardInteraction(data: {
         title?: string;
         context?: string;
         canvases?: WhiteboardCanvas[];
@@ -178,7 +179,7 @@ export class ChatHistoryStorage {
         submittedAt?: number;
         submittedCanvases?: WhiteboardSubmittedCanvas[];
         isDebug?: boolean;
-    }): string {
+    }): Promise<string> {
         const interactionId = this.generateId('wb');
         const interaction: StoredInteraction = {
             id: interactionId,
@@ -199,14 +200,14 @@ export class ChatHistoryStorage {
             },
         };
 
-        this.saveInteraction(interaction);
+        await this.saveInteraction(interaction);
         return interactionId;
     }
 
     /**
      * Save a new renderUI interaction
      */
-    saveRenderUIInteraction(data: {
+    async saveRenderUIInteraction(data: {
         title?: string;
         surfaceId: string;
         components?: unknown[];
@@ -215,7 +216,7 @@ export class ChatHistoryStorage {
         dismissed?: boolean;
         renderErrors?: Array<{ source: string; message: string }>;
         isDebug?: boolean;
-    }): string {
+    }): Promise<string> {
         const interactionId = this.generateId('ui');
         const interaction: StoredInteraction = {
             id: interactionId,
@@ -236,14 +237,14 @@ export class ChatHistoryStorage {
             },
         };
 
-        this.saveInteraction(interaction);
+        await this.saveInteraction(interaction);
         return interactionId;
     }
 
     /**
      * Save an interaction to storage
      */
-    private saveInteraction(interaction: StoredInteraction): void {
+    private async saveInteraction(interaction: StoredInteraction): Promise<void> {
         const interactions = [...this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, [])];
         const existingIndex = interactions.findIndex(i => i.id === interaction.id);
 
@@ -253,27 +254,27 @@ export class ChatHistoryStorage {
             interactions.push(interaction);
         }
 
-        this.storage.update(STORAGE_KEYS.INTERACTIONS, this.prepareInteractionsForStorage(interactions));
+        this.storage.update(STORAGE_KEYS.INTERACTIONS, await this.prepareInteractionsForStorage(interactions));
     }
 
     /**
      * Update an existing interaction
      */
-    updateInteraction(interactionId: string, updates: Partial<StoredInteraction>): void {
+    async updateInteraction(interactionId: string, updates: Partial<StoredInteraction>): Promise<void> {
         const interaction = this.getInteraction(interactionId);
         if (interaction) {
             const updated = { ...interaction, ...updates };
-            this.saveInteraction(updated);
+            await this.saveInteraction(updated);
         }
     }
 
     /**
      * Update an existing whiteboard interaction by merging whiteboard session fields.
      */
-    updateWhiteboardInteraction(interactionId: string, updates: {
+    async updateWhiteboardInteraction(interactionId: string, updates: {
         title?: string;
         whiteboardSession?: Partial<NonNullable<StoredInteraction['whiteboardSession']>>;
-    }): void {
+    }): Promise<void> {
         const interaction = this.getInteraction(interactionId);
         if (!interaction) {
             Logger.warn(`Cannot update missing whiteboard interaction: ${interactionId}`);
@@ -297,7 +298,7 @@ export class ChatHistoryStorage {
             }
             : interaction.whiteboardSession;
 
-        this.saveInteraction({
+        await this.saveInteraction({
             ...interaction,
             ...(updates.title !== undefined ? { title: updates.title } : {}),
             ...(updatedSession ? { whiteboardSession: updatedSession } : {}),
@@ -328,9 +329,9 @@ export class ChatHistoryStorage {
     /**
      * Remove stale whiteboard sessions that were abandoned and never submitted.
      */
-    cleanupOldWhiteboardSessions(): void {
+    async cleanupOldWhiteboardSessions(): Promise<void> {
         const interactions = [...this.storage.get<StoredInteraction[]>(STORAGE_KEYS.INTERACTIONS, [])];
-        const cleanedInteractions = this.pruneOldWhiteboardSessions(interactions);
+        const cleanedInteractions = await this.pruneOldWhiteboardSessions(interactions);
 
         if (cleanedInteractions.length !== interactions.length) {
             this.storage.update(STORAGE_KEYS.INTERACTIONS, cleanedInteractions);
@@ -480,13 +481,13 @@ export class ChatHistoryStorage {
         };
     }
 
-    private prepareInteractionsForStorage(interactions: StoredInteraction[]): StoredInteraction[] {
+    private async prepareInteractionsForStorage(interactions: StoredInteraction[]): Promise<StoredInteraction[]> {
         const totalSize = this.getSerializedSize(interactions);
         if (totalSize <= this.getQuotaCleanupThresholdBytes()) {
             return interactions;
         }
 
-        const cleanedInteractions = this.pruneOldWhiteboardSessions(interactions);
+        const cleanedInteractions = await this.pruneOldWhiteboardSessions(interactions);
         const removedCount = interactions.length - cleanedInteractions.length;
 
         if (removedCount > 0) {
@@ -509,9 +510,40 @@ export class ChatHistoryStorage {
         return cleanedInteractions;
     }
 
-    private pruneOldWhiteboardSessions(interactions: StoredInteraction[]): StoredInteraction[] {
+    private async pruneOldWhiteboardSessions(interactions: StoredInteraction[]): Promise<StoredInteraction[]> {
         const staleBefore = this.options.now() - this.options.whiteboardSessionMaxAgeMs;
-        return interactions.filter((interaction) => !this.shouldCleanupWhiteboardInteraction(interaction, staleBefore));
+        const toRemove = interactions.filter((interaction) =>
+            this.shouldCleanupWhiteboardInteraction(interaction, staleBefore)
+        );
+
+        // Clean up temporary images for removed whiteboard interactions
+        const storageUri = this.context.globalStorageUri;
+        if (storageUri) {
+            const storageRootPath = storageUri.fsPath;
+            const whiteboardInteractions = toRemove.filter(
+                (interaction): interaction is StoredInteraction & { type: 'whiteboard'; id: string } =>
+                    interaction.type === 'whiteboard' && interaction.id !== undefined
+            );
+
+            // Process cleanups in parallel for better performance
+            const cleanupPromises = whiteboardInteractions.map(async (interaction) => {
+                try {
+                    await cleanupWhiteboardTempImages(interaction.id, storageRootPath);
+                } catch (error) {
+                    Logger.error(
+                        `Failed to cleanup whiteboard images for interaction ${interaction.id}`,
+                        error
+                    );
+                }
+            });
+
+            // Wait for all cleanups to complete (or fail gracefully)
+            await Promise.allSettled(cleanupPromises);
+        }
+
+        return interactions.filter((interaction) =>
+            !this.shouldCleanupWhiteboardInteraction(interaction, staleBefore)
+        );
     }
 
     private shouldCleanupWhiteboardInteraction(interaction: StoredInteraction, staleBefore: number): boolean {

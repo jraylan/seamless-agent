@@ -1,15 +1,53 @@
-import * as vscode from 'vscode';
 import * as util from 'util';
 
+let vscode: any = null;
+let outputChannel: any = null;
 
-const outputChannel = vscode.window.createOutputChannel("Seamless Agent");
+// Lazy load vscode only when needed
+const getVscode = () => {
+    if (!vscode) {
+        try {
+            vscode = require('vscode');
+        } catch (err) {
+            // vscode not available (e.g., in tests) - use a no-op mock
+            vscode = {
+                window: {
+                    createOutputChannel: () => ({
+                        append() { },
+                        appendLine() { },
+                        clear() { },
+                        show() { },
+                    })
+                },
+                LogLevel: {
+                    Debug: 0,
+                    Info: 1,
+                    Warning: 2,
+                    Error: 3
+                }
+            };
+        }
+    }
+    return vscode;
+};
 
-const log = (level: vscode.LogLevel, ...args: any[]) => {
+const getOutputChannel = (): any => {
+    if (!outputChannel) {
+        const vs = getVscode();
+        outputChannel = vs.window.createOutputChannel("Seamless Agent");
+    }
+    return outputChannel;
+};
+
+const log = (level: number, ...args: any[]) => {
+    const channel = getOutputChannel();
+    const vs = getVscode();
     const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] [${vscode.LogLevel[level]}] `;
-    outputChannel.append(logEntry);
-    outputChannel.append(util.format(...args));
-    outputChannel.appendLine('');
+    const levelName = Object.keys(vs.LogLevel).find((key) => vs.LogLevel[key] === level) || 'INFO';
+    const logEntry = `[${timestamp}] [${levelName}] `;
+    channel.append(logEntry);
+    channel.append(util.format(...args));
+    channel.appendLine('');
 }
 
 
@@ -18,61 +56,71 @@ type LogLevelStr = 'info' | 'warn' | 'error' | 'debug';
 export class Logger {
 
     static logWithLevel(level: LogLevelStr, ...args: any[]) {
-        let logLevel: vscode.LogLevel;
+        const vs = getVscode();
+        let logLevel: number;
         switch (level) {
             case 'debug':
-                logLevel = vscode.LogLevel.Debug;
+                logLevel = vs.LogLevel.Debug;
                 break;
             case 'warn':
-                logLevel = vscode.LogLevel.Warning;
+                logLevel = vs.LogLevel.Warning;
                 break;
             case 'error':
-                logLevel = vscode.LogLevel.Error;
+                logLevel = vs.LogLevel.Error;
                 break;
             default:
-                logLevel = vscode.LogLevel.Info;
+                logLevel = vs.LogLevel.Info;
                 break
         }
         log(logLevel, ...args);
     }
 
     static log(...args: any[]) {
-        log(vscode.LogLevel.Info, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Info, ...args);
     }
 
     static debug(...args: any[]) {
-        log(vscode.LogLevel.Debug, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Debug, ...args);
     }
 
     static warn(...args: any[]) {
-        log(vscode.LogLevel.Warning, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Warning, ...args);
     }
 
     static info(...args: any[]) {
-        log(vscode.LogLevel.Info, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Info, ...args);
     }
 
     static error(...args: any[]) {
-        log(vscode.LogLevel.Error, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Error, ...args);
     }
 
     static clear() {
-        outputChannel.clear();
+        const channel = getOutputChannel();
+        channel.clear();
     }
 
     static show() {
-        outputChannel.show();
+        const channel = getOutputChannel();
+        channel.show();
     }
 
     // Badge-specific logging with structured output
     static badge(...args: any[]) {
         const timestamp = new Date().toISOString();
-        log(vscode.LogLevel.Info, `[BADGE] ${timestamp}`, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Info, `[BADGE] ${timestamp}`, ...args);
     }
 
     static badgeDebug(...args: any[]) {
         const timestamp = new Date().toISOString();
-        log(vscode.LogLevel.Debug, `[BADGE-DEBUG] ${timestamp}`, ...args);
+        const vs = getVscode();
+        log(vs.LogLevel.Debug, `[BADGE-DEBUG] ${timestamp}`, ...args);
     }
 }
 

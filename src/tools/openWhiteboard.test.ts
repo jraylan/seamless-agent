@@ -84,11 +84,11 @@ describe('openWhiteboard', () => {
             {
                 dependencies: {
                     storage: {
-                        saveWhiteboardInteraction() {
+                        saveWhiteboardInteraction: async () => {
                             saveCalls += 1;
                             return 'wb_never';
                         },
-                        updateWhiteboardInteraction() {
+                        updateWhiteboardInteraction: async () => {
                             throw new Error('should not update storage');
                         },
                     },
@@ -133,10 +133,10 @@ describe('openWhiteboard', () => {
             {
                 dependencies: {
                     storage: {
-                        saveWhiteboardInteraction() {
+                        saveWhiteboardInteraction: async () => {
                             return 'wb_image_contract';
                         },
-                        updateWhiteboardInteraction() { },
+                        updateWhiteboardInteraction: async () => { },
                     },
                     panel: {
                         async showWithOptions(_extensionUri, options) {
@@ -203,10 +203,10 @@ describe('openWhiteboard', () => {
                 {
                     dependencies: {
                         storage: {
-                            saveWhiteboardInteraction() {
+                            saveWhiteboardInteraction: async () => {
                                 return 'wb_imports';
                             },
-                            updateWhiteboardInteraction() { },
+                            updateWhiteboardInteraction: async () => { },
                         },
                         panel: {
                             async showWithOptions(_extensionUri, options) {
@@ -280,10 +280,10 @@ describe('openWhiteboard', () => {
             {
                 dependencies: {
                     storage: {
-                        saveWhiteboardInteraction() {
+                        saveWhiteboardInteraction: async () => {
                             return 'wb_seeded';
                         },
-                        updateWhiteboardInteraction() { },
+                        updateWhiteboardInteraction: async () => { },
                     },
                     panel: {
                         async showWithOptions(_extensionUri, options) {
@@ -348,10 +348,10 @@ describe('openWhiteboard', () => {
             {
                 dependencies: {
                     storage: {
-                        saveWhiteboardInteraction() {
+                        saveWhiteboardInteraction: async () => {
                             return 'wb_changes';
                         },
-                        updateWhiteboardInteraction() { },
+                        updateWhiteboardInteraction: async () => { },
                     },
                     panel: {
                         async showWithOptions(_extensionUri, options) {
@@ -401,7 +401,7 @@ describe('openWhiteboard', () => {
             {
                 dependencies: {
                     storage: {
-                        saveWhiteboardInteraction() {
+                        saveWhiteboardInteraction: async () => {
                             return 'wb_throw';
                         },
                         updateWhiteboardInteraction(interactionId) {

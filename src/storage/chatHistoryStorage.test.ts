@@ -125,12 +125,12 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         };
     }
 
-    it('saves and reads whiteboard sessions through dedicated helpers', () => {
+    it('saves and reads whiteboard sessions through dedicated helpers', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const context = createExtensionContext();
         const storage = new ChatHistoryStorage(context as any);
 
-        const interactionId = storage.saveWhiteboardInteraction({
+        const interactionId = await storage.saveWhiteboardInteraction({
             title: 'Architecture sketch',
             context: 'Map the service boundaries',
             canvases: [createCanvas('canvas_1')],
@@ -148,19 +148,19 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         assert.equal(session?.status, 'pending');
     });
 
-    it('updates a whiteboard session without clobbering stored canvases', () => {
+    it('updates a whiteboard session without clobbering stored canvases', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const context = createExtensionContext();
         const storage = new ChatHistoryStorage(context as any);
 
-        const interactionId = storage.saveWhiteboardInteraction({
+        const interactionId = await storage.saveWhiteboardInteraction({
             title: 'Architecture sketch',
             canvases: [createCanvas('canvas_1')],
             activeCanvasId: 'canvas_1',
             status: 'pending',
         });
 
-        storage.updateWhiteboardSession(interactionId, {
+        await await storage.updateWhiteboardSession(interactionId, {
             status: 'approved',
             submittedAt: 1234,
             submittedCanvases: [
@@ -187,23 +187,23 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         assert.equal(session?.activeCanvasId, 'canvas_1');
     });
 
-    it('cleans up stale abandoned whiteboard sessions but preserves approved history', () => {
+    it('cleans up stale abandoned whiteboard sessions but preserves approved history', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const now = Date.UTC(2026, 2, 7, 12, 0, 0);
         const context = createExtensionContext();
         const storage = new (ChatHistoryStorage as any)(context, { now: () => now }) as InstanceType<typeof ChatHistoryStorage>;
 
-        const staleInteractionId = storage.saveWhiteboardInteraction({
+        const staleInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Abandoned board',
             canvases: [createCanvas('stale_canvas')],
             activeCanvasId: 'stale_canvas',
             status: 'pending',
         });
-        storage.updateInteraction(staleInteractionId, {
+        await storage.updateInteraction(staleInteractionId, {
             timestamp: now - (8 * 24 * 60 * 60 * 1000),
         });
 
-        const submittedInteractionId = storage.saveWhiteboardInteraction({
+        const submittedInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Approved board',
             canvases: [createCanvas('submitted_canvas')],
             activeCanvasId: 'submitted_canvas',
@@ -217,25 +217,25 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
                 },
             ],
         });
-        storage.updateInteraction(submittedInteractionId, {
+        await storage.updateInteraction(submittedInteractionId, {
             timestamp: now - (8 * 24 * 60 * 60 * 1000),
         });
 
-        const recentInteractionId = storage.saveWhiteboardInteraction({
+        const recentInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Recent board',
             canvases: [createCanvas('recent_canvas')],
             activeCanvasId: 'recent_canvas',
             status: 'pending',
         });
 
-        storage.cleanupOldWhiteboardSessions();
+        await storage.cleanupOldWhiteboardSessions();
 
         assert.equal(storage.getInteraction(staleInteractionId), undefined);
         assert.ok(storage.getInteraction(submittedInteractionId));
         assert.ok(storage.getInteraction(recentInteractionId));
     });
 
-    it('triggers stale-session cleanup when whiteboard storage nears the quota threshold', () => {
+    it('triggers stale-session cleanup when whiteboard storage nears the quota threshold', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const now = Date.UTC(2026, 2, 7, 12, 0, 0);
         const context = createExtensionContext();
@@ -255,17 +255,17 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
             ],
         });
 
-        const staleInteractionId = storage.saveWhiteboardInteraction({
+        const staleInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Old large board',
             canvases: [createCanvas('stale_canvas', oversizedState)],
             activeCanvasId: 'stale_canvas',
             status: 'pending',
         });
-        storage.updateInteraction(staleInteractionId, {
+        await storage.updateInteraction(staleInteractionId, {
             timestamp: now - (8 * 24 * 60 * 60 * 1000),
         });
 
-        const freshInteractionId = storage.saveWhiteboardInteraction({
+        const freshInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Fresh board',
             canvases: [createCanvas('fresh_canvas')],
             activeCanvasId: 'fresh_canvas',
@@ -277,7 +277,7 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         assert.match(warnLog.join('\n'), /quota/i);
     });
 
-    it('refuses to persist oversized whiteboard payloads when cleanup cannot get below the storage quota', () => {
+    it('refuses to persist oversized whiteboard payloads when cleanup cannot get below the storage quota', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const context = createExtensionContext();
         const storage = new (ChatHistoryStorage as any)(context, {
@@ -285,7 +285,7 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
             quotaCleanupThreshold: 0.5,
         }) as InstanceType<typeof ChatHistoryStorage>;
 
-        const baselineInteractionId = storage.saveWhiteboardInteraction({
+        const baselineInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Baseline board',
             canvases: [createCanvas('baseline_canvas')],
             activeCanvasId: 'baseline_canvas',
@@ -302,14 +302,15 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
             ],
         });
 
-        assert.throws(() => {
-            storage.saveWhiteboardInteraction({
+        await assert.rejects(
+            () => storage.saveWhiteboardInteraction({
                 title: 'Oversized board',
                 canvases: [createCanvas('oversized_canvas', oversizedState)],
                 activeCanvasId: 'oversized_canvas',
                 status: 'pending',
-            });
-        }, /quota exceeded/i);
+            }),
+            /quota exceeded/i
+        );
 
         assert.ok(storage.getInteraction(baselineInteractionId));
         assert.equal(storage.getInteractionsByType('whiteboard').length, 1);
@@ -317,19 +318,19 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         assert.match(errorLog.join('\n'), /quota exceeded/i);
     });
 
-    it('round-trips multi-canvas submissions through storage helper updates', () => {
+    it('round-trips multi-canvas submissions through storage helper updates', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const context = createExtensionContext();
         const storage = new ChatHistoryStorage(context as any);
 
-        const interactionId = storage.saveWhiteboardInteraction({
+        const interactionId = await storage.saveWhiteboardInteraction({
             title: 'Architecture board',
             canvases: [createCanvas('canvas_1'), createCanvas('canvas_2')],
             activeCanvasId: 'canvas_2',
             status: 'pending',
         });
 
-        storage.updateWhiteboardInteraction(interactionId, {
+        await storage.updateWhiteboardInteraction(interactionId, {
             title: 'Architecture board v2',
             whiteboardSession: {
                 status: 'approved',
@@ -370,23 +371,23 @@ describe('ChatHistoryStorage whiteboard helpers', () => {
         assert.deepEqual(storage.getCompletedInteractions().map((entry) => entry.id), [interactionId]);
     });
 
-    it('preserves cancelled whiteboard history during stale-session cleanup', () => {
+    it('preserves cancelled whiteboard history during stale-session cleanup', async () => {
         const { ChatHistoryStorage } = loadChatHistoryStorage();
         const now = Date.UTC(2026, 2, 7, 12, 0, 0);
         const context = createExtensionContext();
         const storage = new (ChatHistoryStorage as any)(context, { now: () => now }) as InstanceType<typeof ChatHistoryStorage>;
 
-        const cancelledInteractionId = storage.saveWhiteboardInteraction({
+        const cancelledInteractionId = await storage.saveWhiteboardInteraction({
             title: 'Cancelled board',
             canvases: [createCanvas('cancelled_canvas')],
             activeCanvasId: 'cancelled_canvas',
             status: 'cancelled',
         });
-        storage.updateInteraction(cancelledInteractionId, {
+        await storage.updateInteraction(cancelledInteractionId, {
             timestamp: now - (8 * 24 * 60 * 60 * 1000),
         });
 
-        storage.cleanupOldWhiteboardSessions();
+        await storage.cleanupOldWhiteboardSessions();
 
         assert.ok(storage.getInteraction(cancelledInteractionId));
     });

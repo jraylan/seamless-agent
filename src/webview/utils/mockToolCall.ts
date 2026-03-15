@@ -201,7 +201,7 @@ export class MockToolCallService {
             case 'planReview': {
                 const mockPlan = `# Deployment Plan\n\n## Phase 1: Preparation\n- Review code changes\n- Run full test suite\n- Update documentation\n\n## Phase 2: Staging\n- Deploy to staging environment\n- Run integration tests\n- Performance benchmarking\n\n## Phase 3: Production\n- Blue-green deployment\n- Health check monitoring\n- Rollback plan ready\n\n## Timeline\n| Phase | Duration |\n|-------|----------|\n| Prep | 2 hours |\n| Staging | 4 hours |\n| Production | 1 hour |`;
 
-                const planId = storage.savePlanReviewInteraction({
+                const planId = await storage.savePlanReviewInteraction({
                     plan: mockPlan,
                     title: 'Debug: Plan Review',
                     mode: 'review',
@@ -219,17 +219,17 @@ export class MockToolCallService {
                     readOnly: false,
                     existingComments: [],
                     interactionId: planId,
-                }).then((result: PlanReviewResult) => {
+                }).then(async (result: PlanReviewResult) => {
                     const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
                         ? result.action : 'closed';
-                    storage.updateInteraction(planId, {
+                    await storage.updateInteraction(planId, {
                         status: state,
                         requiredRevisions: result.requiredRevisions,
                     });
                     webviewProvider.switchTab('pending');
                     Logger.log('[Debug Mock] planReview result:', result);
-                }).catch((err: any) => {
-                    storage.updateInteraction(planId, { status: 'closed' });
+                }).catch(async (err: any) => {
+                    await storage.updateInteraction(planId, { status: 'closed' });
                     webviewProvider.switchTab('pending');
                     Logger.error('[Debug Mock] planReview error:', err);
                 });
@@ -380,7 +380,7 @@ export class MockToolCallService {
             case 'walkthroughReview': {
                 const mockWalkthrough = `# Getting Started Guide\n\n## Step 1: Install Dependencies\n\`\`\`bash\nnpm install\n\`\`\`\n\n## Step 2: Configure Environment\nCreate a \`.env\` file:\n\`\`\`\nDATABASE_URL=postgresql://localhost:5432/mydb\nAPI_KEY=your-api-key\n\`\`\`\n\n## Step 3: Run Migrations\n\`\`\`bash\nnpm run db:migrate\n\`\`\`\n\n## Step 4: Start Development Server\n\`\`\`bash\nnpm run dev\n\`\`\`\n\nVisit http://localhost:3000 to see the app running.`;
 
-                const walkthroughId = storage.savePlanReviewInteraction({
+                const walkthroughId = await storage.savePlanReviewInteraction({
                     plan: mockWalkthrough,
                     title: 'Debug: Walkthrough',
                     mode: 'walkthrough',
@@ -398,17 +398,17 @@ export class MockToolCallService {
                     readOnly: false,
                     existingComments: [],
                     interactionId: walkthroughId,
-                }).then((result: PlanReviewResult) => {
+                }).then(async (result: PlanReviewResult) => {
                     const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
                         ? result.action : 'closed';
-                    storage.updateInteraction(walkthroughId, {
+                    await storage.updateInteraction(walkthroughId, {
                         status: state,
                         requiredRevisions: result.requiredRevisions,
                     });
                     webviewProvider.switchTab('pending');
                     Logger.log('[Debug Mock] walkthroughReview result:', result);
-                }).catch((err: any) => {
-                    storage.updateInteraction(walkthroughId, { status: 'closed' });
+                }).catch(async (err: any) => {
+                    await storage.updateInteraction(walkthroughId, { status: 'closed' });
                     webviewProvider.switchTab('pending');
                     Logger.error('[Debug Mock] walkthroughReview error:', err);
                 });

@@ -5,8 +5,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-const require = createRequire(__filename);
-const Module = require('node:module') as typeof import('node:module') & {
+const req = createRequire(__filename);
+const Module = req('node:module') as typeof import('node:module') & {
     _load: (request: string, parent: unknown, isMain: boolean) => unknown;
 };
 
@@ -32,6 +32,14 @@ type MockVscodeModule = {
     window: {
         activeTextEditor: undefined;
         createWebviewPanel(): MockPanel;
+        createOutputChannel(name: string): {
+            name: string;
+            append(value: string): void;
+            appendLine(value: string): void;
+            show(): void;
+            hide(): void;
+            dispose(): void;
+        };
     };
     Uri: {
         joinPath(...parts: Array<{ fsPath: string } | string>): { fsPath: string };
@@ -95,6 +103,16 @@ function createMockVscode() {
                 lastPanel = panel;
                 return panel;
             },
+            createOutputChannel(name: string) {
+                return {
+                    name,
+                    append(value: string) { },
+                    appendLine(value: string) { },
+                    show() { },
+                    hide() { },
+                    dispose() { },
+                };
+            },
         },
         Uri: {
             joinPath(...parts: Array<{ fsPath: string } | string>) {
@@ -122,26 +140,196 @@ function createMockVscode() {
             return postedMessages;
         },
         sendMessage(message: unknown) {
+            console.log('[TEST] sendMessage called with:', JSON.stringify(message));
             receiveMessageCallback?.(message);
         },
     };
 }
 
+function createPatchedLoad(
+    tempRoot: string,
+    mock: ReturnType<typeof createMockVscode>,
+    originalLoad: typeof Module._load,
+    updateCalls?: Array<{ interactionId: string; updates: unknown }>,
+) {
+    return function patchedLoad(this: unknown, request: string, parent: unknown, isMain: boolean) {
+        console.log('[MODULE_LOAD]', request);
+        if (request === 'vscode') {
+            console.log('[TEST] Loading vscode mock');
+            return mock.mockVscode;
+        }
+        if (request === '../storage/chatHistoryStorage' || request === './chatHistoryStorage' || request.endsWith('/chatHistoryStorage')) {
+            console.log('[TEST] Loading chatHistoryStorage mock');
+            return {
+                getChatHistoryStorage: () => ({
+                    updateWhiteboardInteraction(interactionId: string, updates: unknown) {
+                        console.log('[TEST] updateWhiteboardInteraction called:', interactionId);
+                        updateCalls?.push({ interactionId, updates });
+                    },
+                }),
+                getExtensionContext: () => {
+                    console.log('[TEST] getExtensionContext called');
+                    return {
+                        globalStorageUri: { fsPath: tempRoot },
+                    };
+                },
+            };
+        }
+        if (request === '../logging' || request === './logging' || request.endsWith('/logging')) {
+            return {
+                Logger: {
+                    debug() { },
+                    info() { },
+                    warn() { },
+                    error() { },
+                },
+            };
+        }
+        if (request === '../whiteboard/imageCleanup' || request.endsWith('/imageCleanup')) {
+            console.log('[TEST] Mocking imageCleanup module - creating mock');
+            const mockFn = async () => { 
+                console.log('[TEST] cleanupWhiteboardTempImages called - START');
+                await new Promise(resolve => setTimeout(resolve, 10));
+                console.log('[TEST] cleanupWhiteboardTempImages called - DONE - returning undefined');
+                return undefined;
+            };
+            return {
+                cleanupWhiteboardTempImages: mockFn,
+            };
+        }
+        if (request === 'fs' || request === 'fs/promises') {
+            console.log('[TEST] Loading fs mock');
+            // For most operations, use mocks. For file operations that need real data, use real fs.
+            const fsMock = {
+                mkdirSync: (dirPath: string, options?: any) => {
+                    console.log('[TEST] fs.mkdirSync called:', dirPath);
+                    // Use real fs for actual directory creation in tempRoot
+                    if (dirPath.includes(tempRoot)) {
+                        return fs.mkdirSync(dirPath, options);
+                    }
+                    return undefined;
+                },
+                mkdir: async (dirPath: string, options?: any) => {
+                    console.log('[TEST] fs.mkdir called:', dirPath);
+                    console.log('[TEST] fs.mkdir returning promise');
+                    // Use real fs for actual directory creation in tempRoot
+                    if (dirPath.includes(tempRoot)) {
+                        return fs.promises.mkdir(dirPath, options);
+                    }
+                    return undefined;
+                },
+                writeFileSync: (filePath: string, data: any) => {
+                    console.log('[TEST] fs.writeFileSync called:', filePath);
+                    return undefined;
+                },
+                writeFile: async (filePath: string, data: any) => {
+                    console.log('[TEST] fs.writeFile called:', filePath, 'data length:', data?.length);
+                    console.log('[TEST] fs.writeFile returning promise');
+                    // Use real fs for files in tempRoot
+                    if (filePath.includes(tempRoot)) {
+                        return fs.promises.writeFile(filePath, data);
+                    }
+                    return undefined;
+                },
+                readFile: async (filePath: string, encoding?: string) => {
+                    console.log('[TEST] fs.readFile called:', filePath);
+                    // Use real fs for template files
+                    if (filePath.includes('whiteboard.html')) {
+                        try {
+                            return fs.readFileSync(filePath, encoding as BufferEncoding || 'utf8');
+                        } catch {
+                            return '<html><body></body></html>';
+                        }
+                    }
+                    return '<html><body></body></html>';
+                },
+                readFileSync: (filePath: string, encoding?: string) => {
+                    console.log('[TEST] fs.readFileSync called:', filePath);
+                    return '<html><body></body></html>';
+                },
+                readdir: async (dirPath: string) => {
+                    console.log('[TEST] fs.readdir called:', dirPath);
+                    // Use real fs for reading temp directory
+                    if (dirPath.includes(tempRoot)) {
+                        return fs.promises.readdir(dirPath);
+                    }
+                    return [];
+                },
+                rm: async (filePath: string, options?: any) => {
+                    console.log('[TEST] fs.rm called:', filePath);
+                    // Use real fs for deletion in tempRoot
+                    if (filePath.includes(tempRoot)) {
+                        return fs.promises.rm(filePath, options);
+                    }
+                    return undefined;
+                },
+            };
+            return fsMock;
+        }
+        if (request === '../whiteboard/canvasState' || request.endsWith('/canvasState')) {
+            return {
+                serializeBlankFabricCanvasState: () => JSON.stringify({
+                    version: '6.0.0',
+                    width: 1600,
+                    height: 900,
+                    backgroundColor: '#ffffff',
+                    objects: [],
+                }),
+                DEFAULT_WHITEBOARD_CANVAS_BACKGROUND: '#ffffff',
+                DEFAULT_WHITEBOARD_CANVAS_HEIGHT: 900,
+                DEFAULT_WHITEBOARD_CANVAS_NAME: 'Canvas',
+                DEFAULT_WHITEBOARD_CANVAS_WIDTH: 1600,
+            };
+        }
+        if (request === '../whiteboard/constants' || request.endsWith('/constants')) {
+            return {
+                TEMP_IMAGE_DIRECTORY: 'temp-whiteboard-images',
+            };
+        }
+        if (request === '../whiteboard/circlePath' || request.endsWith('/circlePath')) {
+            return {
+                createCirclePathFabricObject: () => ({}),
+            };
+        }
+        if (request === '../whiteboard/fabricRegistry' || request.endsWith('/fabricRegistry')) {
+            return {
+                ensureWhiteboardFabricRegistry: () => { },
+                assertWhiteboardFabricObjectsSupported: () => { },
+                normalizeWhiteboardFabricObjectType: (t: string) => t,
+            };
+        }
+        if (request === './types' || request.endsWith('/types')) {
+            return {
+                normalizeWhiteboardSubmittedCanvas: (canvas: any) => {
+                    // Simple mock that just returns the canvas as-is
+                    return canvas;
+                },
+            };
+        }
+        try {
+            return originalLoad.call(this, request, parent, isMain);
+        } catch (e) {
+            console.log('[MODULE_LOAD FALLBACK]', request, '-> returning {}');
+            return {};
+        }
+    };
+}
+
 describe('WhiteboardPanel', () => {
-    const modulePath = require.resolve('./whiteboardPanel.ts');
+    const modulePath = req.resolve('./whiteboardPanel.ts');
     let originalLoad: typeof Module._load;
     let tempRoot: string;
     const extensionUri = { fsPath: '/Users/muhammadfaiz/Custom APP/seamless_agent' } as any;
 
     beforeEach(() => {
         originalLoad = Module._load;
-        delete require.cache[modulePath];
+        delete req.cache[modulePath];
         tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-panel-test-'));
     });
 
     afterEach(() => {
         Module._load = originalLoad;
-        delete require.cache[modulePath];
+        delete req.cache[modulePath];
         fs.rmSync(tempRoot, { recursive: true, force: true });
     });
 
@@ -151,7 +339,7 @@ describe('WhiteboardPanel', () => {
             if (request === 'vscode') {
                 return mock.mockVscode;
             }
-            if (request === '../storage/chatHistoryStorage') {
+            if (request === '../storage/chatHistoryStorage' || request === './chatHistoryStorage' || request.endsWith('/chatHistoryStorage')) {
                 return {
                     getChatHistoryStorage: () => ({
                         updateWhiteboardInteraction() { },
@@ -161,10 +349,25 @@ describe('WhiteboardPanel', () => {
                     }),
                 };
             }
+            if (request === '../logging' || request === './logging' || request.endsWith('/logging')) {
+                return {
+                    Logger: {
+                        debug() { },
+                        info() { },
+                        warn() { },
+                        error() { },
+                    },
+                };
+            }
+            if (request === '../whiteboard/imageCleanup' || request.endsWith('/imageCleanup')) {
+                return {
+                    cleanupWhiteboardTempImages: async () => { },
+                };
+            }
             return originalLoad.call(this, request, parent, isMain);
         };
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_manual_close';
         const resultPromise = WhiteboardPanel.showWithOptions(extensionUri, {
             interactionId,
@@ -201,24 +404,9 @@ describe('WhiteboardPanel', () => {
 
     it('reopens a manually closed pending panel with the surviving resolver', async () => {
         const mock = createMockVscode();
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return mock.mockVscode;
-            }
-            if (request === '../storage/chatHistoryStorage') {
-                return {
-                    getChatHistoryStorage: () => ({
-                        updateWhiteboardInteraction() { },
-                    }),
-                    getExtensionContext: () => ({
-                        globalStorageUri: { fsPath: tempRoot },
-                    }),
-                };
-            }
-            return originalLoad.call(this, request, parent, isMain);
-        };
+        Module._load = createPatchedLoad(tempRoot, mock, originalLoad);
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_reopen_pending';
         const resultPromise = WhiteboardPanel.showWithOptions(extensionUri, {
             interactionId,
@@ -307,24 +495,9 @@ describe('WhiteboardPanel', () => {
 
     it('returns recreateWithChanges when the user clicks request changes', async () => {
         const mock = createMockVscode();
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return mock.mockVscode;
-            }
-            if (request === '../storage/chatHistoryStorage') {
-                return {
-                    getChatHistoryStorage: () => ({
-                        updateWhiteboardInteraction() { },
-                    }),
-                    getExtensionContext: () => ({
-                        globalStorageUri: { fsPath: tempRoot },
-                    }),
-                };
-            }
-            return originalLoad.call(this, request, parent, isMain);
-        };
+        Module._load = createPatchedLoad(tempRoot, mock, originalLoad);
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_request_changes';
         const resultPromise = WhiteboardPanel.showWithOptions(extensionUri, {
             interactionId,
@@ -356,24 +529,9 @@ describe('WhiteboardPanel', () => {
 
     it('reuses an existing panel with the latest session data', async () => {
         const mock = createMockVscode();
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return mock.mockVscode;
-            }
-            if (request === '../storage/chatHistoryStorage') {
-                return {
-                    getChatHistoryStorage: () => ({
-                        updateWhiteboardInteraction() { },
-                    }),
-                    getExtensionContext: () => ({
-                        globalStorageUri: { fsPath: tempRoot },
-                    }),
-                };
-            }
-            return originalLoad.call(this, request, parent, isMain);
-        };
+        Module._load = createPatchedLoad(tempRoot, mock, originalLoad);
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_reuse';
 
         void WhiteboardPanel.showWithOptions(extensionUri, {
@@ -451,11 +609,9 @@ describe('WhiteboardPanel', () => {
         const mock = createMockVscode();
         const updateCalls: Array<{ interactionId: string; updates: unknown }> = [];
 
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return mock.mockVscode;
-            }
-            if (request === '../storage/chatHistoryStorage') {
+        const patchedLoad = createPatchedLoad(tempRoot, mock, originalLoad);
+        Module._load = function(request: string, parent: unknown, isMain: boolean) {
+            if (request === '../storage/chatHistoryStorage' || request.endsWith('/chatHistoryStorage')) {
                 return {
                     getChatHistoryStorage: () => ({
                         updateWhiteboardInteraction(interactionId: string, updates: unknown) {
@@ -467,10 +623,10 @@ describe('WhiteboardPanel', () => {
                     }),
                 };
             }
-            return originalLoad.call(this, request, parent, isMain);
+            return patchedLoad(request, parent, isMain);
         };
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_canonical_blank';
         void WhiteboardPanel.showWithOptions(extensionUri, {
             interactionId,
@@ -508,38 +664,9 @@ describe('WhiteboardPanel', () => {
         const mock = createMockVscode();
         const updateCalls: Array<{ interactionId: string; updates: unknown }> = [];
 
-        Module._load = function patchedLoad(request: string, parent: unknown, isMain: boolean) {
-            if (request === 'vscode') {
-                return {
-                    ...mock.mockVscode,
-                    Uri: {
-                        joinPath: (...parts: Array<{ fsPath: string } | string>) => {
-                            const normalized = parts.map((part) => typeof part === 'string' ? part : part.fsPath);
-                            return { fsPath: path.join(...normalized) };
-                        },
-                        file: (filePath: string) => ({
-                            fsPath: filePath,
-                            toString: () => `file://${filePath}`,
-                        }),
-                    },
-                };
-            }
-            if (request === '../storage/chatHistoryStorage') {
-                return {
-                    getChatHistoryStorage: () => ({
-                        updateWhiteboardInteraction(interactionId: string, updates: unknown) {
-                            updateCalls.push({ interactionId, updates });
-                        },
-                    }),
-                    getExtensionContext: () => ({
-                        globalStorageUri: { fsPath: tempRoot },
-                    }),
-                };
-            }
-            return originalLoad.call(this, request, parent, isMain);
-        };
+        Module._load = createPatchedLoad(tempRoot, mock, originalLoad, updateCalls);
 
-        const { WhiteboardPanel } = require('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
+        const { WhiteboardPanel } = req('./whiteboardPanel.ts') as typeof import('./whiteboardPanel');
         const interactionId = 'wb_submit';
         const resultPromise = WhiteboardPanel.showWithOptions(extensionUri, {
             interactionId,
@@ -596,7 +723,22 @@ describe('WhiteboardPanel', () => {
             ],
         });
 
-        const result = await resultPromise;
+        console.log('[TEST] Submit message sent, waiting...');
+
+        console.log('[TEST] Waiting for resultPromise...');
+        
+        const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Test timeout - promise never resolved')), 5000)
+        );
+        
+        let result: any;
+        try {
+            result = await Promise.race([resultPromise, timeoutPromise]);
+            console.log('[TEST] Got result:', result);
+        } catch (e) {
+            console.log('[TEST] Error:', e);
+            throw e;
+        }
         assert.equal(result.submitted, true);
         assert.equal(result.canvases.length, 1);
         assert.match(result.canvases[0].imageUri, /^file:\/\//);

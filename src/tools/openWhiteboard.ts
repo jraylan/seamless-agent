@@ -39,7 +39,7 @@ export interface OpenWhiteboardDependencies {
             submittedAt?: number;
             submittedCanvases?: WhiteboardSubmittedCanvas[];
             isDebug?: boolean;
-        }): string;
+        }): Promise<string>;
         updateWhiteboardInteraction(interactionId: string, updates: {
             title?: string;
             whiteboardSession?: {
@@ -236,8 +236,8 @@ async function createDefaultDependencies(): Promise<OpenWhiteboardDependencies> 
     const storage = getChatHistoryStorage();
     return {
         storage: {
-            saveWhiteboardInteraction: (data) => storage.saveWhiteboardInteraction(data),
-            updateWhiteboardInteraction: (interactionId, updates) => storage.updateWhiteboardInteraction(interactionId, updates),
+            saveWhiteboardInteraction: async (data) => await storage.saveWhiteboardInteraction(data),
+            updateWhiteboardInteraction: async (interactionId, updates) => await storage.updateWhiteboardInteraction(interactionId, updates),
             getWhiteboardSession: (interactionId) => storage.getWhiteboardSession(interactionId),
         },
         panel: {
@@ -293,7 +293,7 @@ export async function openWhiteboard(
     const canvases = await createInitialCanvases(params, now);
     const activeCanvasId = canvases[0]?.id;
 
-    const interactionId = dependencies.storage.saveWhiteboardInteraction({
+    const interactionId = await dependencies.storage.saveWhiteboardInteraction({
         title,
         context: params.context,
         canvases,
@@ -315,9 +315,9 @@ export async function openWhiteboard(
     };
 
     let cancelledByAgent = false;
-    const cancellationDisposable = token.onCancellationRequested(() => {
+    const cancellationDisposable = token.onCancellationRequested(async () => {
         cancelledByAgent = true;
-        dependencies.storage.updateWhiteboardInteraction(interactionId, {
+        await dependencies.storage.updateWhiteboardInteraction(interactionId, {
             whiteboardSession: {
                 status: 'cancelled',
             },
@@ -356,7 +356,7 @@ export async function openWhiteboard(
         const action = toWhiteboardToolAction(result);
         const submittedAt = result.submitted ? dependencies.now() : undefined;
 
-        dependencies.storage.updateWhiteboardInteraction(interactionId, {
+        await dependencies.storage.updateWhiteboardInteraction(interactionId, {
             whiteboardSession: {
                 status,
                 submittedAt,
@@ -382,7 +382,7 @@ export async function openWhiteboard(
     } catch (error) {
         Logger.error('Error showing whiteboard panel:', error);
         if (!cancelledByAgent) {
-            dependencies.storage.updateWhiteboardInteraction(interactionId, {
+            await dependencies.storage.updateWhiteboardInteraction(interactionId, {
                 whiteboardSession: {
                     status: 'cancelled',
                 },

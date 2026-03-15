@@ -1,7 +1,9 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { serializeBlankFabricCanvasState } from '../whiteboard/canvasState';
+import { TEMP_IMAGE_DIRECTORY } from '../whiteboard/constants';
+import { cleanupWhiteboardTempImages } from '../whiteboard/imageCleanup';
 import {
     getChatHistoryStorage,
     getExtensionContext,
@@ -19,47 +21,42 @@ import type {
     WhiteboardToExtensionMessage as FromWebviewMessage,
 } from './types';
 
-const TEMP_IMAGE_DIRECTORY = 'temp-whiteboard-images';
-
 export async function exportSubmittedWhiteboardCanvases(
     interactionId: string,
     canvases: WhiteboardCanvasSubmission[],
     storageRootPath: string,
 ): Promise<NormalizedWhiteboardCanvasSubmission[]> {
-    cleanupWhiteboardTempImages(interactionId, storageRootPath);
+    await cleanupWhiteboardTempImages(interactionId, storageRootPath);
     const tempDir = path.join(storageRootPath, TEMP_IMAGE_DIRECTORY);
-    fs.mkdirSync(tempDir, { recursive: true });
+    await fs.mkdir(tempDir, { recursive: true });
 
-    return canvases.map((canvasSubmission) => {
-        const canvas = normalizeWhiteboardSubmittedCanvas(canvasSubmission);
-        if (!canvas.imageUri.startsWith('data:image/png;base64,')) {
-            return canvas;
+    const results: NormalizedWhiteboardCanvasSubmission[] = [];
+    for (let index = 0; index < canvases.length; index++) {
+        const canvasSubmission = canvases[index];
+        const canvasId = 'id' in canvasSubmission ? canvasSubmission.id : canvasSubmission.canvasId;
+        let canvas: NormalizedWhiteboardCanvasSubmission;
+        try {
+            canvas = normalizeWhiteboardSubmittedCanvas(canvasSubmission);
+        } catch (err) {
+            throw new Error(`Failed to normalize canvas ${canvasId}: ${err instanceof Error ? err.message : String(err)}`);
         }
-
-        const fileName = `${interactionId}_${canvas.id}_${Date.now()}.png`;
-        const filePath = path.join(tempDir, fileName);
-        const base64 = canvas.imageUri.replace(/^data:image\/png;base64,/, '');
-        fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
-
-        return {
-            ...canvas,
-            imageUri: vscode.Uri.file(filePath).toString(),
-        };
-    });
-}
-
-export function cleanupWhiteboardTempImages(interactionId: string, storageRootPath: string): void {
-    const tempDir = path.join(storageRootPath, TEMP_IMAGE_DIRECTORY);
-    if (!fs.existsSync(tempDir)) {
-        return;
-    }
-
-    for (const file of fs.readdirSync(tempDir)) {
-        if (!file.startsWith(`${interactionId}_`)) {
+        if (!canvas.imageUri.startsWith('data:image/png;base64,')) {
+            results.push(canvas);
             continue;
         }
-        fs.rmSync(path.join(tempDir, file), { force: true });
+
+        // Include index and timestamp to prevent filename collisions
+        const fileName = `${interactionId}_${canvas.id}_${Date.now()}_${index}.png`;
+        const filePath = path.join(tempDir, fileName);
+        const base64 = canvas.imageUri.replace(/^data:image\/png;base64,/, '');
+        await fs.writeFile(filePath, Buffer.from(base64, 'base64'));
+
+        results.push({
+            ...canvas,
+            imageUri: vscode.Uri.file(filePath).toString(),
+        });
     }
+    return results;
 }
 
 export class WhiteboardPanel {
@@ -87,7 +84,6 @@ export class WhiteboardPanel {
         this._options = options;
         this._resolvePromise = resolve;
 
-        this._panel.webview.html = this._getHtmlContent();
         this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(
             (message: FromWebviewMessage) => void this._handleMessage(message),
@@ -117,7 +113,7 @@ export class WhiteboardPanel {
                 return;
             }
 
-            WhiteboardPanel._createPanel(extensionUri, options, resolve, column);
+            void WhiteboardPanel._createPanel(extensionUri, options, resolve, column);
         });
     }
 
@@ -162,7 +158,7 @@ export class WhiteboardPanel {
             return false;
         }
 
-        WhiteboardPanel._createPanel(extensionUri, options, pendingResolver);
+        void WhiteboardPanel._createPanel(extensionUri, options, pendingResolver);
         return true;
     }
 
@@ -365,11 +361,11 @@ export class WhiteboardPanel {
         await this._panel.webview.postMessage({ type: 'error', message } as ToWebviewMessage);
     }
 
-    private _getHtmlContent(): string {
+    private async _getHtmlContent(): Promise<string> {
         const webview = this._panel.webview;
         const nonce = getNonce();
         const templatePath = path.join(this._extensionUri.fsPath, 'media', 'whiteboard.html');
-        let template = fs.readFileSync(templatePath, 'utf8');
+        let template = await fs.readFile(templatePath, 'utf8');
 
         const replacements: Record<string, string> = {
             '{{cspSource}}': webview.cspSource,
@@ -387,12 +383,12 @@ export class WhiteboardPanel {
         return template;
     }
 
-    private static _createPanel(
+    private static async _createPanel(
         extensionUri: vscode.Uri,
         options: WhiteboardPanelOptions,
         resolve: (result: WhiteboardPanelResult) => void,
         column = vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One,
-    ): void {
+    ): Promise<void> {
         const panel = vscode.window.createWebviewPanel(
             WhiteboardPanel.viewType,
             options.title,
@@ -413,6 +409,10 @@ export class WhiteboardPanel {
         panel.onDidDispose(() => {
             WhiteboardPanel._panels.delete(options.interactionId);
         });
+
+        // Set HTML content asynchronously
+        const htmlContent = await whiteboardPanel._getHtmlContent();
+        panel.webview.html = htmlContent;
     }
 }
 
