@@ -32,7 +32,7 @@ export async function planReview(
     const storage = getChatHistoryStorage();
 
     // Save the interaction as pending (no chatId needed - each interaction is individual)
-    const interactionId = storage.savePlanReviewInteraction({
+    const interactionId = await storage.savePlanReviewInteraction({
         plan,
         title,
         mode,
@@ -75,7 +75,7 @@ export async function planReview(
             ? result.action : 'closed';
 
         // Update the stored interaction with the result
-        storage.updateInteraction(interactionId, {
+        await storage.updateInteraction(interactionId, {
             status: interactionState,
             requiredRevisions: result.requiredRevisions
         });
@@ -102,7 +102,7 @@ export async function planReview(
         Logger.error('Error showing plan review panel:', error);
 
         // Mark as closed on error
-        storage.updateInteraction(interactionId, { status: 'closed' });
+        await storage.updateInteraction(interactionId, { status: 'closed' });
         // Refresh webview
         provider.refreshHome();
 

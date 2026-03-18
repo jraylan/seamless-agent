@@ -98,7 +98,35 @@ async function main() {
         plugins: [esbuildProblemMatcherPlugin],
     });
 
-    const contexts = [extensionCtx, webviewCtx, planReviewCtx];
+    // Whiteboard webview bundle (browser)
+    const whiteboardCtx = await esbuild.context({
+        entryPoints: ['src/webview/whiteboard.ts'],
+        bundle: true,
+        format: 'iife',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/whiteboard.js',
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+
+    // A2UI panel bundle (browser)
+    const a2uiCtx = await esbuild.context({
+        entryPoints: ['src/a2ui/webview.ts'],
+        bundle: true,
+        format: 'iife',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/a2ui.js',
+        logLevel: 'info',
+        plugins: [esbuildProblemMatcherPlugin],
+    });
+
+    const contexts = [extensionCtx, webviewCtx, planReviewCtx, whiteboardCtx, a2uiCtx];
 
     // CLI bundle (Node.js standalone) - Only for Antigravity
     if (antigravity) {
@@ -111,7 +139,7 @@ async function main() {
             sourcesContent: false,
             platform: 'node',
             outfile: 'dist/seamless-agent-mcp.js',
-            external: [],  // Bundle all dependencies
+            external: ['vscode'],  // Bundle zod and all subpaths to ensure standalone CLI resolves zod/v3 (MCP SDK 1.25.2 compat)
             logLevel: 'info',
             plugins: [esbuildProblemMatcherPlugin, shebangPlugin],
         });

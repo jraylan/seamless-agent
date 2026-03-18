@@ -1,0 +1,267 @@
+{
+  "title": "Android App UI - Seeded Layout",
+  "context": "Review the starter Android dashboard mockup, adjust the layout if needed, and submit the final whiteboard.",
+  "initialCanvases": [
+    {
+      "name": "Android Dashboard",
+      "seedElements": [
+        {
+          "type": "rectangle",
+          "x": 80,
+          "y": 40,
+          "width": 760,
+          "height": 64,
+          "strokeColor": "#1d4ed8",
+          "fillColor": "#2563eb"
+        },
+        {
+          "type": "text",
+          "x": 460,
+          "y": 78,
+          "text": "Android App Bar",
+          "fontSize": 22,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#ffffff"
+        },
+        {
+          "type": "rectangle",
+          "x": 80,
+          "y": 140,
+          "width": 250,
+          "height": 280,
+          "strokeColor": "#0f766e",
+          "fillColor": "rgba(15,118,110,0.12)"
+        },
+        {
+          "type": "text",
+          "x": 160,
+          "y": 176,
+          "text": "Profile Card",
+          "fontSize": 18,
+          "fontWeight": 700,
+          "color": "#115e59"
+        },
+        {
+          "type": "circle",
+          "x": 205,
+          "y": 245,
+          "radius": 46,
+          "strokeColor": "#0f766e",
+          "fillColor": "rgba(45,212,191,0.18)"
+        },
+        {
+          "type": "text",
+          "x": 160,
+          "y": 320,
+          "text": "Name: John Doe",
+          "fontSize": 14,
+          "color": "#134e4a"
+        },
+        {
+          "type": "text",
+          "x": 160,
+          "y": 346,
+          "text": "Role: Developer",
+          "fontSize": 13,
+          "color": "#134e4a"
+        },
+        {
+          "type": "rectangle",
+          "x": 370,
+          "y": 140,
+          "width": 470,
+          "height": 210,
+          "strokeColor": "#b45309",
+          "fillColor": "rgba(251,191,36,0.14)"
+        },
+        {
+          "type": "text",
+          "x": 540,
+          "y": 176,
+          "text": "Dashboard Stats",
+          "fontSize": 18,
+          "fontWeight": 700,
+          "color": "#92400e"
+        },
+        {
+          "type": "rectangle",
+          "x": 392,
+          "y": 206,
+          "width": 120,
+          "height": 76,
+          "strokeColor": "#d97706",
+          "fillColor": "rgba(251,191,36,0.22)",
+          "rx": 10
+        },
+        {
+          "type": "text",
+          "x": 432,
+          "y": 234,
+          "text": "Users",
+          "fontSize": 12,
+          "fontWeight": 600,
+          "textAlign": "center",
+          "color": "#92400e"
+        },
+        {
+          "type": "text",
+          "x": 452,
+          "y": 262,
+          "text": "1234",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#78350f"
+        },
+        {
+          "type": "rectangle",
+          "x": 548,
+          "y": 206,
+          "width": 120,
+          "height": 76,
+          "strokeColor": "#d97706",
+          "fillColor": "rgba(251,191,36,0.22)",
+          "rx": 10
+        },
+        {
+          "type": "text",
+          "x": 588,
+          "y": 234,
+          "text": "Sales",
+          "fontSize": 12,
+          "fontWeight": 600,
+          "textAlign": "center",
+          "color": "#92400e"
+        },
+        {
+          "type": "text",
+          "x": 608,
+          "y": 262,
+          "text": "$56K",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#78350f"
+        },
+        {
+          "type": "rectangle",
+          "x": 704,
+          "y": 206,
+          "width": 120,
+          "height": 76,
+          "strokeColor": "#d97706",
+          "fillColor": "rgba(251,191,36,0.22)",
+          "rx": 10
+        },
+        {
+          "type": "text",
+          "x": 744,
+          "y": 234,
+          "text": "Tasks",
+          "fontSize": 12,
+          "fontWeight": 600,
+          "textAlign": "center",
+          "color": "#92400e"
+        },
+        {
+          "type": "text",
+          "x": 764,
+          "y": 262,
+          "text": "89%",
+          "fontSize": 20,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#78350f"
+        },
+        {
+          "type": "line",
+          "start": { "x": 80, "y": 454 },
+          "end": { "x": 840, "y": 454 },
+          "strokeColor": "#cbd5e1",
+          "strokeWidth": 3
+        },
+        {
+          "type": "rectangle",
+          "x": 92,
+          "y": 484,
+          "width": 150,
+          "height": 50,
+          "strokeColor": "#16a34a",
+          "fillColor": "#16a34a",
+          "rx": 24
+        },
+        {
+          "type": "text",
+          "x": 167,
+          "y": 515,
+          "text": "Add New",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#ffffff"
+        },
+        {
+          "type": "rectangle",
+          "x": 276,
+          "y": 484,
+          "width": 150,
+          "height": 50,
+          "strokeColor": "#2563eb",
+          "fillColor": "rgba(37,99,235,0.16)",
+          "rx": 24
+        },
+        {
+          "type": "text",
+          "x": 351,
+          "y": 515,
+          "text": "Edit",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#1d4ed8"
+        },
+        {
+          "type": "rectangle",
+          "x": 460,
+          "y": 484,
+          "width": 150,
+          "height": 50,
+          "strokeColor": "#dc2626",
+          "fillColor": "rgba(220,38,38,0.14)",
+          "rx": 24
+        },
+        {
+          "type": "text",
+          "x": 535,
+          "y": 515,
+          "text": "Delete",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#b91c1c"
+        },
+        {
+          "type": "rectangle",
+          "x": 644,
+          "y": 484,
+          "width": 150,
+          "height": 50,
+          "strokeColor": "#6d28d9",
+          "fillColor": "rgba(109,40,217,0.14)",
+          "rx": 24
+        },
+        {
+          "type": "text",
+          "x": 719,
+          "y": 515,
+          "text": "Settings",
+          "fontSize": 14,
+          "fontWeight": 700,
+          "textAlign": "center",
+          "color": "#5b21b6"
+        }
+      ]
+    }
+  ]
+}

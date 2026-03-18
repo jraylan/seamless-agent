@@ -4,10 +4,193 @@ export interface RequiredPlanRevisions {
     revisorInstructions: string;
 }
 
-// Represents a stored interaction (either ask_user or plan_review)
+export interface WhiteboardShapeSummary {
+    id: string;
+    objectType: string;
+    label?: string;
+}
+
+export interface WhiteboardImageReference {
+    id: string;
+    sourceUri?: string;
+    mimeType?: string;
+    width?: number;
+    height?: number;
+}
+
+export interface WhiteboardCanvas {
+    id: string;
+    name: string;
+    fabricState: string;
+    thumbnail?: string;
+    createdAt: number;
+    updatedAt: number;
+    shapes?: WhiteboardShapeSummary[];
+    images?: WhiteboardImageReference[];
+}
+
+/**
+ * Canonical submit payload after the extension normalizes the message boundary.
+ * `name` remains optional here because legacy/current submit messages may omit it.
+ */
+export interface NormalizedWhiteboardCanvasSubmission {
+    id: string;
+    imageUri: string;
+    name?: string;
+    fabricState?: string;
+    thumbnail?: string;
+    shapes?: WhiteboardShapeSummary[];
+    images?: WhiteboardImageReference[];
+}
+
+/**
+ * Stored/result whiteboard record. Names are required once a submission is
+ * persisted or returned from the tool contract.
+ */
+export interface WhiteboardSubmittedCanvas {
+    id: string;
+    imageUri: string;
+    name: string;
+}
+
+export interface LegacyWhiteboardSubmittedCanvas {
+    /** @deprecated Use `id` for submit payloads. */
+    canvasId: string;
+    imageUri: string;
+    name?: string;
+    fabricState?: string;
+    thumbnail?: string;
+    shapes?: WhiteboardShapeSummary[];
+    images?: WhiteboardImageReference[];
+}
+
+export type WhiteboardCanvasSubmission = NormalizedWhiteboardCanvasSubmission | LegacyWhiteboardSubmittedCanvas;
+
+export type WhiteboardReviewAction = 'approved' | 'recreateWithChanges' | 'cancelled';
+
+export type WhiteboardSessionStatus = 'pending' | WhiteboardReviewAction;
+
+export function isLegacyWhiteboardSubmittedCanvas(
+    canvas: WhiteboardCanvasSubmission
+): canvas is LegacyWhiteboardSubmittedCanvas {
+    return 'canvasId' in canvas && !('id' in canvas);
+}
+
+/**
+ * Normalizes whiteboard submit payloads at the webview message boundary so the
+ * stored session/result contracts can stay canonical on `id`.
+ */
+export function normalizeWhiteboardSubmittedCanvas(
+    canvas: WhiteboardCanvasSubmission
+): NormalizedWhiteboardCanvasSubmission {
+    if ('id' in canvas && 'canvasId' in canvas) {
+        throw new Error('Whiteboard canvas submission cannot include both id and canvasId');
+    }
+
+    if (isLegacyWhiteboardSubmittedCanvas(canvas)) {
+        return {
+            id: canvas.canvasId,
+            imageUri: canvas.imageUri,
+            ...(typeof canvas.name === 'string' ? { name: canvas.name } : {}),
+            ...(typeof canvas.fabricState === 'string' ? { fabricState: canvas.fabricState } : {}),
+            ...(typeof canvas.thumbnail === 'string' ? { thumbnail: canvas.thumbnail } : {}),
+            ...(Array.isArray(canvas.shapes) ? { shapes: canvas.shapes } : {}),
+            ...(Array.isArray(canvas.images) ? { images: canvas.images } : {}),
+        };
+    }
+
+    return canvas;
+}
+
+export function normalizeWhiteboardSubmittedCanvases(
+    canvases: WhiteboardCanvasSubmission[]
+): NormalizedWhiteboardCanvasSubmission[] {
+    return canvases.map(normalizeWhiteboardSubmittedCanvas);
+}
+
+type WhiteboardCanvasNameLookup = Pick<WhiteboardCanvas, 'id' | 'name'>;
+
+export function resolveWhiteboardSubmittedCanvas(
+    canvas: WhiteboardCanvasSubmission,
+    canvases: WhiteboardCanvasNameLookup[]
+): WhiteboardSubmittedCanvas {
+    const normalizedCanvas = normalizeWhiteboardSubmittedCanvas(canvas);
+    const storedCanvas = canvases.find((candidate) => candidate.id === normalizedCanvas.id);
+    const name = normalizedCanvas.name ?? storedCanvas?.name;
+
+    if (!name) {
+        throw new Error(`Whiteboard canvas submission '${normalizedCanvas.id}' is missing a name`);
+    }
+
+    // Return only the canonical fields: extra heavy fields (fabricState, thumbnail, shapes, images)
+    // must NOT be forwarded to the stored/result contract to avoid bloating tool results.
+    return {
+        id: normalizedCanvas.id,
+        imageUri: normalizedCanvas.imageUri,
+        name,
+    };
+}
+
+export function resolveWhiteboardSubmittedCanvases(
+    submittedCanvases: WhiteboardCanvasSubmission[],
+    canvases: WhiteboardCanvasNameLookup[]
+): WhiteboardSubmittedCanvas[] {
+    return submittedCanvases.map((canvas) => resolveWhiteboardSubmittedCanvas(canvas, canvases));
+}
+
+export function mergeSubmittedWhiteboardCanvases(
+    submittedCanvases: WhiteboardCanvasSubmission[],
+    canvases: WhiteboardCanvas[]
+): WhiteboardCanvas[] {
+    const normalizedSubmissions = new Map(
+        normalizeWhiteboardSubmittedCanvases(submittedCanvases).map((canvas) => [canvas.id, canvas])
+    );
+
+    return canvases.map((canvas) => {
+        const submittedCanvas = normalizedSubmissions.get(canvas.id);
+        if (!submittedCanvas) {
+            return canvas;
+        }
+
+        return {
+            ...canvas,
+            ...(typeof submittedCanvas.name === 'string' ? { name: submittedCanvas.name } : {}),
+            ...(typeof submittedCanvas.fabricState === 'string' ? { fabricState: submittedCanvas.fabricState } : {}),
+            ...(typeof submittedCanvas.thumbnail === 'string' ? { thumbnail: submittedCanvas.thumbnail } : {}),
+            ...(Array.isArray(submittedCanvas.shapes) ? { shapes: submittedCanvas.shapes } : {}),
+            ...(Array.isArray(submittedCanvas.images) ? { images: submittedCanvas.images } : {}),
+        };
+    });
+}
+
+export interface WhiteboardSession {
+    id: string;
+    interactionId: string;
+    context?: string;
+    title?: string;
+    canvases: WhiteboardCanvas[];
+    activeCanvasId?: string;
+    status: WhiteboardSessionStatus;
+    submittedAt?: number;
+    submittedCanvases?: WhiteboardSubmittedCanvas[];
+}
+
+export interface RenderUISession {
+    id: string;
+    interactionId: string;
+    title?: string;
+    surfaceId: string;
+    components?: unknown[]; // A2UIComponent[] from a2ui/types
+    dataModel?: Record<string, unknown>; // A2UIDataModel from a2ui/types
+    userAction?: { name: string; data: Record<string, unknown> };
+    dismissed?: boolean;
+    renderErrors?: Array<{ source: string; message: string }>;
+}
+
+// Represents a stored interaction (ask_user, plan_review, whiteboard, or renderUI)
 export interface StoredInteraction {
     id: string;
-    type: 'ask_user' | 'plan_review';
+    type: 'ask_user' | 'plan_review' | 'whiteboard' | 'renderUI';
     timestamp: number;
     isDebug?: boolean;
 
@@ -25,6 +208,52 @@ export interface StoredInteraction {
     mode?: 'review' | 'walkthrough';
     requiredRevisions?: RequiredPlanRevisions[];
     status?: 'pending' | 'approved' | 'recreateWithChanges' | 'acknowledged' | 'closed' | 'cancelled';
+
+    // For whiteboard
+    whiteboardSession?: WhiteboardSession;
+
+    // For renderUI
+    renderUISession?: RenderUISession;
+}
+
+export function isPendingStoredInteraction(interaction: StoredInteraction): boolean {
+    if (interaction.type === 'plan_review') {
+        return interaction.status === 'pending';
+    }
+
+    if (interaction.type === 'whiteboard') {
+        const whiteboardStatus = interaction.whiteboardSession?.status;
+        // Treat 'submitted' as completed (legacy status from old data)
+        // Valid pending statuses: 'pending'
+        // Completed statuses: 'approved', 'recreateWithChanges', 'cancelled', 'submitted'
+        return (whiteboardStatus as string) === 'pending';
+    }
+
+    // renderUI and ask_user are always completed (no pending state)
+    return false;
+}
+
+export function isCompletedStoredInteraction(interaction: StoredInteraction): boolean {
+    if (interaction.type === 'ask_user') {
+        return true;
+    }
+
+    if (interaction.type === 'whiteboard') {
+        const whiteboardStatus = interaction.whiteboardSession?.status;
+        // 'submitted' is a legacy/invalid status that should be treated as completed
+        const status = whiteboardStatus as string;
+        return status === 'approved'
+            || status === 'recreateWithChanges'
+            || status === 'cancelled'
+            || status === 'submitted';
+    }
+
+    // renderUI is always completed (no pending state)
+    if (interaction.type === 'renderUI') {
+        return true;
+    }
+
+    return interaction.status !== 'pending';
 }
 
 // Attachment info
@@ -130,6 +359,7 @@ export type ToWebviewMessage = | {
         type: 'showHome';
         pendingRequests: RequestItem[];
         pendingPlanReviews: StoredInteraction[];
+        pendingWhiteboards: StoredInteraction[];
         historyInteractions: StoredInteraction[];
         recentInteractions: ToolCallInteraction[];
         selectedRequestId?: string;
@@ -203,6 +433,10 @@ export type FromWebviewMessage = | {
         requestId: string
     }
     | {
+        type: 'openInlineWhiteboard';
+        requestId: string
+    }
+    | {
         type: 'removeAttachment';
         requestId: string;
         attachmentId: string
@@ -236,6 +470,14 @@ export type FromWebviewMessage = | {
     }
     | {
         type: 'openPlanReviewPanel';
+        interactionId: string
+    }
+    | {
+        type: 'openWhiteboardPanel';
+        interactionId: string
+    }
+    | {
+        type: 'openRenderUIPanel';
         interactionId: string
     }
     | {
@@ -296,10 +538,13 @@ export type FromWebviewMessage = | {
     | { type: 'ready' }
     | {
         type: 'debugMockToolCall';
-        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview';
+        mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
     }
     | {
         type: 'openSettings'
+    }
+    | {
+        type: 'showLogs'
     };
 
 
@@ -336,6 +581,42 @@ export type PlanReviewPanelFromWebviewMessage =
     | { type: 'editComment'; index: number; revisorInstructions: string }
     | { type: 'removeComment'; index: number }
     | { type: 'exportPlan' };
+
+
+export type WhiteboardToExtensionMessage =
+    | { type: 'ready' }
+    | { type: 'submit'; action: Exclude<WhiteboardReviewAction, 'cancelled'>; canvases: WhiteboardCanvasSubmission[]; userComment?: string }
+    | { type: 'cancel' }
+    | {
+        type: 'saveCanvas';
+        canvasId: string;
+        name?: string;
+        fabricState: string;
+        thumbnail?: string;
+        shapes?: WhiteboardShapeSummary[];
+        images?: WhiteboardImageReference[];
+    }
+    | { type: 'deleteCanvas'; canvasId: string }
+    | { type: 'createCanvas'; name: string; canvasId?: string; fabricState?: string }
+    | { type: 'switchCanvas'; canvasId: string };
+
+export type ExtensionToWhiteboardMessage =
+    | { type: 'initialize'; session: WhiteboardSession; title: string }
+    | { type: 'cancel' }
+    | { type: 'error'; message: string };
+
+export interface WhiteboardPanelOptions {
+    interactionId: string;
+    title: string;
+    session: WhiteboardSession;
+}
+
+export interface WhiteboardPanelResult {
+    submitted: boolean;
+    action: WhiteboardReviewAction;
+    canvases: WhiteboardCanvasSubmission[];
+    userComment?: string;
+}
 // File search result for autocomplete
 export interface FileSearchResult {
     name: string;

@@ -136,6 +136,12 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
     context.subscriptions.push(clearHistoryCommand);
+
+    // Register command to show extension logs
+    const showLogsCommand = vscode.commands.registerCommand('seamless-agent.showLogs', () => {
+        Logger.show();
+    });
+    context.subscriptions.push(showLogsCommand);
 }
 
 // This method is called when your extension is deactivated

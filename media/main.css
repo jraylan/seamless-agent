@@ -1071,20 +1071,31 @@ button:disabled {
 .input-area {
     display: flex;
     align-items: stretch;
+    gap: 4px;
+}
+
+.input-tools-stack {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 2px 0;
 }
 
 .attach-btn {
-    flex-shrink: 0;
-    width: 32px;
+    width: 24px;
+    min-height: 24px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
     cursor: pointer;
     color: var(--vscode-descriptionForeground);
-    padding: 8px 4px;
-    border-radius: 4px;
+    padding: 2px;
+    border-radius: 3px;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .attach-btn:hover {
@@ -1100,15 +1111,18 @@ button:disabled {
 .input-area .textarea-wrapper {
     flex: 1;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 52px;
 }
 
 .input-area .textarea-wrapper textarea {
     width: 100%;
-    min-height: auto !important;
-    max-height: none !important;
+    min-height: 52px;
+    max-height: none;
     /* Height controlled dynamically by JS + resize handle */
     height: auto;
-    padding: 8px 12px 8px 0;
+    padding: 4px 8px 6px 6px;
     border: none !important;
     background: transparent !important;
     color: var(--vscode-input-foreground);
@@ -1118,10 +1132,16 @@ button:disabled {
     resize: none;
     /* Focus is handled by parent .input-container:focus-within */
     outline: 2px solid transparent;
-    /* Keeps a11y compliance while visually hidden */
+    /* Keeps a11y compliance while vertically hidden */
     box-sizing: border-box;
+    /* Ensure cursor is always text */
+    cursor: text;
+    /* Fix clicking issue - ensure element receives pointer events */
+    pointer-events: auto;
+    /* Let JS control overflow for auto-resize - hidden allows scrollHeight to work correctly */
     overflow: hidden;
-    /* Height controlled dynamically by JS */
+    /* Align text to top */
+    vertical-align: top;
 }
 
 .input-area .textarea-wrapper textarea:focus {
@@ -2258,4 +2278,58 @@ button:disabled {
     margin-left: 4px;
     color: var(--vscode-testing-iconUnset);
     font-size: 12px;
+}
+
+
+/* Settings Tab Styles */
+.settings-container {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.settings-section-title {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--vscode-foreground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 8px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.settings-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.settings-btn .codicon {
+  font-size: 1.2em;
+}
+
+.settings-description {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+  padding: 0 4px;
 }

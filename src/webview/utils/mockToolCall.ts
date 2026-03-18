@@ -1,9 +1,49 @@
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Logger } from '../../logging';
 import type { PlanReviewResult } from '../types';
 import type { AgentInteractionProvider } from '../webviewProvider';
 
 
 export class MockToolCallService {
+
+    private static loadWhiteboardDebugPayload(webviewProvider: AgentInteractionProvider, fileName: string): any {
+        const filePath = path.join(webviewProvider.getContext().extensionUri.fsPath, 'resources', 'debug', 'whiteboard', fileName);
+        Logger.log('[Debug Mock] loading whiteboard payload:', filePath);
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+
+    private static async openDebugWhiteboard(
+        webviewProvider: AgentInteractionProvider,
+        tokenSource: vscode.CancellationTokenSource,
+        payload: any,
+        label: string,
+    ): Promise<void> {
+        const { openWhiteboard } = await import('../../tools/openWhiteboard');
+        Logger.log('[Debug Mock] opening whiteboard payload:', {
+            label,
+            title: payload?.title,
+            canvasCount: Array.isArray(payload?.initialCanvases) ? payload.initialCanvases.length : 0,
+            elementCounts: Array.isArray(payload?.initialCanvases)
+                ? payload.initialCanvases.map((canvas: any) => Array.isArray(canvas?.seedElements) ? canvas.seedElements.length : 0)
+                : [],
+        });
+
+        return openWhiteboard(
+            payload,
+            webviewProvider.getContext(),
+            webviewProvider,
+            tokenSource.token,
+            { isDebug: true }
+        ).then(result => {
+            Logger.log(`[Debug Mock] ${label} result:`, result);
+        }).catch((err: any) => {
+            Logger.error(`[Debug Mock] ${label} error:`, err);
+        }).finally(() => {
+            tokenSource.dispose();
+        });
+    }
 
     public static async mockToolCall(mockType: string, webviewProvider: AgentInteractionProvider): Promise<void> {
         const storage = webviewProvider.getChatHistoryStorage();
@@ -161,7 +201,7 @@ export class MockToolCallService {
             case 'planReview': {
                 const mockPlan = `# Deployment Plan\n\n## Phase 1: Preparation\n- Review code changes\n- Run full test suite\n- Update documentation\n\n## Phase 2: Staging\n- Deploy to staging environment\n- Run integration tests\n- Performance benchmarking\n\n## Phase 3: Production\n- Blue-green deployment\n- Health check monitoring\n- Rollback plan ready\n\n## Timeline\n| Phase | Duration |\n|-------|----------|\n| Prep | 2 hours |\n| Staging | 4 hours |\n| Production | 1 hour |`;
 
-                const planId = storage.savePlanReviewInteraction({
+                const planId = await storage.savePlanReviewInteraction({
                     plan: mockPlan,
                     title: 'Debug: Plan Review',
                     mode: 'review',
@@ -179,19 +219,160 @@ export class MockToolCallService {
                     readOnly: false,
                     existingComments: [],
                     interactionId: planId,
-                }).then((result: PlanReviewResult) => {
+                }).then(async (result: PlanReviewResult) => {
                     const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
                         ? result.action : 'closed';
-                    storage.updateInteraction(planId, {
+                    await storage.updateInteraction(planId, {
                         status: state,
                         requiredRevisions: result.requiredRevisions,
                     });
                     webviewProvider.switchTab('pending');
                     Logger.log('[Debug Mock] planReview result:', result);
-                }).catch((err: any) => {
-                    storage.updateInteraction(planId, { status: 'closed' });
+                }).catch(async (err: any) => {
+                    await storage.updateInteraction(planId, { status: 'closed' });
                     webviewProvider.switchTab('pending');
                     Logger.error('[Debug Mock] planReview error:', err);
+                });
+                break;
+            }
+
+            case 'whiteboard': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                void this.openDebugWhiteboard(
+                    webviewProvider,
+                    tokenSource,
+                    {
+                        title: 'Debug: Whiteboard',
+                        context: 'Sketch something on the canvas — for example, a system diagram with boxes for API, Database, and Client connected by arrows. When done, click Submit to return the drawing as an image.',
+                    },
+                    'whiteboard',
+                );
+                break;
+            }
+
+            case 'whiteboardTest1': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'test-1.json');
+                void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest1');
+                break;
+            }
+
+            case 'whiteboardTest2': {
+                const tokenSource = new vscode.CancellationTokenSource();
+                const payload = this.loadWhiteboardDebugPayload(webviewProvider, 'test-2.json');
+                void this.openDebugWhiteboard(webviewProvider, tokenSource, payload, 'whiteboardTest2');
+                break;
+            }
+
+            case 'renderUI': {
+                const { renderUI } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI info panel');
+                void renderUI(
+                    {
+                        surfaceId: 'debug-render-ui-info',
+                        title: 'Debug: Render UI - Release Dashboard',
+                        enableA2UI: true,
+                        a2uiLevel: 'strict',
+                        dataModel: {
+                            releaseName: 'Spring Cutover',
+                            owner: 'Platform Team',
+                            progress: 72,
+                            status: 'Ready for review',
+                        },
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: '$data.releaseName', level: 2 } } },
+                            { id: 'desc', parentId: 'col1', component: { type: 'Markdown', props: { content: 'This panel demonstrates **data binding**, badges, progress, markdown, and diagram source blocks inside `render_ui`.' } } },
+                            { id: 'row1', parentId: 'col1', component: { type: 'Row' } },
+                            { id: 'badge1', parentId: 'row1', component: { type: 'Badge', props: { label: 'Owner: $data.owner' } } },
+                            { id: 'badge2', parentId: 'row1', component: { type: 'Badge', props: { label: '$data.status' } } },
+                            { id: 'prog', parentId: 'col1', component: { type: 'ProgressBar', props: { label: 'Rollout Progress', value: '$data.progress', max: 100 } } },
+                            { id: 'dangerRow', parentId: 'col1', component: { type: 'Row' } },
+                            { id: 'deleteRelease', parentId: 'dangerRow', component: { type: 'Button', props: { label: 'Delete', action: 'delete_release', variant: 'danger' } } },
+                            { id: 'div2', parentId: 'col1', component: { type: 'Divider' } },
+                            { id: 'md', parentId: 'col1', component: { type: 'Markdown', props: { content: '## Checklist\n- Review migration notes\n- Confirm rollback owner\n- Publish support bulletin' } } },
+                            { id: 'diagram', parentId: 'col1', component: { type: 'MermaidDiagram', props: { label: 'Rollout Flow', content: 'flowchart LR\n  Plan --> Review\n  Review --> Deploy\n  Deploy --> Monitor' } } },
+                        ],
+                        waitForAction: false,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI info result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI info error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
+                });
+                break;
+            }
+
+            case 'renderUIForm': {
+                const { renderUI: renderUIFormFn } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI form panel');
+                void renderUIFormFn(
+                    {
+                        surfaceId: 'debug-render-ui-form',
+                        title: 'Debug: Render UI - Approval Form',
+                        enableA2UI: true,
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: 'Demo Approval Form', level: 2 } } },
+                            { id: 'desc', parentId: 'col1', component: { type: 'Markdown', props: { content: 'This panel demonstrates labeled form controls, object-valued select options, and returned `userAction.data`.' } } },
+                            { id: 'card1', parentId: 'col1', component: { type: 'Card' } },
+                            { id: 'name', parentId: 'card1', component: { type: 'TextField', props: { label: 'Approver Name', placeholder: 'Enter your name', required: true } } },
+                            { id: 'env', parentId: 'card1', component: { type: 'Select', props: { label: 'Deployment Target', placeholder: 'Choose an environment', required: true, options: [{ label: 'Staging', value: 'staging' }, { label: 'Production', value: 'production' }, { label: 'Rollback Drill', value: 'rollback' }] } } },
+                            { id: 'agree', parentId: 'card1', component: { type: 'Checkbox', props: { label: 'I verified the rollback checklist' } } },
+                            { id: 'submit', parentId: 'card1', component: { type: 'Button', props: { label: 'Submit Review', action: 'submit_form' } } },
+                        ],
+                        waitForAction: true,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI form result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI form error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
+                });
+                break;
+            }
+
+            case 'renderUIMarkdown': {
+                const { renderUI: renderUIMarkdownFn } = await import('../../tools/renderUI');
+                const tokenSource = new vscode.CancellationTokenSource();
+                Logger.log('[Debug Mock] opening renderUI markdown panel');
+                void renderUIMarkdownFn(
+                    {
+                        surfaceId: 'debug-render-ui-markdown',
+                        title: 'Debug: Render UI - Content Showcase',
+                        enableA2UI: true,
+                        components: [
+                            { id: 'col1', component: { type: 'Column' } },
+                            { id: 'h1', parentId: 'col1', component: { type: 'Heading', props: { text: 'Markdown Showcase', level: 1 } } },
+                            { id: 'md1', parentId: 'col1', component: { type: 'Markdown', props: { content: '## Overview\n\nThis panel renders **Markdown** as formatted HTML and keeps `CodeBlock` and `MermaidDiagram` available for technical content.' } } },
+                            { id: 'code1', parentId: 'col1', component: { type: 'CodeBlock', props: { content: 'const result = await renderUI({\n  components,\n  waitForAction: true,\n});', language: 'typescript' } } },
+                            { id: 'div1', parentId: 'col1', component: { type: 'Divider' } },
+                            { id: 'diagram', parentId: 'col1', component: { type: 'MermaidDiagram', props: { label: 'Incident Escalation Flow', content: 'flowchart TD\n  UserReport --> Triage\n  Triage --> Fix\n  Fix --> Verify' } } },
+                            { id: 'md2', parentId: 'col1', component: { type: 'Markdown', props: { content: '> **Tip:** Use `Markdown` for rich formatted text, `CodeBlock` for code, and `MermaidDiagram` for source-controlled diagrams.' } } },
+                            { id: 'dismiss', parentId: 'col1', component: { type: 'Button', props: { label: 'Dismiss', action: 'dismiss' } } },
+                        ],
+                        waitForAction: true,
+                    },
+                    webviewProvider.getContext(),
+                    webviewProvider,
+                    tokenSource.token,
+                ).then(result => {
+                    Logger.log('[Debug Mock] renderUI markdown result:', result);
+                }).catch((err: any) => {
+                    Logger.error('[Debug Mock] renderUI markdown error:', err);
+                }).finally(() => {
+                    tokenSource.dispose();
                 });
                 break;
             }
@@ -199,7 +380,7 @@ export class MockToolCallService {
             case 'walkthroughReview': {
                 const mockWalkthrough = `# Getting Started Guide\n\n## Step 1: Install Dependencies\n\`\`\`bash\nnpm install\n\`\`\`\n\n## Step 2: Configure Environment\nCreate a \`.env\` file:\n\`\`\`\nDATABASE_URL=postgresql://localhost:5432/mydb\nAPI_KEY=your-api-key\n\`\`\`\n\n## Step 3: Run Migrations\n\`\`\`bash\nnpm run db:migrate\n\`\`\`\n\n## Step 4: Start Development Server\n\`\`\`bash\nnpm run dev\n\`\`\`\n\nVisit http://localhost:3000 to see the app running.`;
 
-                const walkthroughId = storage.savePlanReviewInteraction({
+                const walkthroughId = await storage.savePlanReviewInteraction({
                     plan: mockWalkthrough,
                     title: 'Debug: Walkthrough',
                     mode: 'walkthrough',
@@ -217,17 +398,17 @@ export class MockToolCallService {
                     readOnly: false,
                     existingComments: [],
                     interactionId: walkthroughId,
-                }).then((result: PlanReviewResult) => {
+                }).then(async (result: PlanReviewResult) => {
                     const state = ['approved', 'recreateWithChanges', 'acknowledged'].includes(result.action)
                         ? result.action : 'closed';
-                    storage.updateInteraction(walkthroughId, {
+                    await storage.updateInteraction(walkthroughId, {
                         status: state,
                         requiredRevisions: result.requiredRevisions,
                     });
                     webviewProvider.switchTab('pending');
                     Logger.log('[Debug Mock] walkthroughReview result:', result);
-                }).catch((err: any) => {
-                    storage.updateInteraction(walkthroughId, { status: 'closed' });
+                }).catch(async (err: any) => {
+                    await storage.updateInteraction(walkthroughId, { status: 'closed' });
                     webviewProvider.switchTab('pending');
                     Logger.error('[Debug Mock] walkthroughReview error:', err);
                 });

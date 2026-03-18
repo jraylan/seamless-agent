@@ -21,9 +21,12 @@ import {
     UserResponseResult,
     AskUserOptions,
     PlanReviewResult,
+    mergeSubmittedWhiteboardCanvases,
+    resolveWhiteboardSubmittedCanvases,
 } from "./types";
 import { truncate } from './utils';
 import { Logger } from '../logging';
+import { openWhiteboard } from '../tools/openWhiteboard';
 
 
 export class AgentInteractionProvider implements vscode.WebviewViewProvider {
@@ -51,6 +54,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
     // Chat history storage for plan reviews
     private _chatHistoryStorage: ChatHistoryStorage;
+    private _inlineWhiteboardTokens: Map<string, vscode.CancellationTokenSource> = new Map();
 
     constructor(private readonly _context: vscode.ExtensionContext) {
         // Use the singleton instance that was initialized in extension.ts
@@ -158,9 +162,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         // Always show home view first (which includes pending requests and recent sessions)
         this._showHome();
 
-        // Update badge count
-        if (this._pendingRequests.size > 0) {
-            this._setBadge(this._pendingRequests.size);
+        // Update badge count with total pending from all sources
+        const totalPending = this._getTotalPendingCount();
+        if (totalPending > 0) {
+            this._setBadge(totalPending);
         }
     }
 
@@ -259,7 +264,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             this._pendingRequests.set(req, { item, resolve });
 
             // Update badge count
-            this._setBadge(this._pendingRequests.size);
+            const newTotal = this._getTotalPendingCount();
+            Logger.badge('New pending request created:', { requestId: req, question: question.substring(0, 50), totalPending: newTotal });
+            this._setBadge(newTotal);
 
             // NOTE: Do NOT call this._view?.show() here — even with preserveFocus: true,
             // it causes VS Code to activate the sidebar, stealing focus from the user's
@@ -299,6 +306,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return false;
 
+        this._cancelInlineWhiteboard(requestId);
+
         pending.resolve({
             responded: false, response: reason, attachments: []
         });
@@ -309,7 +318,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             this._lastOpenedRequestId = null;
         }
 
-        this._setBadge(this._pendingRequests.size);
+        const newTotal = this._getTotalPendingCount();
+        this._setBadge(newTotal);
 
         // Update UI
         if (this._pendingRequests.size > 0) {
@@ -332,13 +342,14 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public cancelAllRequests(reason: string = strings.cancelled): void {
         for (const [id, pending] of this._pendingRequests) {
+            this._cancelInlineWhiteboard(id);
             pending.resolve({
                 responded: false, response: reason, attachments: []
             });
         }
 
         this._pendingRequests.clear();
-        this._setBadge(0);
+        this._setBadge(this._getTotalPendingCount());
         this._lastOpenedRequestId = null;
 
         this._view?.webview.postMessage({
@@ -397,28 +408,22 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     private _showHome(): void {
         const pendingRequests = Array.from(this._pendingRequests.values()).map(p => p.item);
         const pendingPlanReviews = this._chatHistoryStorage.getPendingPlanReviews();
+        const pendingWhiteboards = this._chatHistoryStorage.getPendingWhiteboards();
         const historyInteractions = this._chatHistoryStorage.getCompletedInteractions();
-
-        Logger.debug('_showHome called:', {
-            pendingRequestsCount: pendingRequests.length,
-            pendingPlanReviewsCount: pendingPlanReviews.length,
-            historyInteractionsCount: historyInteractions.length,
-            pendingPlanReviews: pendingPlanReviews.map(r => ({ id: r.id, title: r.title, status: r.status }))
-        });
 
         const message: ToWebviewMessage = {
             type: 'showHome',
             pendingRequests,
             pendingPlanReviews,
+            pendingWhiteboards,
             historyInteractions,
             recentInteractions: this._recentInteractions,
             selectedRequestId: this._lastOpenedRequestId || undefined
         };
         this._view?.webview.postMessage(message);
 
-        // Update badge with total pending count (requests + plan reviews)
-        const totalPending = pendingRequests.length + pendingPlanReviews.length;
-        this._setBadge(totalPending);
+        // Update badge with total pending count (requests + stored interactions)
+        this._setBadge(this._getTotalPendingCount());
     }
 
     /**
@@ -502,6 +507,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'addAttachment':
                 this._handleAddAttachment(message.requestId);
                 break;
+            case 'openInlineWhiteboard':
+                await this._handleOpenInlineWhiteboard(message.requestId);
+                break;
             case 'addFolderAttachment':
                 this._handleAddFolderAttachment(message.requestId);
                 break;
@@ -529,6 +537,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openPlanReviewPanel':
                 this._handleOpenPlanReviewPanel(message.interactionId);
                 break;
+            case 'openWhiteboardPanel':
+                this._handleOpenWhiteboardPanel(message.interactionId);
+                break;
+            case 'openRenderUIPanel':
+                this._handleOpenRenderUIPanel(message.interactionId);
+                break;
             case 'deleteInteraction':
                 this._handleDeleteInteraction(message.interactionId);
                 break;
@@ -550,6 +564,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             case 'openSettings':
                 vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jraylan.seamless-agent');
                 break;
+            case 'showLogs':
+                vscode.commands.executeCommand('seamless-agent.showLogs');
+                break;
         }
     }
 
@@ -566,6 +583,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      * Creates a mock pending request to simulate real tool calls.
      */
     private async _handleDebugMockToolCall(mockType: string): Promise<void> {
+        // Handle showLogs directly
+        if (mockType === 'showLogs') {
+            vscode.commands.executeCommand('seamless-agent.showLogs');
+            return;
+        }
         const { MockToolCallService } = await import('./utils/mockToolCall');
         await MockToolCallService.mockToolCall(mockType, this);
     }
@@ -595,7 +617,10 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 }
                 const canceled = this.cancelRequest(requestId);
                 if (!canceled) {
-                    await this.cancelReview(requestId);
+                    const cancelledReview = await this.cancelReview(requestId);
+                    if (!cancelledReview) {
+                        await this.cancelWhiteboard(requestId);
+                    }
                 }
             } finally {
                 this._showHome();
@@ -608,8 +633,32 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const closed = PlanReviewPanel.closeIfOpen(panelId);
         if (!closed) {
             this._chatHistoryStorage.updateInteraction(panelId, { status: 'cancelled' });
+            // Recalculate badge since we just changed a stored interaction's status
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
         }
         return closed;
+    }
+
+    private async cancelWhiteboard(interactionId: string): Promise<boolean> {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+        if (!interaction || interaction.type !== 'whiteboard') {
+            return false;
+        }
+
+        const { WhiteboardPanel } = await import('./whiteboardPanel');
+        const closed = WhiteboardPanel.closeIfOpen(interactionId);
+        if (!closed) {
+            this._chatHistoryStorage.updateWhiteboardInteraction(interactionId, {
+                whiteboardSession: {
+                    status: 'cancelled',
+                },
+            });
+            // Recalculate badge since we just changed a stored interaction's status
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
+        }
+        return true;
     }
 
     /**
@@ -1122,6 +1171,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
 
         if (pending) {
+            this._cancelInlineWhiteboard(requestId);
+
             // Create interaction record and add to history (keeps full attachment info)
             createInteraction(requestId,
                 pending.item.question,
@@ -1178,7 +1229,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             }
 
             // Update badge
-            this._setBadge(this._pendingRequests.size);
+            const newTotal = this._getTotalPendingCount();
+            this._setBadge(newTotal);
 
             // Show home view (pending requests + history)
             if (this._pendingRequests.size > 0) {
@@ -1263,6 +1315,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Get the total count of all pending items (in-memory requests + stored interactions)
+     */
+    private _getTotalPendingCount(): number {
+        const pendingPlanReviews = this._chatHistoryStorage.getPendingPlanReviews();
+        const pendingWhiteboards = this._chatHistoryStorage.getPendingWhiteboards();
+        const total = this._pendingRequests.size + pendingPlanReviews.length + pendingWhiteboards.length;
+        return total;
+    }
+
+    /**
      * Set the badge count on the view
      */
     private _setBadge(count: number): void {
@@ -1276,8 +1338,11 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 };
 
                 setTimeout(() => {
-                    if (this._view && this._pendingRequests.size === 0) {
+                    // Check ALL sources, not just in-memory requests
+                    const totalPending = this._getTotalPendingCount();
+                    if (this._view && totalPending === 0) {
                         this._view.badge = undefined;
+                        Logger.badge('Badge completely removed (all sources empty)');
                     }
                 }, 100);
             }
@@ -1439,6 +1504,159 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private _cancelInlineWhiteboard(requestId: string): void {
+        const tokenSource = this._inlineWhiteboardTokens.get(requestId);
+        if (!tokenSource) {
+            return;
+        }
+
+        tokenSource.cancel();
+        tokenSource.dispose();
+        this._inlineWhiteboardTokens.delete(requestId);
+    }
+
+    private async _handleOpenInlineWhiteboard(requestId: string): Promise<void> {
+        const pending = this._pendingRequests.get(requestId);
+        if (!pending) {
+            return;
+        }
+
+        this._cancelInlineWhiteboard(requestId);
+        const tokenSource = new vscode.CancellationTokenSource();
+        this._inlineWhiteboardTokens.set(requestId, tokenSource);
+
+        try {
+            const result = await openWhiteboard({
+                title: strings.openWhiteboard,
+                context: pending.item.question,
+                blankCanvas: true,
+            }, this._context, this, tokenSource.token);
+
+            // Keep the current ask_user question visible after whiteboard closes
+            if (this._selectedRequestId === requestId) {
+                this._showQuestion(pending.item);
+            }
+
+            if (!result.submitted || result.images.length === 0) {
+                return;
+            }
+
+            const newAttachments: AttachmentInfo[] = result.images.map((image, index) => ({
+                id: `whiteboard_${Date.now()}_${index}`,
+                name: `${image.canvasName}.png`,
+                uri: image.imageUri,
+                isImage: true,
+            }));
+
+            pending.item.attachments.push(...newAttachments);
+            this._view?.webview.postMessage({
+                type: 'updateAttachments',
+                requestId,
+                attachments: pending.item.attachments,
+            });
+        } catch (error) {
+            Logger.error('Failed to open inline whiteboard:', error);
+            const message = error instanceof Error ? error.message : 'Failed to open whiteboard';
+            vscode.window.showErrorMessage(message);
+        } finally {
+            const activeToken = this._inlineWhiteboardTokens.get(requestId);
+            if (activeToken === tokenSource) {
+                tokenSource.dispose();
+                this._inlineWhiteboardTokens.delete(requestId);
+            }
+        }
+    }
+
+    private async _handleOpenRenderUIPanel(interactionId: string): Promise<void> {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+        const session = interaction?.renderUISession;
+
+        if (!interaction || interaction.type !== 'renderUI' || !session) {
+            return;
+        }
+
+        try {
+            const { A2UIPanel } = await import('../a2ui/panel');
+            const surface = {
+                surfaceId: session.surfaceId,
+                title: interaction.title ?? session.title ?? 'UI Surface',
+                components: (session.components as import('../a2ui/types').A2UIComponent[]) ?? [],
+                ...(session.dataModel ? { dataModel: session.dataModel as import('../a2ui/types').A2UIDataModel } : {}),
+            };
+            await A2UIPanel.showSurface(this._extensionUri, surface, false);
+        } catch (error) {
+            Logger.error('Error reopening render_ui panel:', error);
+        }
+    }
+
+    private async _handleOpenWhiteboardPanel(interactionId: string): Promise<void> {
+        const interaction = this._chatHistoryStorage.getInteraction(interactionId);
+        const session = interaction?.whiteboardSession;
+
+        if (!interaction || interaction.type !== 'whiteboard' || !session) {
+            return;
+        }
+
+        const { WhiteboardPanel } = await import('./whiteboardPanel');
+        const title = interaction.title || session.title || 'Whiteboard';
+        const panelOptions = {
+            interactionId,
+            title,
+            session: {
+                ...session,
+                id: session.id || interactionId,
+                interactionId,
+                title,
+            },
+        };
+
+        if (session.status === 'pending' && WhiteboardPanel.hasPendingResolver(interactionId)) {
+            if (WhiteboardPanel.reopenPending(this._extensionUri, interactionId, panelOptions)) {
+                return;
+            }
+        }
+
+        try {
+            const result = await WhiteboardPanel.showWithOptions(this._extensionUri, panelOptions);
+            if (session.status !== 'pending') {
+                return;
+            }
+
+            const resolvedCanvases = result.submitted
+                ? mergeSubmittedWhiteboardCanvases(result.canvases, panelOptions.session.canvases)
+                : panelOptions.session.canvases;
+            const submittedCanvases = result.submitted
+                ? resolveWhiteboardSubmittedCanvases(result.canvases, resolvedCanvases)
+                : [];
+
+            this._chatHistoryStorage.updateWhiteboardInteraction(interactionId, {
+                title,
+                whiteboardSession: {
+                    status: result.action,
+                    submittedAt: result.submitted ? Date.now() : undefined,
+                    submittedCanvases,
+                    ...(result.submitted
+                        ? {
+                            canvases: resolvedCanvases,
+                            activeCanvasId: panelOptions.session.activeCanvasId,
+                        }
+                        : {}),
+                },
+            });
+            this._showHome();
+        } catch (error) {
+            Logger.error('Error showing whiteboard panel:', error);
+            if (session.status === 'pending') {
+                this._chatHistoryStorage.updateWhiteboardInteraction(interactionId, {
+                    whiteboardSession: {
+                        status: 'cancelled',
+                    },
+                });
+                this._showHome();
+            }
+        }
+    }
+
     private _getHtmlContent(webview: vscode.Webview): string {
         // Get URIs for resources
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css'));
@@ -1532,6 +1750,24 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{historyFilterAll}}': strings.historyFilterAll,
             '{{historyFilterAskUser}}': strings.historyFilterAskUser,
             '{{historyFilterPlanReview}}': strings.historyFilterPlanReview,
+            '{{historyFilterWhiteboard}}': strings.historyFilterWhiteboard,
+            '{{historyFilterRenderUI}}': strings.historyFilterRenderUI,
+            '{{whiteboard}}': strings.whiteboard,
+            '{{openWhiteboard}}': strings.openWhiteboard,
+            '{{whiteboardSubmitted}}': strings.whiteboardSubmitted,
+            '{{detailWhiteboard}}': strings.detailWhiteboard,
+            '{{detailWhiteboardContext}}': strings.detailWhiteboardContext,
+            '{{detailWhiteboardCanvases}}': strings.detailWhiteboardCanvases,
+            '{{detailWhiteboardSubmittedCanvases}}': strings.detailWhiteboardSubmittedCanvases,
+            '{{detailWhiteboardNoCanvases}}': strings.detailWhiteboardNoCanvases,
+            '{{detailWhiteboardSession}}': strings.detailWhiteboardSession,
+            '{{detailWhiteboardStatus}}': strings.detailWhiteboardStatus,
+            // renderUI
+            '{{detailRenderUI}}': strings.detailRenderUI,
+            '{{detailRenderUISurfaceId}}': strings.detailRenderUISurfaceId,
+            '{{detailRenderUIComponents}}': strings.detailRenderUIComponents,
+            '{{detailRenderUIUserAction}}': strings.detailRenderUIUserAction,
+            '{{detailRenderUIDismissed}}': strings.detailRenderUIDismissed,
             // Batch selection
             '{{batchSelectMode}}': strings.batchSelectMode,
             '{{batchExitSelectMode}}': strings.batchExitSelectMode,
@@ -1550,12 +1786,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugSectionAskUser}}': strings.debugSectionAskUser,
             '{{debugSectionPlanReview}}': strings.debugSectionPlanReview,
             '{{debugSectionWalkthroughReview}}': strings.debugSectionWalkthroughReview,
+            '{{debugSectionWhiteboard}}': strings.debugSectionWhiteboard,
             '{{debugMockAskUser}}': strings.debugMockAskUser,
             '{{debugMockAskUserOptions}}': strings.debugMockAskUserOptions,
             '{{debugMockAskUserMultiStep}}': strings.debugMockAskUserMultiStep,
             '{{debugMockAskUserMultiStepLongText}}': strings.debugMockAskUserMultiStepLongText,
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
+            '{{debugMockWhiteboard}}': strings.debugMockWhiteboard,
+            '{{submitted}}': strings.submitted,
             '{{enableToolDebug}}': String(enableToolDebug),
         };
 
