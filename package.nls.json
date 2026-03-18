@@ -76,6 +76,10 @@
   "config.historyTimeDisplay.description": "Choose how timestamps are shown in history items: relative, absolute (ISO 8601), or hybrid (relative under 7 days, ISO after).",
   "config.enableToolDebug.title": "Enable Tool Debug",
   "config.enableToolDebug.description": "Show a debug tab in the webview for testing mock tool calls without starting a real conversation.",
+  "config.quickActionDefaults.title": "Quick Action Defaults",
+  "config.quickActionDefaults.description": "Quick-action buttons shown above the response input when answering agent questions. Each item becomes a clickable button for one-click responses. Empty by default — add your own labels to enable.",
+  "config.showQuickActions.title": "Show Quick Actions",
+  "config.showQuickActions.description": "Show the quick-action buttons above the response input. When disabled, the quick-action panel is hidden entirely. You can also collapse it per-session using the chevron button.",
   "planReview.button.acknowledge": "Acknowledge",
   "planReview.button.continue": "Continue",
   "planReview.button.done": "Done",
@@ -136,5 +140,9 @@
   "debug.mockAskUserMultiStep": "Multi-Step Question",
   "debug.mockAskUserMultiStepLongText": "Multi-Step Long Text Options",
   "debug.mockPlanReview": "Plan Review",
-  "debug.mockWalkthroughReview": "Walkthrough Review"
+  "debug.mockWalkthroughReview": "Walkthrough Review",
+  "webview.toggleQuickActions": "Toggle quick actions",
+  "webview.manageQuickActions": "Manage quick actions",
+  "webview.addQuickAction": "Add quick action",
+  "webview.configureQuickActions": "Configure quick-action buttons"
 }
