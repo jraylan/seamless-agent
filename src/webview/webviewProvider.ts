@@ -171,6 +171,38 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions, multiSelect?: boolean, isDebug?: boolean): Promise<UserResponseResult> {
 
+        // Deduplication: if a semantically identical request is already pending AND was
+        // created recently (within DEDUP_WINDOW_MS), share it instead of creating a new
+        // UI entry. This collapses parallel/retry duplicates from the same agent invocation
+        // while avoiding accidental merges of semantically independent sequential questions.
+        // Key: question + agentName + title + options + multiSelect.
+        // Debug requests (isDebug=true) are always excluded from deduplication.
+        // NOTE: Must run BEFORE any await (view init) to prevent concurrent calls from
+        // both passing the check while the Map is empty during view initialization.
+        const DEDUP_WINDOW_MS = 3 * 60_000; // 3 minutes
+        const normalizedTitle = title || strings.confirmationRequired;
+        const normalizedMultiSelect = multiSelect ?? false;
+        const serializedOptions = JSON.stringify(options);
+        if (question && agentName && !isDebug) {
+            const now = Date.now();
+            const existingEntry = [...this._pendingRequests.entries()]
+                .find(([_, p]) => !p.item.isDebug
+                    && p.item.question === question
+                    && p.item.agentName === agentName
+                    && p.item.title === normalizedTitle
+                    && JSON.stringify(p.item.options) === serializedOptions
+                    && (p.item.multiSelect ?? false) === normalizedMultiSelect
+                    && (now - p.item.createdAt) < DEDUP_WINDOW_MS
+                );
+            if (existingEntry) {
+                const [existingId, existingPending] = existingEntry;
+                Logger.log(`[waitForUserResponse] Dedup: sharing existing request ${existingId}`);
+                return new Promise<UserResponseResult>((resolve) => {
+                    existingPending.sharedResolvers.push(resolve);
+                });
+            }
+        }
+
         // If the view isn't available, try to open it
         if (!this._view) {
             try {
@@ -235,36 +267,6 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 return {
                     responded: false, response: 'Agent Console view is not available.', attachments: []
                 };
-            }
-        }
-
-        // Deduplication: if a semantically identical request is already pending AND was
-        // created recently (within DEDUP_WINDOW_MS), share it instead of creating a new
-        // UI entry. This collapses parallel/retry duplicates from the same agent invocation
-        // while avoiding accidental merges of semantically independent sequential questions.
-        // Key: question + agentName + title + options + multiSelect.
-        // Debug requests (isDebug=true) are always excluded from deduplication.
-        const DEDUP_WINDOW_MS = 3 * 60_000; // 3 minutes
-        const normalizedTitle = title || strings.confirmationRequired;
-        const normalizedMultiSelect = multiSelect ?? false;
-        const serializedOptions = JSON.stringify(options);
-        if (question && agentName && !isDebug) {
-            const now = Date.now();
-            const existingEntry = [...this._pendingRequests.entries()]
-                .find(([_, p]) => !p.item.isDebug
-                    && p.item.question === question
-                    && p.item.agentName === agentName
-                    && p.item.title === normalizedTitle
-                    && JSON.stringify(p.item.options) === serializedOptions
-                    && (p.item.multiSelect ?? false) === normalizedMultiSelect
-                    && (now - p.item.createdAt) < DEDUP_WINDOW_MS
-                );
-            if (existingEntry) {
-                const [existingId, existingPending] = existingEntry;
-                Logger.log(`[waitForUserResponse] Dedup: sharing existing request ${existingId}`);
-                return new Promise<UserResponseResult>((resolve) => {
-                    existingPending.sharedResolvers.push(resolve);
-                });
             }
         }
 
