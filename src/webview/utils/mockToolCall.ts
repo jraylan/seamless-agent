@@ -158,6 +158,27 @@ export class MockToolCallService {
                 });
                 break;
 
+            case 'askUserDedupTest': {
+                // Fire 3 identical concurrent requests (isDebug=false) to verify the two-phase dedup.
+                // Only ONE UI card should appear; all three callers must receive the same response.
+                const DEDUP_QUESTION = 'Debug Dedup Test: Do you confirm this action?';
+                const DEDUP_TITLE = 'Debug: Dedup Test';
+                const DEDUP_AGENT = 'Debug Agent';
+                Logger.log('[Dedup Test] Firing 3 concurrent identical asks — only ONE card should appear.');
+                const promises = [1, 2, 3].map((n) =>
+                    webviewProvider.waitForUserResponse(DEDUP_QUESTION, DEDUP_TITLE, DEDUP_AGENT)
+                        .then(r => { Logger.log(`[Dedup Test] caller #${n} resolved:`, r.responded, r.response); return r; })
+                        .catch((err: any) => { Logger.error(`[Dedup Test] caller #${n} error:`, err); return null; })
+                );
+                Promise.all(promises).then(results => {
+                    const responses = results.map(r => r?.response);
+                    const allSame = responses.every(r => r === responses[0]);
+                    Logger.log(`[Dedup Test] All 3 results: [${responses.join(' | ')}]`);
+                    Logger.log(`[Dedup Test] Dedup ${allSame ? 'PASS ✓ — all callers got the same response' : 'FAIL ✗ — callers got different responses'}`);
+                });
+                break;
+            }
+
             case 'planReview': {
                 const mockPlan = `# Deployment Plan\n\n## Phase 1: Preparation\n- Review code changes\n- Run full test suite\n- Update documentation\n\n## Phase 2: Staging\n- Deploy to staging environment\n- Run integration tests\n- Performance benchmarking\n\n## Phase 3: Production\n- Blue-green deployment\n- Health check monitoring\n- Rollback plan ready\n\n## Timeline\n| Phase | Duration |\n|-------|----------|\n| Prep | 2 hours |\n| Staging | 4 hours |\n| Production | 1 hour |`;
 

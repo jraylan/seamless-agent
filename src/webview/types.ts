@@ -296,7 +296,7 @@ export type FromWebviewMessage = | {
     | { type: 'ready' }
     | {
         type: 'debugMockToolCall';
-        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview';
+        mockType: 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'askUserDedupTest' | 'planReview' | 'walkthroughReview';
     }
     | {
         type: 'openSettings'
