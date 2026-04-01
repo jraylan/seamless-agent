@@ -6,6 +6,7 @@
 ### Bug Fixes
 
 * deduplicate concurrent identical ask_user requests ([#109](https://github.com/jraylan/seamless-agent/issues/109)) ([d09eae0](https://github.com/jraylan/seamless-agent/commit/d09eae07e4b799aaf33fc24f253069f6982041ab))
+* deduplicate hidden notifications ([#109](https://github.com/jraylan/seamless-agent/issues/110)) ([df4b12f](https://github.com/jraylan/seamless-agent/commit/df4b12f73ee42bca0a58fa2d9a28c4c4e70d0087))
 
 ## [0.1.29](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.28...seamless-agent-v0.1.29) (2026-03-09)
 
