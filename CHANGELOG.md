@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.30](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.29...seamless-agent-v0.1.30) (2026-04-01)
+
+
+### Bug Fixes
+
+* deduplicate concurrent identical ask_user requests ([#109](https://github.com/jraylan/seamless-agent/issues/109)) ([d09eae0](https://github.com/jraylan/seamless-agent/commit/d09eae07e4b799aaf33fc24f253069f6982041ab))
+
 ## [0.1.29](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.28...seamless-agent-v0.1.29) (2026-03-09)
 
 
