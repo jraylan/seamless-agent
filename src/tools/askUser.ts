@@ -70,6 +70,9 @@ async function askViaWebview(
 
         // Listen for cancellation
         const cancellationListener = token.onCancellationRequested(() => {
+            // Cancel by requestId directly — searching by question+title is unreliable when
+            // duplicate requests are pending, and would cancel the wrong (primary) request.
+            // For deduplicated callers requestId is not in _pendingRequests, so this is a no-op.
             provider.cancelRequest(requestId, strings.cancelled);
 
             cancellationListener.dispose();

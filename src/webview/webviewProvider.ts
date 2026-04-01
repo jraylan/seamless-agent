@@ -36,9 +36,15 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         {
             item: RequestItem;
             resolve: (result: UserResponseResult) => void;
+            sharedResolvers: Array<(result: UserResponseResult) => void>;
         }
 
     > = new Map();
+
+    // In-flight dedup: secondary resolvers waiting on a primary that is still initializing the view.
+    // Keyed by the same dedup key used in waitForUserResponse. Entries are transferred to
+    // _pendingRequests.sharedResolvers once the primary finishes view initialization.
+    private _dedupInFlight: Map<string, Array<(result: UserResponseResult) => void>> = new Map();
 
     // Currently selected request
     private _selectedRequestId: string | null = null;
@@ -179,6 +185,55 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
      */
     public async waitForUserResponse(question: string, title?: string, agentName?: string, requestId?: string, options?: AskUserOptions, multiSelect?: boolean, isDebug?: boolean): Promise<UserResponseResult> {
 
+        // Deduplication: share a semantically identical pending request instead of creating a new
+        // UI entry. This collapses parallel/retry duplicates from the same agent invocation while
+        // avoiding accidental merges of unrelated sequential questions (3-minute window).
+        // Key: question + agentName + title + options + multiSelect. Debug requests excluded.
+        //
+        // Two-phase check — both run synchronously before any await:
+        //   Phase 1: primary already in _pendingRequests (view initialized, request active).
+        //   Phase 2: primary claimed _dedupInFlight but is still awaiting view initialization.
+        //            Secondary callers join the in-flight array; the primary transfers them to
+        //            _pendingRequests.sharedResolvers once view init completes.
+        const DEDUP_WINDOW_MS = 3 * 60_000; // 3 minutes
+        const normalizedTitle = title || strings.confirmationRequired;
+        const normalizedMultiSelect = multiSelect ?? false;
+        const serializedOptions = JSON.stringify(options);
+        let dedupKey: string | undefined;
+        if (question && agentName && !isDebug) {
+            const now = Date.now();
+
+            // Phase 1: join an already-active primary
+            const existingEntry = [...this._pendingRequests.entries()]
+                .find(([_, p]) => !p.item.isDebug
+                    && p.item.question === question
+                    && p.item.agentName === agentName
+                    && p.item.title === normalizedTitle
+                    && JSON.stringify(p.item.options) === serializedOptions
+                    && (p.item.multiSelect ?? false) === normalizedMultiSelect
+                    && (now - p.item.createdAt) < DEDUP_WINDOW_MS
+                );
+            if (existingEntry) {
+                const [existingId, existingPending] = existingEntry;
+                Logger.log(`[waitForUserResponse] Dedup(active): sharing request ${existingId}`);
+                return new Promise<UserResponseResult>((resolve) => {
+                    existingPending.sharedResolvers.push(resolve);
+                });
+            }
+
+            // Phase 2: join a primary that is still initializing the view
+            dedupKey = `${question}\0${agentName}\0${normalizedTitle}\0${serializedOptions}\0${normalizedMultiSelect}`;
+            if (this._dedupInFlight.has(dedupKey)) {
+                Logger.log(`[waitForUserResponse] Dedup(in-flight): joining key ${dedupKey}`);
+                return new Promise<UserResponseResult>((resolve) => {
+                    this._dedupInFlight.get(dedupKey!)!.push(resolve);
+                });
+            }
+
+            // We are the primary — claim the in-flight slot before any await
+            this._dedupInFlight.set(dedupKey, []);
+        }
+
         // If the view isn't available, try to open it
         if (!this._view) {
             try {
@@ -233,6 +288,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
 
                 // If still not available after focusing, return error
                 if (!this._view) {
+                    this._failInFlight(dedupKey, 'Agent Console view is not available.');
                     return {
                         responded: false, response: 'Agent Console view is not available.', attachments: []
                     };
@@ -240,11 +296,16 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             }
 
             catch (error) {
+                this._failInFlight(dedupKey, 'Agent Console view is not available.');
                 return {
                     responded: false, response: 'Agent Console view is not available.', attachments: []
                 };
             }
         }
+
+        // Absorb any secondaries that joined _dedupInFlight while view was initializing
+        const inFlightResolvers = (dedupKey ? this._dedupInFlight.get(dedupKey) : undefined) ?? [];
+        if (dedupKey) { this._dedupInFlight.delete(dedupKey); }
 
         // Generate unique ID for this request
         const req = requestId ?? `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -265,7 +326,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 isDebug,
             };
 
-            this._pendingRequests.set(req, { item, resolve });
+            this._pendingRequests.set(req, { item, resolve, sharedResolvers: inFlightResolvers });
 
             // Update badge count
             this._setBadge(this._pendingRequests.size);
@@ -308,9 +369,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         const pending = this._pendingRequests.get(requestId);
         if (!pending) return false;
 
-        pending.resolve({
-            responded: false, response: reason, attachments: []
-        });
+        const cancelledResult: UserResponseResult = { responded: false, response: reason, attachments: [] };
+        pending.resolve(cancelledResult);
+        for (const r of pending.sharedResolvers) r(cancelledResult);
         this._pendingRequests.delete(requestId);
 
         // Clear last opened if this was the last opened request
@@ -337,14 +398,37 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * Resolve and clear all in-flight dedup secondaries with an error result.
+     * Called when view initialization fails before a primary could be registered.
+     */
+    private _failInFlight(dedupKey: string | undefined, reason: string): void {
+        if (!dedupKey) { return; }
+        const inFlight = this._dedupInFlight.get(dedupKey);
+        if (inFlight) {
+            const failResult: UserResponseResult = { responded: false, response: reason, attachments: [] };
+            for (const r of inFlight) { r(failResult); }
+            this._dedupInFlight.delete(dedupKey);
+        }
+    }
+
+    /**
      * Cancel all pending requests.
      * This is useful when the extension is deactivated or the agent session ends.
      */
     public cancelAllRequests(reason: string = strings.cancelled): void {
+        // Also cancel secondaries still waiting on in-flight primaries
+        if (this._dedupInFlight.size > 0) {
+            const cancelledResult: UserResponseResult = { responded: false, response: reason, attachments: [] };
+            for (const resolvers of this._dedupInFlight.values()) {
+                for (const r of resolvers) { r(cancelledResult); }
+            }
+            this._dedupInFlight.clear();
+        }
+
         for (const [id, pending] of this._pendingRequests) {
-            pending.resolve({
-                responded: false, response: reason, attachments: []
-            });
+            const cancelledResult: UserResponseResult = { responded: false, response: reason, attachments: [] };
+            pending.resolve(cancelledResult);
+            for (const r of pending.sharedResolvers) r(cancelledResult);
         }
 
         this._pendingRequests.clear();
@@ -1176,6 +1260,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             };
 
             pending.resolve(cleanResult);
+            for (const r of pending.sharedResolvers) r(cleanResult);
             this._pendingRequests.delete(requestId);
 
             // Clear selected request if it was just resolved
@@ -1575,6 +1660,7 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugMockAskUserOptions}}': strings.debugMockAskUserOptions,
             '{{debugMockAskUserMultiStep}}': strings.debugMockAskUserMultiStep,
             '{{debugMockAskUserMultiStepLongText}}': strings.debugMockAskUserMultiStepLongText,
+            '{{debugMockAskUserDedupTest}}': strings.debugMockAskUserDedupTest,
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
             '{{enableToolDebug}}': String(enableToolDebug),
