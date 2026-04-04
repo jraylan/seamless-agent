@@ -170,12 +170,17 @@ declare global {
             debugMockAskUserDedupTest: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
+            manageQuickActions: string;
+            addQuickAction: string;
+            configureQuickActions: string;
         };
         __CONFIG__: {
             historyTimeDisplay: 'relative' | 'absolute' | 'hybrid';
             askUserOptionsLayout: 'expanded' | 'compact';
             askUserOptionsTooltip: 'native' | 'custom';
             enableToolDebug: boolean;
+            quickActionDefaults: string[];
+            showQuickActions: boolean;
         };
     }
 }
@@ -267,6 +272,18 @@ function applyAskUserOptionsTooltipMode(): void {
     const cancelBtn = document.getElementById('cancel-btn');
     const srAnnounce = document.getElementById('sr-announce');
     const optionsContainer = document.getElementById('options-container');
+    const quickActionsContainer = document.getElementById('quick-actions-container');
+    const quickActionsDefault = document.getElementById('quick-actions-default');
+
+    // Session-level collapsed state (persists across question re-renders)
+    let quickActionsCollapsed = false;
+    document.getElementById('quick-actions-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        quickActionsCollapsed = !quickActionsCollapsed;
+        quickActionsContainer?.classList.toggle('collapsed', quickActionsCollapsed);
+        const toggleEl = document.getElementById('quick-actions-toggle');
+        if (toggleEl) toggleEl.setAttribute('aria-expanded', String(!quickActionsCollapsed));
+    });
 
     // Apply option layout mode early so all rendered buttons follow the selected setting.
     applyAskUserOptionsLayoutMode();
@@ -1100,6 +1117,9 @@ function applyAskUserOptionsTooltipMode(): void {
 
         // Render option buttons if provided
         renderOptions(options, multiSelect);
+
+        // Render quick-action buttons (default quick-reply buttons)
+        renderQuickActions();
 
         // Hide ALL other views
         homeView?.classList.add('hidden');
@@ -2287,6 +2307,114 @@ function applyAskUserOptionsTooltipMode(): void {
         updateChipsDisplay();
     }
 
+    // ================================
+    // Quick-action buttons
+    // ================================
+
+    /**
+     * Render quick-action buttons for the current question.
+     * Shows configurable one-click reply labels.
+     */
+    function renderQuickActions(): void {
+        if (!quickActionsContainer || !quickActionsDefault) return;
+        if (window.__CONFIG__?.showQuickActions === false) {
+            quickActionsContainer.classList.add('hidden');
+            return;
+        }
+
+        clearChildren(quickActionsDefault);
+
+        const defaults: string[] = Array.isArray(window.__CONFIG__?.quickActionDefaults)
+            ? window.__CONFIG__.quickActionDefaults
+            : [];
+
+        // ── Default quick-reply buttons ──
+        for (const label of defaults) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quick-action-btn default';
+            btn.setAttribute('aria-label', label);
+            btn.title = label;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'quick-action-text';
+            textSpan.textContent = label;
+            btn.appendChild(textSpan);
+
+            btn.addEventListener('click', () => {
+                btn.style.opacity = '0.5';
+                btn.style.pointerEvents = 'none';
+                setTimeout(() => submitQuickAction(label), 80);
+            });
+            quickActionsDefault.appendChild(btn);
+        }
+
+        // ── Manage button — gear icon fades in on hover ──
+        const manageBtn = document.createElement('button');
+        manageBtn.type = 'button';
+        manageBtn.className = 'quick-actions-manage-btn';
+        manageBtn.setAttribute('aria-label', window.__STRINGS__?.manageQuickActions || 'Manage quick actions');
+        manageBtn.title = window.__STRINGS__?.manageQuickActions || 'Manage quick actions';
+        const gearIcon = document.createElement('span');
+        gearIcon.className = 'codicon codicon-settings-gear';
+        gearIcon.setAttribute('aria-hidden', 'true');
+        manageBtn.appendChild(gearIcon);
+        manageBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'openSettings', query: 'seamless-agent.quickActionDefaults' });
+        });
+
+        if (defaults.length === 0) {
+            // Empty state: show a subtle "add quick action" link
+            const emptyHint = document.createElement('button');
+            emptyHint.type = 'button';
+            emptyHint.className = 'quick-actions-empty-hint';
+            emptyHint.title = window.__STRINGS__?.configureQuickActions || 'Configure quick-action buttons';
+            const addIcon = document.createElement('span');
+            addIcon.className = 'codicon codicon-add';
+            addIcon.setAttribute('aria-hidden', 'true');
+            const hintText = document.createElement('span');
+            hintText.textContent = window.__STRINGS__?.addQuickAction || 'Add quick action';
+            emptyHint.appendChild(addIcon);
+            emptyHint.appendChild(hintText);
+            emptyHint.addEventListener('click', () => {
+                vscode.postMessage({ type: 'openSettings', query: 'seamless-agent.quickActionDefaults' });
+            });
+            quickActionsDefault.appendChild(emptyHint);
+        } else {
+            quickActionsDefault.appendChild(manageBtn);
+        }
+
+        quickActionsContainer.classList.remove('hidden');
+        quickActionsContainer.classList.toggle('collapsed', quickActionsCollapsed);
+    }
+
+    /**
+     * Submit a quick-action response immediately.
+     */
+    function submitQuickAction(text: string): void {
+        if (!currentRequestId) return;
+
+        // Save to input history
+        inputHistoryManager.addToHistory(text);
+        resetRequestState();
+
+        vscode.postMessage({
+            type: 'submit',
+            response: text,
+            requestId: currentRequestId,
+            attachments: currentAttachments,
+        });
+
+        draftResponses.delete(currentRequestId);
+        currentAttachments = [];
+
+        // Reset stepper if active
+        if (activeOptionsStepper) {
+            activeOptionsStepper.destroy();
+            activeOptionsStepper = null;
+        }
+    }
+
     /**
      * Reset request state: clears input history navigation, and optionally attachments and autocomplete
      * @param options.attachments - Whether to also clear attachments (default: false)
@@ -3428,6 +3556,18 @@ function applyAskUserOptionsTooltipMode(): void {
                 } else if (message.key === 'askUserOptionsTooltip') {
                     window.__CONFIG__.askUserOptionsTooltip = normalizeAskUserOptionsTooltip(message.value);
                     applyAskUserOptionsTooltipMode();
+                } else if (message.key === 'quickActionDefaults') {
+                    window.__CONFIG__.quickActionDefaults = Array.isArray(message.value) ? message.value : [];
+                    renderQuickActions();
+                } else if (message.key === 'showQuickActions') {
+                    const showQuickActions = !!message.value;
+                    window.__CONFIG__.showQuickActions = showQuickActions;
+                    if (showQuickActions) {
+                        quickActionsContainer?.classList.remove('hidden');
+                        renderQuickActions();
+                    } else {
+                        quickActionsContainer?.classList.add('hidden');
+                    }
                 }
                 break;
         }

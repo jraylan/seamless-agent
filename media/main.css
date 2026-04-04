@@ -375,7 +375,7 @@ body {
     gap: 6px;
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.35));
+    border: 1px solid transparent;
     border-radius: 4px;
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
@@ -392,6 +392,12 @@ body {
 .option-btn:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
     border-color: var(--vscode-contrastBorder, rgba(128, 128, 128, 0.3));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09);
+}
+
+.option-btn:not(:disabled):active {
+    transform: scale(0.99);
+    transition: transform 0.05s ease, background-color 0.05s ease;
 }
 
 .option-btn:focus-visible {
@@ -401,11 +407,9 @@ body {
 
 .option-btn.selected {
     border-color: var(--vscode-button-background, #0078d4);
-    border-left: 3px solid var(--vscode-button-background, #0078d4);
-    background-color: color-mix(in srgb, var(--vscode-button-background, #0078d4) 20%, transparent);
+    border-left: 2px solid var(--vscode-button-background, #0078d4);
+    background-color: color-mix(in srgb, var(--vscode-button-background, #0078d4) 11%, transparent);
     color: var(--vscode-foreground);
-    padding-left: 8px;
-    /* compensate for thicker left border */
 }
 
 /* === OPTION BUTTON NEW LAYOUT === */
@@ -642,6 +646,221 @@ body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
 .options-separator {
     display: none;
     /* Hide separator to save space */
+}
+
+/* =============================================
+   Quick-action buttons (above response input)
+   ============================================= */
+
+.quick-actions-container {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 10px;
+}
+
+.quick-actions-container.hidden {
+    display: none;
+}
+
+/* Collapse header — always visible, houses chevron toggle */
+.quick-actions-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 2px;
+}
+
+.quick-actions-toggle {
+    width: 20px;
+    height: 16px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.35;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.quick-actions-container:hover .quick-actions-toggle,
+.quick-actions-toggle:focus-visible {
+    opacity: 0.75;
+}
+
+.quick-actions-toggle:hover {
+    opacity: 1;
+    background: var(--vscode-toolbar-hoverBackground);
+}
+
+.quick-actions-toggle .codicon {
+    font-size: 11px;
+    transition: transform 0.18s ease;
+}
+
+.quick-actions-container.collapsed .quick-actions-toggle .codicon {
+    transform: rotate(-90deg);
+}
+
+/* Content wrapper — rows + collapse animation */
+.quick-actions-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    max-height: 400px;
+    transition: max-height 0.22s ease, opacity 0.18s ease;
+}
+
+.quick-actions-container.collapsed .quick-actions-content {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+@keyframes quickActionsIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Each row animates in independently when it becomes visible */
+.quick-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.quick-actions-row.hidden,
+.quick-actions-row:empty {
+    display: none;
+}
+
+.quick-actions-row:not(.hidden):not(:empty) {
+    animation: quickActionsIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Button base ── */
+
+.quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    font-family: var(--vscode-font-family);
+    font-size: calc(var(--vscode-font-size) - 1px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    max-width: 260px;
+    transition: background 0.12s ease, border-color 0.12s ease,
+                color 0.12s ease, opacity 0.12s ease;
+}
+
+.quick-action-btn:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 2px;
+}
+
+/* Text span — handles overflow gracefully */
+.quick-action-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+/* ── Default quick-reply buttons — secondary button style ── */
+
+.quick-action-btn.default {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border-color: transparent;
+}
+
+.quick-action-btn.default:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* ── Manage quick-actions gear button ── */
+
+.quick-actions-manage-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.quick-actions-row:hover .quick-actions-manage-btn,
+.quick-actions-manage-btn:focus-visible {
+    opacity: 0.7;
+}
+
+.quick-actions-manage-btn:hover,
+.quick-actions-manage-btn:focus-visible {
+    background: var(--vscode-toolbar-hoverBackground);
+    color: var(--vscode-foreground);
+    opacity: 1;
+}
+
+.quick-actions-manage-btn .codicon {
+    font-size: 13px;
+}
+
+/* Pressed state */
+.quick-action-btn:active {
+    opacity: 0.8;
+}
+
+/* ── Empty state hint — shown when no defaults are configured ── */
+
+.quick-actions-empty-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font-family: var(--vscode-font-family);
+    font-size: calc(var(--vscode-font-size) - 1px);
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.quick-actions-empty-hint:hover {
+    opacity: 1;
+    color: var(--vscode-foreground);
+}
+
+.quick-actions-empty-hint .codicon {
+    font-size: 12px;
 }
 
 /* Response section - fixed at bottom */
@@ -1039,8 +1258,8 @@ button:disabled {
     /* Fix: Limit height and enable scrolling when many attachments are added */
     max-height: var(--chips-container-max-height);
     overflow-y: auto;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
 }
 
 /* Monaco-style scrollbar for chips container */

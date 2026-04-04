@@ -168,6 +168,26 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                     value: askUserOptionsTooltip,
                 } as ToWebviewMessage);
             }
+
+            if (event.affectsConfiguration('seamless-agent.quickActionDefaults')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const quickActionDefaults = config.get<string[]>('quickActionDefaults', []);
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'quickActionDefaults',
+                    value: quickActionDefaults,
+                } as ToWebviewMessage);
+            }
+
+            if (event.affectsConfiguration('seamless-agent.showQuickActions')) {
+                const config = vscode.workspace.getConfiguration('seamless-agent');
+                const showQuickActions = config.get<boolean>('showQuickActions', true);
+                webviewView.webview.postMessage({
+                    type: 'updateConfig',
+                    key: 'showQuickActions',
+                    value: showQuickActions,
+                } as ToWebviewMessage);
+            }
         }, undefined, []);
 
         // Always show home view first (which includes pending requests and recent sessions)
@@ -643,7 +663,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
                 this._handleDebugMockToolCall(message.mockType);
                 break;
             case 'openSettings':
-                vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jraylan.seamless-agent');
+                vscode.commands.executeCommand('workbench.action.openSettings',
+                    message.query ?? '@ext:jraylan.seamless-agent');
                 break;
         }
     }
@@ -1573,6 +1594,8 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             ? rawAskUserOptionsTooltip
             : 'native';
         const enableToolDebug = config.get<boolean>('enableToolDebug', false);
+        const quickActionDefaults = config.get<string[]>('quickActionDefaults', []);
+        const showQuickActions = config.get<boolean>('showQuickActions', true);
 
         // Replace placeholders
         const replacements: Record<string,
@@ -1664,6 +1687,12 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
             '{{debugMockPlanReview}}': strings.debugMockPlanReview,
             '{{debugMockWalkthroughReview}}': strings.debugMockWalkthroughReview,
             '{{enableToolDebug}}': String(enableToolDebug),
+            '{{toggleQuickActions}}': strings.toggleQuickActions,
+            '{{manageQuickActions}}': strings.manageQuickActions,
+            '{{addQuickAction}}': strings.addQuickAction,
+            '{{configureQuickActions}}': strings.configureQuickActions,
+            '{{quickActionDefaults}}': JSON.stringify(quickActionDefaults).replace(/</g, '\\u003c'),
+            '{{showQuickActions}}': String(showQuickActions),
         };
 
         for (const [placeholder, value] of Object.entries(replacements)) {
