@@ -655,10 +655,19 @@ body[data-ask-user-options-tooltip="native"] .option-btn-tooltip {
     position: relative;
 }
 
+.response-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
 .response-label {
     display: block;
-    margin-bottom: 8px;
+    margin: 0;
     font-weight: 500;
+    min-width: 0;
 }
 
 textarea {
@@ -1075,21 +1084,28 @@ button:disabled {
 
 .attach-btn {
     flex-shrink: 0;
-    width: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
     color: var(--vscode-descriptionForeground);
-    padding: 8px 4px;
+    padding: 0;
     border-radius: 4px;
 }
 
 .attach-btn:hover {
     background-color: var(--vscode-toolbar-hoverBackground);
+    border-color: var(--vscode-widget-border, var(--vscode-input-border));
     color: var(--vscode-foreground);
+}
+
+.attach-btn:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 1px;
 }
 
 .attach-btn .codicon {
@@ -1109,7 +1125,7 @@ button:disabled {
     max-height: none !important;
     /* Height controlled dynamically by JS + resize handle */
     height: auto;
-    padding: 8px 12px 8px 0;
+    padding: 8px 12px;
     border: none !important;
     background: transparent !important;
     color: var(--vscode-input-foreground);

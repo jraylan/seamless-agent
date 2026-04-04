@@ -145,7 +145,12 @@
       </fieldset>
 
       <div class="response-section">
-        <label class="response-label" for="response-input">{{yourResponse}}</label>
+        <div class="response-header">
+          <label class="response-label" for="response-input">{{yourResponse}}</label>
+          <button type="button" id="attach-btn" class="attach-btn" title="{{addAttachment}}" aria-label="{{addAttachment}}">
+            <span class="codicon codicon-attach"></span>
+          </button>
+        </div>
 
         <!-- Autocomplete dropdown - positioned above input container -->
         <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden">
@@ -169,13 +174,8 @@
           <!-- Chips bar (hidden when no attachments) -->
           <div id="chips-container" class="chips-container hidden"></div>
 
-          <!-- Input area with attach button and textarea -->
+          <!-- Input area with textarea only -->
           <div class="input-area">
-            <!-- Attach button on the left -->
-            <button type="button" id="attach-btn" class="attach-btn" title="{{addAttachment}}">
-              <span class="codicon codicon-attach"></span>
-            </button>
-
             <!-- Textarea wrapper -->
             <div class="textarea-wrapper">
               <textarea id="response-input" placeholder="{{inputPlaceholder}}" rows="1"></textarea>

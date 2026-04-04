@@ -2057,9 +2057,8 @@ function applyAskUserOptionsTooltipMode(): void {
                                 );
                             }
                             const att = rawAtt as AttachmentInfo;
-                            const isImage = att.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name);
+                            const isImage = isPreviewableImageAttachment(att);
                             const isFolder = att.isFolder;
-                            const hasThumbnailOrUri = !!(att.thumbnail || att.uri);
 
                             let iconClass: string;
                             let displayName: string;
@@ -2086,18 +2085,20 @@ function applyAskUserOptionsTooltipMode(): void {
 
                             let chip: HTMLElement;
 
-                            if (isImage && hasThumbnailOrUri && hoverPreview && hoverPreviewImg) {
+                            if (isImage && hoverPreview && hoverPreviewImg) {
                                 chipOptions.on = {
                                     mouseenter: () => {
-                                        const src = att.thumbnail || att.uri;
-                                        hoverPreviewImg.setAttribute('src', src);
-                                        hoverPreviewImg.setAttribute('alt', att.name);
                                         const rect = chip.getBoundingClientRect();
-                                        hoverPreview.style.top = `${rect.top - hoverPreview.offsetHeight - 8}px`;
-                                        hoverPreview.classList.remove('hidden');
+                                        showImageHoverPreview(
+                                            hoverPreview,
+                                            hoverPreviewImg,
+                                            att.thumbnail || att.uri,
+                                            att.name,
+                                            rect.top - hoverPreview.offsetHeight - 8
+                                        );
                                     },
                                     mouseleave: () => {
-                                        hoverPreview.classList.add('hidden');
+                                        hideImageHoverPreview(hoverPreview);
                                     }
                                 };
                             }
@@ -2174,6 +2175,23 @@ function applyAskUserOptionsTooltipMode(): void {
         updateChipsDisplay();
     }
 
+    function isPreviewableImageAttachment(att: AttachmentInfo): boolean {
+        const isImage = att.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name);
+        return isImage && !!(att.thumbnail || att.uri);
+    }
+
+    function showImageHoverPreview(preview: HTMLElement | null, previewImg: HTMLImageElement | null, src: string, alt: string, top: number): void {
+        if (!preview || !previewImg) return;
+        previewImg.setAttribute('src', src);
+        previewImg.setAttribute('alt', alt);
+        preview.style.top = `${top}px`;
+        preview.classList.remove('hidden');
+    }
+
+    function hideImageHoverPreview(preview: HTMLElement | null): void {
+        preview?.classList.add('hidden');
+    }
+
     /**
     * Update chips display above textarea
     */
@@ -2192,9 +2210,9 @@ function applyAskUserOptionsTooltipMode(): void {
             const preview = document.querySelector('.image-hover-preview') as HTMLElement;
             const previewImg = preview?.querySelector('img') as HTMLImageElement;
 
-            preview.classList.add('hidden');
+            hideImageHoverPreview(preview);
             chipsContainer.replaceChildren(...currentAttachments.map(att => {
-                const isImage = att.isImage || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name);
+                const isImage = isPreviewableImageAttachment(att);
                 const isFolder = att.isFolder;
 
                 // Determine display name and icon
@@ -2227,21 +2245,17 @@ function applyAskUserOptionsTooltipMode(): void {
                         className: chipClass,
                         title: att.folderPath || att.uri || att.name,
                         attrs: { 'data-id': att.id },
-                        on: {
+                        on: isImage && preview && previewImg ? {
                             'mouseenter': async () => {
-                                previewImg.setAttribute('src', att?.thumbnail || att.uri);
-                                previewImg.setAttribute('alt', att.name);
-
                                 const rect = element.getBoundingClientRect();
                                 const previewRect = preview.getBoundingClientRect();
-                                const top = rect.top - previewRect.height - 8
-                                preview.style.top = `${top}px`;
-                                preview.classList.remove('hidden');
+                                const top = rect.top - previewRect.height - 8;
+                                showImageHoverPreview(preview, previewImg, att.thumbnail || att.uri, att.name, top);
                             },
                             'mouseleave': () => {
-                                preview.classList.add('hidden');
+                                hideImageHoverPreview(preview);
                             }
-                        }
+                        } : undefined
                     },
                     el('span', { className: 'chip-icon' },
                         el('span', { className: `codicon codicon-${iconClass}` })
@@ -2257,7 +2271,7 @@ function applyAskUserOptionsTooltipMode(): void {
                                 'click': (e) => {
                                     e.stopPropagation();
                                     removeAttachment(att.id);
-                                    preview.classList.add('hidden');
+                                    hideImageHoverPreview(preview);
                                 }
                             }
                         },
