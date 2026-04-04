@@ -9,6 +9,12 @@ export * from './schemas';
 // Re-export tool functions
 export { askUser } from './askUser';
 export { planReview, planReviewApproval, walkthroughReview } from './planReview';
+export { openWhiteboard } from './openWhiteboard';
+export { renderUI } from './renderUI';
+export { updateUI } from './updateUI';
+export { appendUI } from './appendUI';
+export { closeUI } from './closeUI';
+export { listSurfaces } from './listSurfaces';
 
 // Re-export utils
 export * from './utils';
@@ -16,16 +22,35 @@ export * from './utils';
 // Import for internal use
 import { askUser } from './askUser';
 import { planReviewApproval, walkthroughReview } from './planReview';
+import { openWhiteboard } from './openWhiteboard';
+import { renderUI } from './renderUI';
+import { updateUI } from './updateUI';
+import { appendUI } from './appendUI';
+import { closeUI } from './closeUI';
+import { listSurfaces } from './listSurfaces';
 import { readFileAsBuffer, getImageMimeType, validateImageMagicNumber } from './utils';
+import { createWhiteboardLanguageModelResultParts } from './whiteboardToolResult';
 import {
     AskUserInput,
     ApprovePlanInput,
     PlanReviewInput,
     WalkthroughReviewInput,
+    WhiteboardInput,
+    RenderUIInput,
+    UpdateUIInput,
+    AppendUIInput,
+    CloseUIInput,
+    ListSurfacesInput,
     parseAskUserInput,
     parseApprovePlanInput,
     parsePlanReviewInput,
     parseWalkthroughReviewInput,
+    parseWhiteboardInput,
+    parseRenderUIInput,
+    parseUpdateUIInput,
+    parseAppendUIInput,
+    parseCloseUIInput,
+    parseListSurfacesInput,
 } from './schemas';
 import { Logger } from '../logging';
 
@@ -209,6 +234,38 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         }
     });
 
+    // Register the open_whiteboard tool (standalone whiteboard)
+    const openWhiteboardTool = vscode.lm.registerTool('open_whiteboard', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<WhiteboardInput>, token: vscode.CancellationToken) {
+            let params: WhiteboardInput;
+            try {
+                params = parseWhiteboardInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        submitted: false,
+                        canvases: [],
+                        interactionId: '',
+                        error: `Validation error: ${errorMessage}`
+                    }))
+                ]);
+            }
+
+            const result = await openWhiteboard(params, context, provider, token);
+            const resultParts = await createWhiteboardLanguageModelResultParts(result);
+
+            return new vscode.LanguageModelToolResult(resultParts.map((part) =>
+                new vscode.LanguageModelTextPart(part.value)
+            ));
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || 'Open whiteboard'
+            };
+        },
+    });
+
     // Register the walkthrough_review tool (explicit: walkthrough review mode)
     const walkthroughReviewTool = vscode.lm.registerTool('walkthrough_review', {
         async invoke(options: vscode.LanguageModelToolInvocationOptions<WalkthroughReviewInput>, token: vscode.CancellationToken) {
@@ -244,11 +301,160 @@ export function registerNativeTools(context: vscode.ExtensionContext, provider: 
         }
     });
 
+    // Register the render_ui tool (Phase 2 A2UI surface rendering)
+    const renderUITool = vscode.lm.registerTool('render_ui', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<RenderUIInput>, token: vscode.CancellationToken) {
+            let params: RenderUIInput;
+            try {
+                params = parseRenderUIInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaceId: '',
+                        rendered: false,
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await renderUI(params, context, provider, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || 'Render UI surface'
+            };
+        },
+    });
+
+    // Register the update_ui tool (delta: mutate dataModel/title of an existing surface)
+    const updateUITool = vscode.lm.registerTool('update_ui', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<UpdateUIInput>, token: vscode.CancellationToken) {
+            let params: UpdateUIInput;
+            try {
+                params = parseUpdateUIInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaceId: options.input?.surfaceId ?? '',
+                        applied: false,
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await updateUI(params, undefined, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || `Update surface ${options.input.surfaceId}`
+            };
+        },
+    });
+
+    // Register the append_ui tool (delta: append components to an existing surface)
+    const appendUITool = vscode.lm.registerTool('append_ui', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<AppendUIInput>, token: vscode.CancellationToken) {
+            let params: AppendUIInput;
+            try {
+                params = parseAppendUIInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaceId: options.input?.surfaceId ?? '',
+                        applied: false,
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await appendUI(params, undefined, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: options.input.title || `Append to surface ${options.input.surfaceId}`
+            };
+        },
+    });
+
+    // Register the close_ui tool (delta: close an existing surface panel)
+    const closeUITool = vscode.lm.registerTool('close_ui', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<CloseUIInput>, token: vscode.CancellationToken) {
+            let params: CloseUIInput;
+            try {
+                params = parseCloseUIInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaceId: options.input?.surfaceId ?? '',
+                        closed: false,
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await closeUI(params, undefined, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(options) {
+            return {
+                invocationMessage: `Close surface ${options.input.surfaceId}`
+            };
+        },
+    });
+
+    const listSurfacesTool = vscode.lm.registerTool('list_surfaces', {
+        async invoke(options: vscode.LanguageModelToolInvocationOptions<ListSurfacesInput>, token: vscode.CancellationToken) {
+            let params: ListSurfacesInput;
+            try {
+                params = parseListSurfacesInput(options.input);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Invalid input';
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart(JSON.stringify({
+                        surfaces: [],
+                        error: `Validation error: ${errorMessage}`,
+                    }))
+                ]);
+            }
+
+            const result = await listSurfaces(params, undefined, token);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(JSON.stringify(result))
+            ]);
+        },
+        prepareInvocation(_options) {
+            return {
+                invocationMessage: 'List all active surfaces'
+            };
+        },
+    });
+
     (context.subscriptions as unknown as Array<vscode.Disposable>).push(
         confirmationTool,
         approvePlanTool,
         planReviewTool,
-        walkthroughReviewTool
+        openWhiteboardTool,
+        walkthroughReviewTool,
+        renderUITool,
+        updateUITool,
+        appendUITool,
+        closeUITool,
+        listSurfacesTool,
     );
 
     // Initialize chat history storage

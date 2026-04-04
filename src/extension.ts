@@ -98,6 +98,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
     (context.subscriptions as unknown as Array<vscode.Disposable>).push(clearHistoryCommand);
 
+    // Register command to show extension logs
+    const showLogsCommand = vscode.commands.registerCommand('seamless-agent.showLogs', () => {
+        Logger.show();
+    });
+    (context.subscriptions as unknown as Array<vscode.Disposable>).push(showLogsCommand);
+
     // Create a Chat Participant that uses our tool
     const handler: vscode.ChatRequestHandler = async (
         request: vscode.ChatRequest,
