@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.31](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.30...seamless-agent-v0.1.31) (2026-04-04)
+
+
+### Bug Fixes
+
+* textarea sizing in narrow sidebar ([#112](https://github.com/jraylan/seamless-agent/issues/112)) ([b0e21af](https://github.com/jraylan/seamless-agent/commit/b0e21afba4cd61e60f41368f29355cada890f13f))
+
 ## [0.1.30](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.29...seamless-agent-v0.1.30) (2026-04-01)
 
 
