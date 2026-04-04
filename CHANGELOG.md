@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.30](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.29...seamless-agent-v0.1.30) (2026-04-01)
+
+
+### Bug Fixes
+
+* deduplicate concurrent identical ask_user requests ([#109](https://github.com/jraylan/seamless-agent/issues/109)) ([d09eae0](https://github.com/jraylan/seamless-agent/commit/d09eae07e4b799aaf33fc24f253069f6982041ab))
+* deduplicate hidden notifications ([#109](https://github.com/jraylan/seamless-agent/issues/110)) ([df4b12f](https://github.com/jraylan/seamless-agent/commit/df4b12f73ee42bca0a58fa2d9a28c4c4e70d0087))
+
+## [0.1.29](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.28...seamless-agent-v0.1.29) (2026-03-09)
+
+
+### Features
+
+* upgrade askUserAppendText to inject as separate tool result part ([#104](https://github.com/jraylan/seamless-agent/issues/104)) ([0794c64](https://github.com/jraylan/seamless-agent/commit/0794c64f98275b247a01fc6a71752d48db8f7204))
+
+
+### Bug Fixes
+
+* use transparent background for sidebar webview to match container theme ([#105](https://github.com/jraylan/seamless-agent/issues/105)) ([6f40f43](https://github.com/jraylan/seamless-agent/commit/6f40f4337e92292e0233e1b6ff753c5dad2ade28))
+
 ## [0.1.28](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.27...seamless-agent-v0.1.28) (2026-03-01)
 
 

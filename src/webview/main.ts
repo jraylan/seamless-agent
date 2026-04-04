@@ -185,6 +185,7 @@ declare global {
             debugMockAskUserOptions: string;
             debugMockAskUserMultiStep: string;
             debugMockAskUserMultiStepLongText: string;
+            debugMockAskUserDedupTest: string;
             debugMockPlanReview: string;
             debugMockWalkthroughReview: string;
             debugMockWhiteboard: string;
@@ -1313,17 +1314,17 @@ function applyAskUserOptionsTooltipMode(): void {
 
         for (const opt of group.options) {
             const isSelected = selected.has(opt.label);
-            
+
             // Indicator element (left side, fixed)
             const indicatorEl = el('span', { className: 'option-btn-indicator' });
-            
+
             // Description is primary (long-form, scrollable). Label stays compact metadata.
             const descEl = opt.description
                 ? el('span', { className: 'option-btn-description', text: opt.description })
                 : null;
 
             const labelEl = el('span', { className: 'option-btn-label', text: opt.label });
-            
+
             // Tooltip (single reliable custom tooltip for both description + label)
             const tooltip = opt.description
                 ? el(
@@ -1345,7 +1346,7 @@ function applyAskUserOptionsTooltipMode(): void {
             const isNativeMode = normalizeAskUserOptionsTooltip(window.__CONFIG__?.askUserOptionsTooltip) === 'native';
 
             const btnChildren: ElementChild[] = [indicatorEl];
-            
+
             if (descEl) {
                 btnChildren.push(descEl);
                 btnChildren.push(labelEl);
@@ -3421,7 +3422,7 @@ function applyAskUserOptionsTooltipMode(): void {
         const debugList = document.getElementById('debug-tools-list');
         if (!debugList) return;
 
-        type MockDef = { mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown'; label: string; icon: string };
+        type MockDef = { mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'askUserDedupTest' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown'; label: string; icon: string };
         type SectionDef = { title: string; items: MockDef[] };
 
         const S = window.__STRINGS__;
@@ -3439,6 +3440,7 @@ function applyAskUserOptionsTooltipMode(): void {
                     { mockType: 'askUserOptions', label: S?.debugMockAskUserOptions || 'Options Question', icon: 'list-selection' },
                     { mockType: 'askUserMultiStep', label: S?.debugMockAskUserMultiStep || 'Multi-Step Question', icon: 'list-tree' },
                     { mockType: 'askUserMultiStepLongText', label: S?.debugMockAskUserMultiStepLongText || 'Multi-Step Long Text Options', icon: 'symbol-string' },
+                    { mockType: 'askUserDedupTest', label: S?.debugMockAskUserDedupTest || 'Dedup Test (3 concurrent)', icon: 'layers' },
                 ]
             },
             {

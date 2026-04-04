@@ -154,6 +154,7 @@
   "debug.mockAskUserOptions": "Options Question",
   "debug.mockAskUserMultiStep": "Multi-Step Question",
   "debug.mockAskUserMultiStepLongText": "Multi-Step Long Text Options",
+  "debug.mockAskUserDedupTest": "Dedup Test (3 concurrent)",
   "debug.mockPlanReview": "Plan Review",
   "debug.mockWalkthroughReview": "Walkthrough Review",
   "debug.mockWhiteboard": "Open Whiteboard",

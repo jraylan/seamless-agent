@@ -197,6 +197,7 @@ export const strings = {
     get debugMockAskUserOptions() { return localize('debug.mockAskUserOptions'); },
     get debugMockAskUserMultiStep() { return localize('debug.mockAskUserMultiStep'); },
     get debugMockAskUserMultiStepLongText() { return localize('debug.mockAskUserMultiStepLongText'); },
+    get debugMockAskUserDedupTest() { return localize('debug.mockAskUserDedupTest'); },
     get debugMockPlanReview() { return localize('debug.mockPlanReview'); },
     get debugMockWalkthroughReview() { return localize('debug.mockWalkthroughReview'); },
     get debugMockWhiteboard() { return localize('debug.mockWhiteboard'); },

@@ -538,7 +538,7 @@ export type FromWebviewMessage = | {
     | { type: 'ready' }
     | {
         type: 'debugMockToolCall';
-        mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
+        mockType: 'showLogs' | 'askUser' | 'askUserOptions' | 'askUserMultiStep' | 'askUserMultiStepLongText' | 'askUserDedupTest' | 'planReview' | 'walkthroughReview' | 'whiteboard' | 'whiteboardTest1' | 'whiteboardTest2' | 'renderUI' | 'renderUIForm' | 'renderUIMarkdown';
     }
     | {
         type: 'openSettings'
