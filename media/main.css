@@ -1100,6 +1100,7 @@ button:disabled {
 .input-area .textarea-wrapper {
     flex: 1;
     position: relative;
+    min-width: 0;
 }
 
 .input-area .textarea-wrapper textarea {

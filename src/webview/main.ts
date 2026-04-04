@@ -1096,8 +1096,6 @@ function applyAskUserOptionsTooltipMode(): void {
 
         if (responseInput) {
             responseInput.value = draftResponses.get(requestId) || '';
-            // Initialize textarea height
-            autoResizeTextarea();
         }
 
         // Render option buttons if provided
@@ -1111,6 +1109,9 @@ function applyAskUserOptionsTooltipMode(): void {
         // Show header and form
         requestHeader?.classList.remove('hidden');
         requestForm?.classList.remove('hidden');
+
+        // Resize after the form becomes visible so placeholder wrapping affects scrollHeight correctly.
+        requestAnimationFrame(() => autoResizeTextarea());
 
         // Update attachments display
         updateAttachmentsDisplay();
