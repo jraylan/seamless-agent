@@ -6,7 +6,7 @@
 ### Bug Fixes
 
 * improve attachment input placement and preview hover ([#114](https://github.com/jraylan/seamless-agent/issues/114)) ([d40005b](https://github.com/jraylan/seamless-agent/commit/d40005b30f447b8ed226751431e5cb4c44a05b16))
-* textarea sizing in narrow sidebar ([#112](https://github.com/jraylan/seamless-agent/issues/112)) ([b0e21af](https://github.com/jraylan/seamless-agent/commit/b0e21afba4cd61e60f41368f29355cada890f13f))
+* improve textarea sizing in narrow sidebar ([#112](https://github.com/jraylan/seamless-agent/issues/112)) ([b0e21af](https://github.com/jraylan/seamless-agent/commit/b0e21afba4cd61e60f41368f29355cada890f13f))
 
 ## [0.1.30](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.29...seamless-agent-v0.1.30) (2026-04-01)
 
