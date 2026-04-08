@@ -166,6 +166,9 @@ export type ToWebviewMessage = | {
         value: boolean | string | number;
     }
     | {
+        type: 'refreshLayout'
+    }
+    | {
         type: 'clear'
     };
 

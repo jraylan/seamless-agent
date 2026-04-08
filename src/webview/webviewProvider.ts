@@ -128,6 +128,9 @@ export class AgentInteractionProvider implements vscode.WebviewViewProvider {
         webviewView.onDidChangeVisibility(() => {
             if (webviewView.visible) {
                 this._hasShownHiddenPendingNotification = false;
+                webviewView.webview.postMessage({
+                    type: 'refreshLayout'
+                } as ToWebviewMessage);
             }
         }, undefined, []);
 

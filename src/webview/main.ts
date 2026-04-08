@@ -1111,7 +1111,7 @@ function applyAskUserOptionsTooltipMode(): void {
         requestForm?.classList.remove('hidden');
 
         // Resize after the form becomes visible so placeholder wrapping affects scrollHeight correctly.
-        requestAnimationFrame(() => autoResizeTextarea());
+        scheduleQuestionLayoutRefresh();
 
         // Update attachments display
         updateAttachmentsDisplay();
@@ -1121,6 +1121,14 @@ function applyAskUserOptionsTooltipMode(): void {
         if (document.hasFocus()) {
             responseInput?.focus();
         }
+    }
+
+    function scheduleQuestionLayoutRefresh(): void {
+        if (!responseInput || requestForm?.classList.contains('hidden')) {
+            return;
+        }
+
+        requestAnimationFrame(() => autoResizeTextarea());
     }
 
     /**
@@ -3415,6 +3423,9 @@ function applyAskUserOptionsTooltipMode(): void {
                 switchTab(message.tab);
             }
 
+                break;
+            case 'refreshLayout':
+                scheduleQuestionLayoutRefresh();
                 break;
             case 'batchDeleteCompleted':
                 // Exit batch mode after delete operation (whether confirmed or cancelled)
