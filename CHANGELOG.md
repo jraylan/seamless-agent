@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.32](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.31...seamless-agent-v0.1.32) (2026-04-14)
+
+
+### Bug Fixes
+
+* refresh ask_user textarea layout when panel becomes visible ([#115](https://github.com/jraylan/seamless-agent/issues/115)) ([1b6ec40](https://github.com/jraylan/seamless-agent/commit/1b6ec40e5041d8f4cbee4cda4784167dd1c07061))
+
 ## [0.1.31](https://github.com/jraylan/seamless-agent/compare/seamless-agent-v0.1.30...seamless-agent-v0.1.31) (2026-04-06)
 
 
