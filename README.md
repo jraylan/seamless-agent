@@ -1,3 +1,6 @@
+> [!WARNING]  
+> Now that GH Copilot moved to a [usage based billing](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/), this tool is no longer userfull. Thanks everyone who contributed code or left positive comments.
+
 # Seamless Agent
 
 ![English](https://img.shields.io/badge/lang-en-blue) [![Português do Brasil](https://img.shields.io/badge/lang-pt--BR-green)](README.pt-br.md) [![Português](https://img.shields.io/badge/lang-pt-green)](README.pt-pt.md)
